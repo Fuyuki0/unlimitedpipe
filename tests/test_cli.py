@@ -194,3 +194,29 @@ def test_endless_input_stops_when_the_reader_goes_away(env):
     result = sh("yes '{\"a\": 1}' | unlimited select a | head -3", env)
     assert len(result.stdout.splitlines()) == 3
     assert "Traceback" not in result.stderr
+
+
+def test_inline_pipeline_runs_in_one_process(env, data_file):
+    result = sh(
+        f"unlimited run file {data_file} -- filter 'price > 20' -- select title -- json", env
+    )
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout) == [{"title": "Pro"}, {"title": "Team"}]
+
+
+def test_watch_runs_and_stops_after_times(env, data_file):
+    result = sh(
+        f"unlimited watch --every 30s --times 1 file {data_file} -- limit 1 -- jsonl --data", env
+    )
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout) == DATA[0]
+    assert "run 1: 1 event(s)" in result.stderr
+
+
+def test_watch_refuses_shell_strings_and_tiny_intervals(env):
+    result = sh(
+        "unlimited watch --every 1h 'unlimited web https://example.com | unlimited diff'", env
+    )
+    assert result.returncode == 2 and "not through a shell" in result.stderr
+    result = sh("unlimited watch --every 5s web https://example.com", env)
+    assert result.returncode == 2 and "too frequent" in result.stderr

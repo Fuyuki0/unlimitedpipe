@@ -3,7 +3,17 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
-## 0.1.0 - unreleased
+## Unreleased
+
+- `unlimited watch --every DURATION`: run a pipeline on an interval in one process, keep going
+  after failed runs, reload the pipeline file when it changes.
+- Inline pipelines: `unlimited run web URL -- select title -- json` runs stages separated by
+  `--` in one process; `watch` accepts the same form.
+- Fixed a race on Python 3.11 where the stdin reader thread could print a traceback when a
+  pipe stopped early.
+- Faster JSONL pipes: one serialization per event id, batched stdout flushes.
+
+## 0.1.0 - 2026-09-23
 
 First release: "Pipe".
 

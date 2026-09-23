@@ -17,7 +17,8 @@ import click
 
 from unlimitedpipe import registry
 from unlimitedpipe._version import __version__
-from unlimitedpipe.component import Component, Output, Param, Source, kind_of, suggest
+from unlimitedpipe.commands import STAGE_SEPARATOR, build_command, parse_inline
+from unlimitedpipe.component import Component, Output, Source, kind_of, suggest
 from unlimitedpipe.errors import UnlimitedError, UsageError
 
 MAIN_HELP = """\
@@ -31,6 +32,7 @@ readable output; in a pipe you get one JSON event per line.
   unlimited web https://example.com | unlimited select title url | unlimited json
   unlimited rss https://hnrss.org/frontpage | unlimited grep AI | unlimited diff --only added
   unlimited run pipeline.yml
+  unlimited watch --every 1h pipeline.yml
 
 Run `unlimited COMMAND --help` for a command's options.
 """
@@ -112,89 +114,6 @@ def _execute(component: Component, options: dict[str, Any]) -> None:
     )
 
 
-def _click_type(param: Param) -> click.ParamType:
-    if param.choices:
-        return click.Choice(param.choices)
-    return {str: click.STRING, int: click.INT, float: click.FLOAT, bool: click.BOOL}[param.base]
-
-
-def _click_param(param: Param) -> click.Parameter:
-    if param.positional:
-        return click.Argument(
-            [param.name],
-            type=_click_type(param),
-            nargs=-1 if param.is_list else 1,
-            required=param.required,
-            default=None if param.is_list or param.required else param.default,
-            metavar=param.metavar or param.name.upper() + ("..." if param.is_list else ""),
-        )
-    declarations = [param.flag] + ([param.short] if param.short else [])
-    if param.base is bool and not param.is_list:
-        if param.default:
-            declarations = [f"{param.flag}/--no-{param.flag[2:]}"]
-        return click.Option(
-            declarations,
-            is_flag=True,
-            default=bool(param.default),
-            help=param.help,
-            show_default=bool(param.default),
-        )
-    show_default = param.default not in (None, [], False)
-    return click.Option(
-        declarations,
-        type=_click_type(param),
-        multiple=param.is_list,
-        default=None if param.is_list else param.default,
-        required=param.required,
-        help=param.help,
-        metavar=param.metavar,
-        show_default=show_default,
-    )
-
-
-def _help_text(cls: type[Component]) -> str:
-    parts = [cls.help_text or cls.help_summary]
-    positional = [p for p in cls.params() if p.positional]
-    if positional:
-        lines = ["\b", "Arguments:"]
-        for p in positional:
-            name = p.metavar or p.name.upper() + ("..." if p.is_list else "")
-            lines.append(f"  {name:<12} {p.help}")
-        parts.append("\n".join(lines))
-    if cls.examples:
-        parts.append("\n".join(["\b", "Examples:", *(f"  {e}" for e in cls.examples)]))
-    return "\n\n".join(p for p in parts if p)
-
-
-def build_command(cls: type[Component]) -> click.Command:
-    params = cls.params()
-
-    @click.pass_context
-    def callback(click_ctx: click.Context, **values: Any) -> None:
-        kwargs: dict[str, Any] = {}
-        for param in params:
-            value = values.get(param.name)
-            if param.is_list:
-                value = list(value or []) or list(param.default or [])
-            kwargs[param.name] = value
-        try:
-            component = cls(**kwargs)
-        except (ValueError, TypeError) as exc:
-            raise click.UsageError(str(exc), ctx=click_ctx) from None
-        _execute(component, click_ctx.obj or {})
-
-    command = click.Command(
-        cls.name,
-        callback=callback,
-        params=[_click_param(p) for p in params],
-        help=_help_text(cls),
-        short_help=cls.help_summary,
-        no_args_is_help=False,
-    )
-    command.kind = kind_of(cls)  # type: ignore[attr-defined]
-    return command
-
-
 class UnlimitedGroup(click.Group):
     def list_commands(self, ctx: click.Context) -> list[str]:
         return [*registry.names(), *super().list_commands(ctx)]
@@ -204,7 +123,7 @@ class UnlimitedGroup(click.Group):
         if command is not None:
             return command
         cls = registry.load(cmd_name)
-        return build_command(cls) if cls is not None else None
+        return build_command(cls, _execute) if cls is not None else None
 
     def resolve_command(self, ctx: click.Context, args: list[str]):
         name = args[0] if args else ""
@@ -256,17 +175,38 @@ def cli(ctx: click.Context, verbose: int, quiet: bool, errors_as_events: bool) -
         logging.getLogger("httpx").setLevel(logging.WARNING)
 
 
-@cli.command("run")
-@click.argument("pipeline", type=click.Path(dir_okay=False, path_type=Path))
-@click.option(
-    "--validate", is_flag=True, help="Check the pipeline file and exit without running it."
-)
+PIPELINE_ARGS = {"ignore_unknown_options": True, "help_option_names": ["-h", "--help"]}
+
+
+def _load(target: tuple[str, ...]):
+    """A pipeline from a YAML file, or from inline stages separated by `--`."""
+    from unlimitedpipe.config import Pipeline, load_pipeline
+
+    if not target:
+        raise UsageError(
+            "give a pipeline file or inline stages",
+            hint="unlimited run pipeline.yml   or   unlimited run web https://example.com -- json",
+        )
+    if len(target) == 1 and target[0].endswith((".yml", ".yaml")):
+        return load_pipeline(Path(target[0])), Path(target[0])
+    sources, operators, outputs = parse_inline(list(target))
+    return Pipeline(name="inline", sources=sources, operators=operators, outputs=outputs), None
+
+
+@cli.command("run", context_settings=PIPELINE_ARGS)
+@click.argument("target", nargs=-1, type=click.UNPROCESSED)
+@click.option("--validate", is_flag=True, help="Check the pipeline and exit without running it.")
 @click.pass_context
-def run_command(ctx: click.Context, pipeline: Path, validate: bool) -> None:
-    """Run a YAML pipeline: sources, operators and outputs in one process.
+def run_command(ctx: click.Context, target: tuple[str, ...], validate: bool) -> None:
+    """Run a pipeline in one process: a YAML file, or stages separated by `--`.
 
     \b
-    Example pipeline.yml:
+    Examples:
+      unlimited run pipeline.yml
+      unlimited run web https://example.com -- select title url -- json
+
+    \b
+    A pipeline.yml:
       sources:
         - type: rss
           url: https://hnrss.org/frontpage
@@ -279,13 +219,11 @@ def run_command(ctx: click.Context, pipeline: Path, validate: bool) -> None:
         - type: feed
           path: ai-news.xml
     """
-    from unlimitedpipe.config import load_pipeline
-
-    loaded = load_pipeline(pipeline)
+    loaded, path = _load(target)
     if validate:
         counts = (len(loaded.sources), len(loaded.operators), len(loaded.outputs) or "default")
         click.echo(
-            f"{pipeline}: valid ({counts[0]} source(s), {counts[1]} operator(s), "
+            f"{path or 'pipeline'}: valid ({counts[0]} source(s), {counts[1]} operator(s), "
             f"{counts[2]} output(s))",
             err=True,
         )
@@ -301,7 +239,69 @@ def run_command(ctx: click.Context, pipeline: Path, validate: bool) -> None:
     )
 
 
-run_command.kind = "tool"  # type: ignore[attr-defined]
+@cli.command("watch", context_settings=PIPELINE_ARGS)
+@click.argument("target", nargs=-1, type=click.UNPROCESSED)
+@click.option(
+    "--every", "every", required=True, metavar="DURATION", help="Interval: 30s, 5m, 1h, 1d."
+)
+@click.option("--times", type=int, default=None, help="Stop after this many runs.")
+@click.option(
+    "--jitter",
+    type=float,
+    default=0.1,
+    show_default=True,
+    help="Random extra delay, as a fraction of the interval.",
+)
+@click.pass_context
+def watch_command(
+    ctx: click.Context, target: tuple[str, ...], every: str, times: int | None, jitter: float
+) -> None:
+    """Run a pipeline repeatedly, in one process, until Ctrl+C.
+
+    A failed run is reported and the watch continues. A pipeline file is reloaded when it
+    changes. Outputs run once per round: `feed` keeps its history, and jsonl files need
+    `append: true` to keep earlier rounds. Combine with `diff` to see only what changed.
+
+    \b
+    Examples:
+      unlimited watch --every 1h pipeline.yml
+      unlimited watch --every 30m web https://store.example/p -- diff -- feed prices.xml
+    """
+    from unlimitedpipe.watch import MIN_INTERVAL, Watch, parse_duration
+
+    seconds = parse_duration(every)
+    if seconds < MIN_INTERVAL:
+        raise UsageError(
+            f"--every {every} is too frequent; the minimum is 30s",
+            hint="most pages change far less often; 5m to 1d is typical",
+        )
+    if times is not None and times < 1:
+        raise UsageError("--times must be at least 1")
+    if not 0 <= jitter <= 1:
+        raise UsageError("--jitter must be between 0 and 1")
+    pipeline, path = _load(target)
+    options = ctx.obj or {}
+    if options.get("errors_as_events"):
+        pipeline.errors_as_events = True
+
+    def load():
+        loaded = _load(target)[0] if path is not None else pipeline
+        loaded.errors_as_events = loaded.errors_as_events or options.get("errors_as_events", False)
+        return loaded
+
+    Watch(
+        load,
+        every=seconds,
+        jitter=jitter,
+        times=times,
+        quiet=options.get("quiet", False),
+        reload_path=path,
+        default_outputs=lambda: [default_output()],
+    ).run()
+
+
+for _command in (run_command, watch_command):
+    _command.kind = "tool"  # type: ignore[attr-defined]
 
 
 def _print_error(error: UnlimitedError) -> None:
@@ -310,9 +310,25 @@ def _print_error(error: UnlimitedError) -> None:
         click.echo(click.style("hint: ", fg="cyan") + error.hint, err=True)
 
 
+def _protect_stage_separators(args: list[str]) -> list[str]:
+    """Keep `--` between inline stages away from click, which would read it as end-of-options."""
+    for index, token in enumerate(args):
+        if token.startswith("-"):
+            continue
+        if token in ("run", "watch"):
+            rest = [STAGE_SEPARATOR if t == "--" else t for t in args[index + 1 :]]
+            return [*args[: index + 1], *rest]
+        return args
+    return args
+
+
 def main() -> None:
     try:
-        cli.main(prog_name="unlimited", standalone_mode=False)
+        cli.main(
+            args=_protect_stage_separators(sys.argv[1:]),
+            prog_name="unlimited",
+            standalone_mode=False,
+        )
     except click.exceptions.Exit as exc:
         sys.exit(exc.exit_code)
     except click.ClickException as exc:

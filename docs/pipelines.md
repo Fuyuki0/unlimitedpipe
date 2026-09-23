@@ -58,9 +58,39 @@ error: tech-news.yml:11: operators[0] (grep): unknown option 'pattern' for grep
 hint: did you mean 'patterns'?
 ```
 
+## Inline pipelines
+
+Short pipelines can skip the file. Stages are separated by `--`, written exactly like the
+separate commands, and run in one process:
+
+```bash
+unlimited run web https://example.com -- select title url -- json
+unlimited run rss https://hnrss.org/frontpage -- grep AI -- dedupe --by link -- feed ai.xml
+```
+
+Sources come first, then operators, then outputs. Without an output, events go to the
+terminal (or as JSONL into a pipe).
+
 ## Running on a schedule
 
-`unlimited watch` arrives in v0.2. Until then, use any scheduler.
+### watch
+
+```bash
+unlimited watch --every 1h tech-news.yml
+unlimited watch --every 30m web https://store.example/p -- diff -- feed prices.xml
+```
+
+- `--every` takes `30s`, `5m`, `1h`, `1h30m` or `1d`; the minimum is 30 seconds.
+- A failed run is reported and the watch continues on schedule.
+- The pipeline file is reloaded when it changes. If the new version is invalid, the error is
+  shown and the previous version keeps running.
+- `--jitter 0.1` (the default) adds up to 10% random delay to each interval.
+- `--times N` stops after N runs.
+- Outputs run once per round. `feed` keeps its history; a `jsonl` file needs `append: true`
+  to keep earlier rounds. Pair `watch` with `diff` to see only what changed.
+
+`watch` runs in the foreground until Ctrl+C. To keep it running after you log out, use a
+service manager (systemd, launchd), `tmux`, or a scheduler instead.
 
 ### cron
 

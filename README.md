@@ -167,7 +167,18 @@ outputs:
 ```bash
 unlimited run competitor-watch.yml
 unlimited run competitor-watch.yml --validate
+unlimited watch --every 1h competitor-watch.yml     # run it every hour until Ctrl+C
 ```
+
+Short pipelines don't need a file. Separate stages with `--` and they run in one process:
+
+```bash
+unlimited run web https://example.com -- select title url -- json
+unlimited watch --every 30m rss https://hnrss.org/frontpage -- grep AI -- diff --only added
+```
+
+`watch` keeps going when a run fails, reloads the pipeline file when you edit it, and adds a
+little random delay so many watches don't hit a site at the same second.
 
 Mistakes are reported with file, line and a suggestion:
 
@@ -176,8 +187,8 @@ error: competitor-watch.yml:8: sources[0] (web): unknown option 'feild' for web
 hint: did you mean 'field'?
 ```
 
-Schedule it with cron or a GitHub Actions workflow to get a free, hosted feed:
-[docs/pipelines.md](docs/pipelines.md).
+To run it somewhere else on a schedule (cron, or a GitHub Actions workflow for a free hosted
+feed), see [docs/pipelines.md](docs/pipelines.md).
 
 ## Change detection
 
