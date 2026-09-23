@@ -300,7 +300,51 @@ def watch_command(
     ).run()
 
 
-for _command in (run_command, watch_command):
+@cli.command("new")
+@click.argument("url")
+@click.option(
+    "-o",
+    "--output",
+    "output",
+    default=None,
+    metavar="FILE",
+    help="Where to write the pipeline (default: NAME.yml; `-` prints it).",
+)
+@click.option("--force", is_flag=True, help="Overwrite an existing file.")
+@click.pass_context
+def new_command(ctx: click.Context, url: str, output: str | None, force: bool) -> None:
+    """Inspect a URL and write a pipeline that watches it the most reliable way.
+
+    Product pages become price and stock watches, sites with a feed become new-item
+    watches, other pages become text watches you can narrow with CSS selectors.
+
+    \b
+    Examples:
+      unlimited new https://www.allbirds.com/products/mens-strider-explore
+      unlimited new https://simonwillison.net -o blog.yml
+    """
+    from unlimitedpipe.context import Context
+    from unlimitedpipe.scaffold import scaffold
+
+    options = ctx.obj or {}
+    result = asyncio.run(scaffold(url, Context(quiet=options.get("quiet", False))))
+    if output == "-":
+        click.echo(result.yaml, nl=False)
+        return
+    path = Path(output or f"{result.name}.yml")
+    if path.exists() and not force:
+        raise UsageError(
+            f"{path} already exists", hint="choose another name with -o, or pass --force"
+        )
+    path.write_text(result.yaml, encoding="utf-8")
+    if not options.get("quiet"):
+        click.echo(f"Wrote {path}: {result.description}.", err=True)
+        click.echo("Next:", err=True)
+        click.echo(f"  unlimited run {path}              # first run saves a baseline", err=True)
+        click.echo(f"  unlimited watch --every 1h {path}  # keep watching", err=True)
+
+
+for _command in (run_command, watch_command, new_command):
     _command.kind = "tool"  # type: ignore[attr-defined]
 
 

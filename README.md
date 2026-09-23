@@ -93,6 +93,17 @@ Watch a product. The first run saves a baseline; later runs print only changes.
 unlimited web https://www.allbirds.com/products/mens-strider-explore | unlimited diff
 ```
 
+Or let UnlimitedPipe write the watch for you, then keep it running:
+
+```bash
+unlimited new https://www.allbirds.com/products/mens-strider-explore
+# Wrote allbirds-com-products-mens-strider-explore.yml: price and stock changes (product data via shopify).
+unlimited watch --every 1h allbirds-com-products-mens-strider-explore.yml
+```
+
+`new` picks the most reliable approach it finds: product data for store pages, the feed for
+blogs and news sites, and page text otherwise, with commented hints for narrowing it down.
+
 ## Sources
 
 | Command | Emits |

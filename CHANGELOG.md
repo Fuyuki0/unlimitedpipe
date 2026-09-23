@@ -7,6 +7,8 @@ the event format is versioned separately by its `schema` field (see docs/events.
 
 - `unlimited watch --every DURATION`: run a pipeline on an interval in one process, keep going
   after failed runs, reload the pipeline file when it changes.
+- `unlimited new URL`: inspect a page and write a commented pipeline file that watches it
+  through its product data, its feed, or its text.
 - Inline pipelines: `unlimited run web URL -- select title -- json` runs stages separated by
   `--` in one process; `watch` accepts the same form.
 - Fixed a race on Python 3.11 where the stdin reader thread could print a traceback when a

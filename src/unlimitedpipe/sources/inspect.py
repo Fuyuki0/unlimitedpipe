@@ -58,6 +58,7 @@ class Inspect(Source):
         ]
         data: dict[str, Any] = {"url": url, "robots_allowed": allowed, "checks": checks}
         if not allowed:
+            data["kind"] = "blocked"
             data["suggestions"] = [
                 "The site asks automated clients not to fetch this page. Look for an official "
                 "API or feed instead."
@@ -76,6 +77,7 @@ class Inspect(Source):
         data["final_url"] = page
         suggestions: list[str] = []
         if "json" in response.content_type:
+            data["kind"] = "json"
             checks.append(_check("JSON", True, "the URL returns JSON"))
             suggestions.append(f"unlimited web {url}   # one record event per JSON item")
             data["suggestions"] = suggestions
@@ -89,6 +91,7 @@ class Inspect(Source):
             )
         head = response.content[:500].lower()
         if b"<rss" in head or b"<feed" in head:
+            data["kind"] = "feed"
             checks.append(_check("Feed", True, "the URL is an RSS/Atom feed"))
             data["suggestions"] = [f"unlimited rss {url}"]
             return Event(
@@ -164,6 +167,7 @@ class Inspect(Source):
 
         data.update(
             {
+                "kind": "page",
                 "json_ld_types": types,
                 "products": product_count,
                 "product_method": method,
