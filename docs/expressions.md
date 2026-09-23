@@ -47,6 +47,9 @@ A field on its own is true when it is present and not empty, zero or false.
 | `len(x)` | Length of text, a list or an object |
 | `number(x)` | A number from text such as `"$1,299.00"`, `"1.299,00 €"` or `"฿1,299"` |
 | `exists(field)` | Whether the field is present at all (even if empty) |
+| `replace(text, pattern, replacement)` | Text with a regular expression substituted |
+
+`+` joins text and adds numbers: `"https://nvd.nist.gov/vuln/detail/" + cveID`.
 
 ## Without expression syntax
 

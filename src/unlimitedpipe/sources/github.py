@@ -24,6 +24,18 @@ def parse_repo(text: str) -> str:
     return f"{match.group(1)}/{match.group(2)}"
 
 
+def plain_text(markdown: Any, limit: int = 2000) -> str | None:
+    """Release notes as readable text: no HTML tags, heading marks, link syntax or emphasis."""
+    text = str(markdown or "")
+    text = re.sub(r"<[^>]+>", " ", text)
+    text = re.sub(r"!?\[([^\]]*)\]\([^)]*\)", r"\1", text)  # [text](url) -> text
+    text = re.sub(r"^\s{0,3}(#{1,6}|[-*+]|\d+\.)\s+", "", text, flags=re.MULTILINE)
+    text = re.sub(r"[*_`~]{1,3}|\\(?=[\[\]])", "", text)
+    lines = (" ".join(line.split()) for line in text.splitlines())
+    text = "\n".join(line for line in lines if line)
+    return text[:limit] or None
+
+
 def _login(value: Any) -> str | None:
     return value.get("login") if isinstance(value, dict) else None
 
@@ -136,7 +148,7 @@ class GitHub(Source):
                     "published_at": item.get("published_at"),
                     "prerelease": item.get("prerelease"),
                     "author": user,
-                    "summary": str(item.get("body") or "")[:2000] or None,
+                    "summary": plain_text(item.get("body")),
                     "assets": len(item.get("assets") or []),
                 },
             )

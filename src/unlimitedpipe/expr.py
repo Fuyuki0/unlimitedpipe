@@ -16,6 +16,9 @@ Rules:
 * Numbers compare numerically, also when the field holds a numeric string (``"89.00"``).
 * ``contains``, ``startswith``, ``endswith`` and ``in`` on text ignore case; ``==`` does not.
 * ``matches`` is a Python regular expression search.
+* ``+`` adds numbers and joins text: ``"https://nvd.nist.gov/vuln/detail/" + cveID``.
+* ``replace(text, pattern, replacement)`` substitutes a regular expression:
+  ``replace(summary, "^arXiv:\\S+ .*? Abstract: ", "")``.
 * A missing field is ``null``; ordering comparisons with ``null`` are false.
 """
 
@@ -38,7 +41,7 @@ _TOKEN = re.compile(
   | (?P<number>-?\d+(?:\.\d+)?(?![\w.]))
   | (?P<string>"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')
   | (?P<quoted>`[^`]+`)
-  | (?P<op>==|!=|>=|<=|&&|\|\||[<>=!])
+  | (?P<op>==|!=|>=|<=|&&|\|\||[<>=!+])
   | (?P<punct>[()\[\],])
   | (?P<word>[A-Za-z_$@][\w$@:-]*(?:\.[\w$@:-]+)*)
     """,
@@ -152,12 +155,19 @@ class _Parser:
         return self.parse_comparison()
 
     def parse_comparison(self) -> Node:
-        left = self.parse_value()
+        left = self.parse_sum()
         kind, value, _ = self.peek()
         if kind in ("op", "kw") and value in _COMPARISONS:
             self.take()
-            return ("cmp", "==" if value == "=" else value, left, self.parse_value())
+            return ("cmp", "==" if value == "=" else value, left, self.parse_sum())
         return left
+
+    def parse_sum(self) -> Node:
+        node = self.parse_value()
+        while self.at("+"):
+            self.take()
+            node = ("add", node, self.parse_value())
+        return node
 
     def parse_value(self) -> Node:
         kind, value, pos = self.take()
@@ -187,11 +197,17 @@ class _Parser:
         if function not in _FUNCTIONS:
             self.fail(f"unknown function {name!r} (known: {', '.join(sorted(_FUNCTIONS))})", pos)
         self.expect("(")
-        argument = self.parse_or()
+        arguments = [self.parse_or()]
+        while self.at(","):
+            self.take()
+            arguments.append(self.parse_or())
         self.expect(")")
-        if function == "exists" and argument[0] != "path":
+        expected = _ARITY.get(function, 1)
+        if len(arguments) != expected:
+            self.fail(f"{function}() takes {expected} argument(s), got {len(arguments)}", pos)
+        if function == "exists" and arguments[0][0] != "path":
             self.fail("exists() takes a field name", pos)
-        return ("call", function, argument)
+        return ("call", function, arguments)
 
 
 def _as_number(value: Any) -> float | int | None:
@@ -272,7 +288,14 @@ def _number(value: Any) -> float | int | None:
     return parse_price(value) if isinstance(value, str) else None
 
 
-_FUNCTIONS: dict[str, Callable[[Any], Any]] = {
+def _replace(value: Any, pattern: Any, replacement: Any) -> Any:
+    if not isinstance(value, str):
+        return value
+    return _regex(str(pattern)).sub(str(replacement), value)
+
+
+_FUNCTIONS: dict[str, Callable[..., Any]] = {
+    "replace": _replace,
     "lower": lambda v: v.lower() if isinstance(v, str) else v,
     "upper": lambda v: v.upper() if isinstance(v, str) else v,
     "trim": lambda v: v.strip() if isinstance(v, str) else v,
@@ -280,6 +303,7 @@ _FUNCTIONS: dict[str, Callable[[Any], Any]] = {
     "number": _number,
     "exists": lambda v: v is not MISSING,
 }
+_ARITY = {"replace": 3}
 
 
 def _evaluate(node: Node, event: Event) -> Any:
@@ -299,10 +323,22 @@ def _evaluate(node: Node, event: Event) -> Any:
         return not _evaluate(node[1], event)
     if tag == "list":
         return [_evaluate(item, event) for item in node[1]]
+    if tag == "add":
+        left, right = _evaluate(node[1], event), _evaluate(node[2], event)
+        ln, rn = _as_number(left), _as_number(right)
+        if (
+            ln is not None
+            and rn is not None
+            and not (isinstance(left, str) and isinstance(right, str))
+        ):
+            return ln + rn
+        if left is None or right is None:
+            return None  # a missing part makes the whole value missing, not "None"
+        return f"{left}{right}"
     if tag == "call":
         if node[1] == "exists":
-            return resolve(event, node[2][1]) is not MISSING
-        return _FUNCTIONS[node[1]](_evaluate(node[2], event))
+            return resolve(event, node[2][0][1]) is not MISSING
+        return _FUNCTIONS[node[1]](*(_evaluate(argument, event) for argument in node[2]))
     raise AssertionError(tag)
 
 

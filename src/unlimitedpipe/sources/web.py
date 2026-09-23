@@ -69,6 +69,11 @@ class Web(Source):
         "Skip robots.txt (only with the site owner's permission)", default=False
     )
     cache: bool = opt("Revalidate unchanged pages with ETag/Last-Modified", default=True)
+    records: str | None = opt(
+        "For JSON responses: path to the list of records, e.g. `data.items`",
+        default=None,
+        metavar="PATH",
+    )
 
     def __post_init__(self) -> None:
         self._fields = [parse_field_spec(spec) for spec in self.field]
@@ -120,7 +125,14 @@ class Web(Source):
         }
 
         if "json" in response.content_type:
-            return self._json_records(url, response.json(), meta)
+            value = response.json()
+            if self.records:
+                from unlimitedpipe.fields import MISSING, get_path, split_path
+
+                value = get_path(value, split_path(self.records))
+                if value is MISSING:
+                    raise FetchError(f"{url}: the JSON has no field {self.records!r}", url=url)
+            return self._json_records(url, value, meta)
         if response.content_type and not any(
             t in response.content_type for t in ("html", "xml", "text/plain")
         ):

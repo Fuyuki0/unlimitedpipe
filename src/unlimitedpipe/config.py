@@ -65,6 +65,7 @@ def _interpolate(value: Any) -> Any:
 class Pipeline:
     name: str
     sources: list[Source]
+    description: str | None = None
     operators: list[Operator] = field(default_factory=list)
     outputs: list[Output] = field(default_factory=list)
     errors_as_events: bool = False
@@ -178,8 +179,12 @@ def parse_pipeline(
             if getattr(op, "namespace", None) is None and getattr(op, "state", None) is None:
                 op.namespace = name if number == 1 else f"{name}-{number}"  # type: ignore[attr-defined]
 
+    description = document.get("description")
+    if description is not None and not isinstance(description, str):
+        raise fail("`description` must be text", "description")
     return Pipeline(
         name=name,
+        description=description.strip() if description else None,
         sources=built["sources"],  # type: ignore[arg-type]
         operators=built["operators"],  # type: ignore[arg-type]
         outputs=built["outputs"],  # type: ignore[arg-type]

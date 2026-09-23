@@ -250,8 +250,10 @@ def test_sigterm_closes_outputs_and_saves_state(env, tmp_path):
         str(out),
     ]
     proc = subprocess.Popen(command, stdin=feeder.stdout, stderr=subprocess.PIPE, env=env)
-    time.sleep(1.5)
-    assert out.exists() and out.read_text().strip()  # streamed and flushed while running
+    deadline = time.monotonic() + 15
+    while not (out.exists() and out.read_text().strip()) and time.monotonic() < deadline:
+        time.sleep(0.1)
+    assert out.read_text().strip()  # streamed and flushed while running
     proc.send_signal(signal.SIGTERM)
     _, err = proc.communicate(timeout=20)
     feeder.kill()

@@ -37,6 +37,13 @@ Third release: "Live". Alerts, a queryable history, trends, a live source and an
   Lobsters "Comments"), no longer repeat a change in both title and summary, and show the values
   of newly added records.
 - `grep` skips web addresses when searching for plain words.
+- `unlimited publish feeds/*.yml` publishes a catalog: one workflow runs every pipeline, a
+  failing one does not block the others, pushes rebase on concurrent changes, and the index
+  page lists each feed with its `description`.
+- `web --records PATH` picks the list of records out of a JSON response.
+- Expressions: `+` joins text and adds numbers; `replace(text, pattern, replacement)`.
+- Feed items take their date from `published_at`/`date` when the event has no timestamp;
+  GitHub release notes arrive as plain text; rate-limited 403s say so.
 
 ## 0.2.0 - 2026-09-23
 

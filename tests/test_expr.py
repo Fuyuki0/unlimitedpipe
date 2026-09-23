@@ -49,6 +49,12 @@ EVENT = Event(
         ("price > 100 or stock > 1 and stock < 5", True),
         ("(price > 100 or stock > 1) and stock > 5", False),
         ("! (price > 100)", True),
+        ('name + "!" == "Trail Shoe!"', True),
+        ("stock + 2 == 5", True),
+        ('"https://x/" + country == "https://x/Thailand"', True),
+        ("missing + 1 == null", True),
+        ('replace(name, "Trail ", "") == "Shoe"', True),
+        ('replace(missing, "a", "b") == null', True),
     ],
 )
 def test_expressions(expression, expected):
@@ -71,6 +77,13 @@ def test_unknown_function_lists_known_ones():
 def test_invalid_regex_is_reported():
     with pytest.raises(ExpressionError, match="regular expression"):
         compile_expression('name matches "("')(EVENT)
+
+
+def test_function_arity_is_checked():
+    with pytest.raises(ExpressionError, match=r"replace\(\) takes 3 argument"):
+        compile_expression('replace(name, "a")')
+    with pytest.raises(ExpressionError, match=r"lower\(\) takes 1 argument"):
+        compile_expression("lower(name, name)")
 
 
 def test_empty_expression():

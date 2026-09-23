@@ -70,8 +70,8 @@ def test_cron_rejects_unsupported_intervals(every):
 
 def test_plan_finds_the_site_folder_and_pages_url(repo):
     path = repo / "feeds" / "prices.yml"
-    p = plan(path, load_pipeline(path), 3600)
-    assert p.pipeline == Path("feeds/prices.yml")
+    p = plan([(path, load_pipeline(path))], 3600)
+    assert p.pipelines[0].path == Path("feeds/prices.yml")
     assert p.site_dir == Path("public")
     assert p.files == [Path("prices.xml"), Path("data/prices.json")]
     assert p.workflow == Path(".github/workflows/unlimitedpipe-prices.yml")
@@ -80,13 +80,15 @@ def test_plan_finds_the_site_folder_and_pages_url(repo):
 
 def test_generated_workflow_is_valid(repo):
     path = repo / "feeds" / "prices.yml"
-    p = plan(path, load_pipeline(path), 3600)
-    document = yaml.safe_load(workflow(p, "prices"))
+    p = plan([(path, load_pipeline(path))], 3600)
+    document = yaml.safe_load(workflow(p))
     triggers = document.get("on") or document[True]  # PyYAML reads the key `on` as True
     assert triggers["schedule"][0]["cron"] == p.cron
     steps = document["jobs"]["run"]["steps"]
-    run_step = next(s for s in steps if s.get("name") == "Run the pipeline")
-    assert 'unlimited run "feeds/prices.yml"' in run_step["run"]
+    run_step = next(s for s in steps if s.get("name") == "Run the pipelines")
+    assert 'for pipeline in "feeds/prices.yml"' in run_step["run"]
+    save_step = next(s for s in steps if s.get("name") == "Save outputs and state")
+    assert "git pull --rebase" in save_step["run"]
     assert run_step["env"]["UNLIMITEDPIPE_STATE_DIR"] == ".unlimitedpipe/state"
     assert steps[-1]["with"]["path"] == "public"
     assert document["jobs"]["deploy"]["needs"] == "run"
@@ -99,22 +101,25 @@ def test_outputs_must_live_in_their_own_folder(repo):
         PIPELINE.replace("../public/prices.xml", "prices.xml").replace("../public/data/", "../")
     )
     with pytest.raises(UsageError, match="folder of their own"):
-        plan(path, load_pipeline(path), 3600)
+        plan([(path, load_pipeline(path))], 3600)
     path.write_text(PIPELINE.split("outputs:")[0])
     with pytest.raises(UsageError, match="no files to publish"):
-        plan(path, load_pipeline(path), 3600)
+        plan([(path, load_pipeline(path))], 3600)
 
 
 def test_not_a_git_repository(tmp_path):
     path = tmp_path / "p.yml"
     path.write_text(PIPELINE)
     with pytest.raises(UsageError, match="not inside a git repository"):
-        plan(path, load_pipeline(path), 3600)
+        plan([(path, load_pipeline(path))], 3600)
 
 
-def test_index_page_escapes_names():
-    page = index_page("<prices>", [Path("a&b.xml")], "1h")
-    assert "&lt;prices&gt;" in page and "a&amp;b.xml" in page
+def test_index_page_escapes_names(repo):
+    path = repo / "feeds" / "prices.yml"
+    p = plan([(path, load_pipeline(path))], 3600, name="<prices>")
+    p.pipelines[0].description = "Prices & more"
+    page = index_page(p, "1h")
+    assert "&lt;prices&gt;" in page and "Prices &amp; more" in page and 'href="prices.xml"' in page
 
 
 def test_publish_command_writes_files_and_refuses_to_overwrite(repo):
@@ -132,7 +137,7 @@ def test_publish_command_writes_files_and_refuses_to_overwrite(repo):
     assert first.returncode == 0, first.stderr
     assert (repo / ".github/workflows/unlimitedpipe-prices.yml").exists()
     assert (repo / "public/index.html").exists()
-    assert "https://ana.github.io/price-feeds/prices.xml" in first.stderr
+    assert "Feed:  https://ana.github.io/price-feeds/prices.xml" in first.stderr
     assert "gh api -X POST repos/Ana/price-feeds/pages -f build_type=workflow" in first.stderr
     second = subprocess.run(command, cwd=repo, capture_output=True, text=True, env=env)
     assert second.returncode == 2 and "already exists" in second.stderr
@@ -141,14 +146,13 @@ def test_publish_command_writes_files_and_refuses_to_overwrite(repo):
 def test_secrets_referenced_by_the_pipeline_reach_the_workflow(repo):
     path = repo / "feeds" / "prices.yml"
     path.write_text(PIPELINE + "  - type: webhook\n    url: ${DISCORD_HOOK}\n")
-    p = plan(
-        path, load_pipeline_with(path, DISCORD_HOOK="https://discord.com/api/webhooks/1/x"), 3600
-    )
+    pipeline = load_pipeline_with(path, DISCORD_HOOK="https://discord.com/api/webhooks/1/x")
+    p = plan([(path, pipeline)], 3600)
     assert p.secrets == ["DISCORD_HOOK"]
     run_step = next(
         s
-        for s in yaml.safe_load(workflow(p, "prices"))["jobs"]["run"]["steps"]
-        if s.get("name") == "Run the pipeline"
+        for s in yaml.safe_load(workflow(p))["jobs"]["run"]["steps"]
+        if s.get("name") == "Run the pipelines"
     )
     assert run_step["env"]["DISCORD_HOOK"] == "${{ secrets.DISCORD_HOOK }}"
 
@@ -164,3 +168,21 @@ def load_pipeline_with(path, **env):
                 os.environ.pop(key, None)
             else:
                 os.environ[key] = value
+
+
+def test_catalog_publishes_several_pipelines_with_one_workflow(repo):
+    second = repo / "feeds" / "news.yml"
+    second.write_text(
+        "name: news\ndescription: Headlines\nsources: [{type: file, path: data.json}]\n"
+        "outputs: [{type: feed, path: ../public/news.xml}]\n"
+    )
+    first = repo / "feeds" / "prices.yml"
+    items = [(first, load_pipeline(first)), (second, load_pipeline(second))]
+    p = plan(items, 3600)
+    assert p.name == "feeds" and p.workflow == Path(".github/workflows/unlimitedpipe-feeds.yml")
+    assert [i.name for i in p.pipelines] == ["prices", "news"]
+    assert p.files == [Path("prices.xml"), Path("data/prices.json"), Path("news.xml")]
+    run = yaml.safe_load(workflow(p))["jobs"]["run"]["steps"][3]["run"]
+    assert 'for pipeline in "feeds/prices.yml" "feeds/news.yml"' in run
+    page = index_page(p, "1h")
+    assert page.count("<section>") == 2 and "<p>Headlines</p>" in page

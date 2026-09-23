@@ -110,6 +110,15 @@ def test_http_errors_become_readable(tmp_path):
     assert "does not try to get around blocks" in (info.value.hint or "")
 
 
+def test_rate_limit_403_says_so(tmp_path):
+    def handler(request):
+        return httpx.Response(403, headers={"x-ratelimit-remaining": "0"})
+
+    with pytest.raises(FetchError) as info:
+        fetch(tmp_path, handler, retries=0)
+    assert "rate limit" in (info.value.hint or "")
+
+
 def test_connection_errors_are_retried_then_reported(tmp_path):
     def handler(request):
         raise httpx.ConnectError("[Errno -2] Name or service not known")

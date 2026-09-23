@@ -346,73 +346,85 @@ def new_command(ctx: click.Context, url: str, output: str | None, force: bool) -
 
 
 @cli.command("publish")
-@click.argument("pipeline", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.argument(
+    "pipelines",
+    nargs=-1,
+    required=True,
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+)
 @click.option(
     "--every",
     default="1h",
     show_default=True,
     metavar="DURATION",
-    help="How often GitHub Actions runs it: 15m to 1d.",
+    help="How often GitHub Actions runs them: 15m to 1d.",
+)
+@click.option(
+    "--name", default=None, help="Workflow name (default: the pipeline's name, or feeds)."
 )
 @click.option("--force", is_flag=True, help="Overwrite an existing workflow.")
 @click.pass_context
-def publish_command(ctx: click.Context, pipeline: Path, every: str, force: bool) -> None:
-    """Host a pipeline's outputs for free: GitHub Actions runs it, GitHub Pages serves it.
+def publish_command(
+    ctx: click.Context, pipelines: tuple[Path, ...], every: str, name: str | None, force: bool
+) -> None:
+    """Host pipelines' outputs for free: GitHub Actions runs them, GitHub Pages serves them.
 
-    Writes a workflow that runs the pipeline on a schedule, commits its diff state and
-    outputs to the repository, and deploys the output folder to GitHub Pages. Outputs must
-    live in a folder of their own, such as public/.
+    Writes one workflow that runs every given pipeline on a schedule, commits their diff
+    state and outputs to the repository, and deploys the output folder to GitHub Pages with
+    an index page. A pipeline that fails does not stop the others. Outputs must live in a
+    folder of their own, such as public/.
 
     \b
-    Example:
-      unlimited new https://blog.example -o feeds/blog.yml   # then set path: public/blog.xml
+    Examples:
       unlimited publish feeds/blog.yml --every 1h
+      unlimited publish feeds/*.yml --every 1h        # a catalog of feeds
     """
     from unlimitedpipe.config import load_pipeline
-    from unlimitedpipe.publish import github_repo, index_page, plan, workflow
+    from unlimitedpipe.publish import INDEX_MARKER, github_repo, index_page, plan, workflow
     from unlimitedpipe.watch import format_duration, parse_duration
 
-    loaded = load_pipeline(pipeline)
+    items = [(path, load_pipeline(path)) for path in pipelines]
     seconds = parse_duration(every)
-    p = plan(pipeline, loaded, seconds)
+    p = plan(items, seconds, name)
     workflow_path = p.root / p.workflow
     if workflow_path.exists() and not force:
         raise UsageError(f"{p.workflow} already exists", hint="pass --force to replace it")
     workflow_path.parent.mkdir(parents=True, exist_ok=True)
-    workflow_path.write_text(workflow(p, loaded.name), encoding="utf-8")
+    workflow_path.write_text(workflow(p), encoding="utf-8")
     index = p.root / p.site_dir / "index.html"
-    wrote_index = not index.exists()
+    # Rewrite the index page unless someone replaced it with their own.
+    wrote_index = not index.exists() or INDEX_MARKER in index.read_text(encoding="utf-8")
     if wrote_index:
         index.parent.mkdir(parents=True, exist_ok=True)
-        index.write_text(
-            index_page(loaded.name, p.files, format_duration(seconds)), encoding="utf-8"
-        )
+        index.write_text(index_page(p, format_duration(seconds)), encoding="utf-8")
     if (ctx.obj or {}).get("quiet"):
         return
     repo = github_repo(p.root)
     slug = f"{repo[0]}/{repo[1]}" if repo else "OWNER/REPO"
     say = lambda line="": click.echo(line, err=True)  # noqa: E731
-    say(f'Wrote {p.workflow} (runs every {format_duration(seconds)}, cron "{p.cron}")')
+    count = f"{len(p.pipelines)} pipeline(s)" if len(p.pipelines) > 1 else p.pipelines[0].name
+    say(f'Wrote {p.workflow}: {count}, every {format_duration(seconds)} (cron "{p.cron}")')
     if wrote_index:
         say(f"Wrote {p.site_dir / 'index.html'}")
     say()
     say("Next:")
-    files = f".github {p.site_dir} {p.pipeline}"
-    say(f"  1. git add {files} && git commit -m 'Publish {loaded.name}' && git push")
+    files = " ".join([".github", p.site_dir.as_posix(), *(i.path.as_posix() for i in p.pipelines)])
+    say(f"  1. git add {files} && git commit -m 'Publish {p.name}' && git push")
     say("  2. Turn on GitHub Pages with GitHub Actions as the source (once per repository):")
     say(f"       gh api -X POST repos/{slug}/pages -f build_type=workflow")
     if p.secrets:
-        say(
-            "  2b. Store the secrets the pipeline uses (once; the values stay encrypted on GitHub):"
-        )
+        say("  2b. Store the secrets the pipelines use (once; values stay encrypted on GitHub):")
         for secret in p.secrets:
             say(f"       gh secret set {secret} -R {slug}")
     say("  3. Start the first run now instead of waiting for the schedule:")
     say(f"       gh workflow run {p.workflow.name}")
     if p.site_url:
         say()
-        for name in p.files:
-            say(f"Your feed will be at {p.site_url}{name.as_posix()}")
+        say(f"Index: {p.site_url}")
+        for file in p.files[:10]:
+            say(f"Feed:  {p.site_url}{file.as_posix()}")
+        if len(p.files) > 10:
+            say(f"       … and {len(p.files) - 10} more")
     say()
     say("GitHub Pages needs a public repository on free GitHub plans.")
 

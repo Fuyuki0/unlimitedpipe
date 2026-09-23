@@ -140,6 +140,13 @@ def test_new_records_show_their_values():
     assert feed_item(added)["summary"] == "price $99"
 
 
+def test_feed_date_falls_back_to_data_fields():
+    item = feed_item(
+        ev({"title": "CVE", "published_at": "2026-09-22"}, observed_at="2030-01-01T00:00:00Z")
+    )
+    assert item["date"].strftime("%Y-%m-%d") == "2026-09-22"
+
+
 def test_feed_summaries_are_short():
     item = feed_item(ev({"title": "Long", "summary": "word " * 300}))
     assert len(item["summary"]) <= 501 and item["summary"].endswith("…")

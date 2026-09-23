@@ -405,7 +405,7 @@ class HttpClient:
                 raise FetchError(
                     f"{url} returned HTTP {response.status} {raw.reason_phrase}".rstrip(),
                     url=url,
-                    hint=_status_hint(response.status),
+                    hint=_status_hint(response.status, response.headers),
                 )
             if cache and response.status == 200:
                 self._store_cached(response)
@@ -489,7 +489,10 @@ def _json_retry_after(response: httpx.Response) -> float | None:
         return None
 
 
-def _status_hint(status: int) -> str | None:
+def _status_hint(status: int, headers: dict[str, str] | None = None) -> str | None:
+    headers = headers or {}
+    if status in (403, 429) and headers.get("x-ratelimit-remaining") == "0":
+        return "the API's rate limit is used up for now; try again later or use an API token"
     if status == 404:
         return "check the URL"
     if status in (401, 403):

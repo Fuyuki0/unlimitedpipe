@@ -124,7 +124,12 @@ def feed_item(event: Event) -> dict[str, Any]:
         "title": title,
         "link": link,
         "summary": _shorten(summary, SUMMARY_CHARS),
-        "date": _parse_iso(event.timestamp or event.observed_at),
+        "date": _parse_iso(
+            event.timestamp
+            or _text(details.get("published_at") if isinstance(details, dict) else None)
+            or _text(details.get("date") if isinstance(details, dict) else None)
+            or event.observed_at
+        ),
         "categories": [c for c in categories or [] if isinstance(c, str)],
     }
 
