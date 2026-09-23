@@ -29,6 +29,15 @@ def test_select_keeps_renames_and_fills_missing_with_null():
     ]
 
 
+def test_select_falls_back_to_alternative_paths():
+    events = [ev({"title": "A", "link": "https://a"}), ev({"title": "B", "url": "https://b"})]
+    out = run_ops(events, Select(fields=["title", "link=link|url"]))
+    assert [e.data for e in out] == [
+        {"title": "A", "link": "https://a"},
+        {"title": "B", "link": "https://b"},
+    ]
+
+
 def test_select_rejects_name_clashes():
     with pytest.raises(ValueError, match="both be named"):
         Select(fields=["a.title", "b.title"])

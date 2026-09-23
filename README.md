@@ -111,6 +111,7 @@ blogs and news sites, and page text otherwise, with commented hints for narrowin
 | `unlimited web URL...` | A `document` per page (title, description, headings, text, feeds). Pages with product data become one `product` per variant. `--selector CSS` emits `element`s, `--field NAME=CSS` builds `record`s, `--emit links` emits `link`s. |
 | `unlimited rss URL...` | One `entry` per item of an RSS, Atom or JSON Feed. Given a page, uses the feed it advertises. |
 | `unlimited file PATH...` | One `record` per JSON item, JSONL line or CSV row. `-` reads stdin. |
+| `unlimited github releases\|repo\|tags\|commits\|issues OWNER/REPO...` | Public GitHub data through the official REST API. Optional `GITHUB_TOKEN` for higher limits. |
 | `unlimited inspect URL...` | An `inspection`: robots.txt, feeds, JSON-LD, products, sitemap, JavaScript, suggested commands. |
 
 Sources also read URLs from stdin, so crawls compose:
@@ -119,17 +120,18 @@ Sources also read URLs from stdin, so crawls compose:
 unlimited web https://blog.example.com --emit links | unlimited grep 2026 | unlimited web
 ```
 
-GitHub releases work today through their Atom feeds, no token needed:
+Public GitHub data comes through the official API, no account needed:
 
 ```bash
-unlimited rss https://github.com/astral-sh/uv/releases.atom | unlimited limit 3
+unlimited github releases astral-sh/uv ollama/ollama --limit 3
+unlimited github repo pallets/click | unlimited select title stars forks
 ```
 
 ## Operators
 
 | Command | Does |
 | --- | --- |
-| `select title price=offers.0.price` | Keep (and rename) fields |
+| `select title price=offers.0.price link=link\|url` | Keep, rename, or fall back between fields |
 | `filter 'price > 100 and availability == "InStock"'` | Keep matching events ([syntax](docs/expressions.md)) |
 | `filter --field country --eq Thailand` | The same without expression syntax |
 | `map 'price=number(price)' --drop junk` | Set fields from expressions, drop fields |

@@ -51,9 +51,14 @@ def render(url: str, report: dict[str, Any]) -> Scaffold:
     header = f"# Created by `unlimited new {url}`.\n"
 
     if kind == "blocked":
+        github = re.match(r"https?://(?:www\.)?github\.com/([\w.-]+/[\w.-]+)", url)
+        hint = (
+            f"use GitHub's API instead: unlimited github releases {github.group(1)}"
+            if github
+            else "look for an official API or feed; UnlimitedPipe does not fetch disallowed pages"
+        )
         raise UsageError(
-            f"{url}: robots.txt asks automated clients not to fetch this page",
-            hint="look for an official API or feed; UnlimitedPipe does not fetch disallowed pages",
+            f"{url}: robots.txt asks automated clients not to fetch this page", hint=hint
         )
     if kind == "json":
         body = (

@@ -1,18 +1,20 @@
-# Get notified of new releases of the tools you depend on. GitHub publishes an Atom feed for
-# every repository's releases, so no token and no API rate limit are involved.
+# Get notified of new releases of the tools you depend on, through GitHub's official API.
+# Works without a token (60 requests per hour); set GITHUB_TOKEN for 5,000 per hour.
 name: github-releases
 
 sources:
-  - type: rss
-    url:
-      - https://github.com/astral-sh/uv/releases.atom
-      - https://github.com/ollama/ollama/releases.atom
-      - https://github.com/pallets/click/releases.atom
+  - type: github
+    resource: releases
+    repo:
+      - astral-sh/uv
+      - ollama/ollama
+      - pallets/click
+    limit: 10
 
 operators:
   - type: diff
     only: [added]
-    emit_initial: true
+    emit_initial: true   # the first run fills the feed with the latest releases
   - type: sort
     by: [published_at]
     reverse: true

@@ -13,6 +13,15 @@ If data is not reachable through a door its owner left open, UnlimitedPipe does 
    the platform's terms; UnlimitedPipe never ships shared keys.
 3. **Polite HTML for public pages.** Only what any visitor without an account can see.
 
+When a site says how it wants to be read, follow that. GitHub's robots.txt, for example, asks
+automated clients not to fetch its `.atom` feeds and points to its API, so UnlimitedPipe reads
+GitHub through the official API (`unlimited github`).
+
+**Feeds.** `unlimited rss` works like a feed reader: it fetches only the feed URLs you give it,
+at the schedule you choose, with conditional requests. Like feed readers and Google's
+Feedfetcher, it does not consult robots.txt, which governs crawlers. `web`, `inspect` and
+`new` do honor robots.txt. If a site asks readers not to use a feed, don't.
+
 UnlimitedPipe does not and will not include login bypass, CAPTCHA solving, browser
 fingerprint spoofing, rotating proxy pools, or other features meant to get around access
 controls. Connectors that do are not accepted.

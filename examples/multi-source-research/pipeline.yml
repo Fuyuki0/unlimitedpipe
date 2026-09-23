@@ -4,10 +4,12 @@ name: local-llm-research
 sources:
   - type: rss
     url:
-      - https://hnrss.org/newest?q=local+llm
+      - https://hnrss.org/frontpage
       - https://simonwillison.net/atom/everything/
-      - https://github.com/ollama/ollama/releases.atom
-      - https://github.com/ggml-org/llama.cpp/releases.atom
+  - type: github
+    resource: releases
+    repo: [ollama/ollama, ggml-org/llama.cpp]
+    limit: 10
 
 operators:
   - type: grep
@@ -18,7 +20,7 @@ operators:
     by: [published_at]
     reverse: true
   - type: select
-    fields: [published_at, title, link, source=feed.title]
+    fields: [published_at, title, link=link|url, from=feed.title|repo]
 
 outputs:
   - type: csv

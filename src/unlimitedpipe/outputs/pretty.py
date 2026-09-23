@@ -186,6 +186,7 @@ def _change(event: Event):
             if key not in ("title", "name", "label", "link", "url", "summary", "text", "id")
             and isinstance(value, (str, int, float))
             and value != ""
+            and value is not False
         ][:4]
         if facts:
             lines.append(Text("  " + " · ".join(facts)))

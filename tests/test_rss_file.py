@@ -28,7 +28,7 @@ def test_rss_items_are_normalized(web, ctx):
 
 
 def test_atom_entries(web, ctx):
-    url = "https://github.com/acme/tool/releases.atom"
+    url = "https://releases.example/tool.atom"
     web.add(url, fixture("feed.atom"), content_type="application/atom+xml")
     [release] = run_source(Rss(url=[url], content=True), ctx)
     assert release.data["title"] == "v2.0.0"
