@@ -6,12 +6,16 @@ from unlimitedpipe.component import Operator, arg, opt
 from unlimitedpipe.event import Event
 from unlimitedpipe.fields import MISSING, iter_strings, resolve, split_path
 
+_URL = re.compile(r"(?:https?://|www\.)\S+", re.IGNORECASE)
+
 
 class Grep(Operator):
     """Keep events whose text matches any of the patterns.
 
     Matches whole words and ignores case by default, so ``grep AI`` finds "AI" and "ai" but not
-    "said". Searches every text value in data unless ``--field`` is given.
+    "said". Web addresses are skipped when looking for words, so ``AI`` does not match
+    ``example.ai/post``; a pattern containing ``.`` or ``/`` (like ``github.com``) does search
+    them. Searches every text value in data unless ``--field`` is given.
     """
 
     name = "grep"
@@ -37,6 +41,7 @@ class Grep(Operator):
         except re.error as exc:
             raise ValueError(f"invalid regular expression: {exc}") from None
         self._fields = [split_path(path) for path in self.field]
+        self._skip_urls = not self.regex and not any(c in p for p in self.patterns for c in "./")
 
     def _texts(self, event: Event):
         if not self._fields:
@@ -48,5 +53,8 @@ class Grep(Operator):
                 yield from iter_strings(value)
 
     def process(self, event: Event) -> Event | None:
-        matched = any(self._pattern.search(text) for text in self._texts(event))
+        texts = self._texts(event)
+        if self._skip_urls:
+            texts = (_URL.sub(" ", text) for text in texts)
+        matched = any(self._pattern.search(text) for text in texts)
         return event if matched != self.invert else None

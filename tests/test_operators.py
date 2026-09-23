@@ -105,6 +105,17 @@ def test_grep_matches_whole_words_ignoring_case():
     assert len(run_ops(events, Grep(patterns=["ai"], case_sensitive=True))) == 1
 
 
+def test_grep_skips_web_addresses_for_plain_words():
+    events = [
+        ev(
+            {"title": "Jev in 25 lines", "summary": "Article URL: https://www.nobodywho.ai/posts/x"}
+        ),
+        ev({"title": "New AI model", "link": "https://example.com"}),
+    ]
+    assert [e.data["title"] for e in run_ops(events, Grep(patterns=["AI"]))] == ["New AI model"]
+    assert len(run_ops(events, Grep(patterns=["nobodywho.ai"]))) == 1
+
+
 def test_grep_field_and_regex():
     events = [ev({"title": "x", "body": "security update"}), ev({"title": "security", "body": ""})]
     assert [
