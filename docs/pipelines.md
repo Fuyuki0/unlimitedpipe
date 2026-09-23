@@ -99,47 +99,39 @@ service manager (systemd, launchd), `tmux`, or a scheduler instead.
 17 * * * *  cd ~/feeds && unlimited run prices.yml >> prices.log 2>&1
 ```
 
-### GitHub Actions: a free hosted feed
+### GitHub Actions and Pages: a free hosted feed
 
-A scheduled workflow can run a pipeline, keep the diff state in the repository and publish
-the feed with GitHub Pages. Keep schedules modest (hourly or slower) and pipelines light:
-GitHub's terms restrict Actions to work related to the repository's project.
+`unlimited publish` sets this up for a pipeline in a GitHub repository:
 
-```yaml
-# .github/workflows/feeds.yml
-name: feeds
-on:
-  schedule:
-    - cron: "17 * * * *"
-  workflow_dispatch:
-
-permissions:
-  contents: write
-
-jobs:
-  run:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - run: pip install unlimitedpipe
-      - run: unlimited run feeds/prices.yml
-        env:
-          UNLIMITEDPIPE_STATE_DIR: state
-      - name: Commit feed and state
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add feeds state
-          git diff --cached --quiet || git commit -m "Update feeds"
-          git push
+```bash
+unlimited publish feeds/prices.yml --every 1h
 ```
 
-Enable GitHub Pages for the repository and subscribe to
-`https://USER.github.io/REPO/feeds/prices.xml` in any feed reader. Scheduled workflows can run
-late, and GitHub disables them in repositories without activity for 60 days.
+It writes `.github/workflows/unlimitedpipe-NAME.yml` and `public/index.html` (for outputs under
+`public/`) and prints the remaining steps:
+
+1. Commit and push.
+2. Turn on GitHub Pages with GitHub Actions as the source, once per repository:
+   `gh api -X POST repos/OWNER/REPO/pages -f build_type=workflow`
+   (or Settings → Pages → Source: GitHub Actions).
+3. Start the first run: `gh workflow run unlimitedpipe-NAME.yml`.
+
+Each run installs UnlimitedPipe from PyPI, runs the pipeline, commits the outputs and the diff
+state (`.unlimitedpipe/state/`) so the next run remembers what it saw, and deploys the output
+folder. A run where some sources failed still publishes the rest, with a warning; a broken
+pipeline fails the run. The workflow passes GitHub's own token to the `github` source, so API
+limits are generous.
+
+Rules and limits:
+
+- Outputs must live in a folder of their own (for example `path: public/prices.xml`); that
+  folder is what gets published.
+- `--every` accepts 15m, 20m, 30m, divisors of a day (1h, 2h, 3h, 4h, 6h, 8h, 12h) and 1d. The
+  minute is derived from the pipeline name, so feeds do not all run at :00.
+- GitHub runs scheduled workflows on a best-effort basis, may delay them, and disables them in
+  repositories without activity for 60 days. GitHub's terms restrict Actions to work related to
+  the repository's project: keep pipelines light.
+- On free GitHub plans, Pages requires a public repository.
 
 ## Environment variables
 

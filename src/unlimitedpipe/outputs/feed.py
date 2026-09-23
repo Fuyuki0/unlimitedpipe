@@ -20,6 +20,9 @@ from unlimitedpipe.event import SCHEMA, Event, content_hash, utcnow
 from unlimitedpipe.outputs import open_target
 
 ATOM_NS = "http://www.w3.org/2005/Atom"
+# Feeds carry titles, links and short summaries: enough to decide what to read, without
+# republishing other people's full text.
+SUMMARY_CHARS = 500
 GENERATOR = f"UnlimitedPipe {__version__}"
 
 
@@ -47,6 +50,16 @@ def _previous_link(existing: str | None) -> str | None:
     return next((group for group in match.groups() if group), None) if match else None
 
 
+def _shorten(text: str | None, limit: int) -> str | None:
+    if text is None or len(text) <= limit:
+        return text
+    return text[:limit].rsplit(" ", 1)[0].rstrip(" ,.;:") + "…"
+
+
+def _summary(data: dict[str, Any]) -> str | None:
+    return _text(data.get("summary")) or _text(data.get("description")) or _text(data.get("text"))
+
+
 def feed_item(event: Event) -> dict[str, Any]:
     """The reader-facing fields of an event: title, link, summary, date, id."""
     data = event.data
@@ -54,25 +67,28 @@ def feed_item(event: Event) -> dict[str, Any]:
         label = _text(data.get("label")) or event.label
         kind = str(data.get("change"))
         details = data.get("after") or data.get("before") or {}
-        title = {
-            "added": f"New: {label}",
-            "removed": f"Removed: {label}",
-        }.get(kind, f"{label}: {data.get('summary', 'changed')}")
-        link = _text(details.get("url")) or _text(details.get("link")) or event.source_url
-        summary = _text(data.get("summary"))
+        details = details if isinstance(details, dict) else {}
+        link = _text(details.get("link")) or _text(details.get("url")) or event.source_url
+        if kind == "added":  # a new item reads like the item itself
+            title, summary = label, _summary(details)
+        elif kind == "removed":
+            title, summary = f"Removed: {label}", _summary(details)
+        else:
+            title, summary = (
+                f"{label}: {data.get('summary', 'changed')}",
+                _text(data.get("summary")),
+            )
     else:
         details = data
         title = event.label
         link = _text(data.get("link")) or _text(data.get("url")) or event.source_url
-        summary = _text(data.get("summary")) or _text(data.get("description"))
-        if summary is None and _text(data.get("text")):
-            summary = str(data["text"]).strip()[:500]
+        summary = _summary(data)
     categories = details.get("categories") if isinstance(details, dict) else None
     return {
         "id": event.id,
         "title": title,
         "link": link,
-        "summary": summary,
+        "summary": _shorten(summary, SUMMARY_CHARS),
         "date": _parse_iso(event.timestamp or event.observed_at),
         "categories": [c for c in categories or [] if isinstance(c, str)],
     }

@@ -344,7 +344,73 @@ def new_command(ctx: click.Context, url: str, output: str | None, force: bool) -
         click.echo(f"  unlimited watch --every 1h {path}  # keep watching", err=True)
 
 
-for _command in (run_command, watch_command, new_command):
+@cli.command("publish")
+@click.argument("pipeline", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option(
+    "--every",
+    default="1h",
+    show_default=True,
+    metavar="DURATION",
+    help="How often GitHub Actions runs it: 15m to 1d.",
+)
+@click.option("--force", is_flag=True, help="Overwrite an existing workflow.")
+@click.pass_context
+def publish_command(ctx: click.Context, pipeline: Path, every: str, force: bool) -> None:
+    """Host a pipeline's outputs for free: GitHub Actions runs it, GitHub Pages serves it.
+
+    Writes a workflow that runs the pipeline on a schedule, commits its diff state and
+    outputs to the repository, and deploys the output folder to GitHub Pages. Outputs must
+    live in a folder of their own, such as public/.
+
+    \b
+    Example:
+      unlimited new https://blog.example -o feeds/blog.yml   # then set path: public/blog.xml
+      unlimited publish feeds/blog.yml --every 1h
+    """
+    from unlimitedpipe.config import load_pipeline
+    from unlimitedpipe.publish import github_repo, index_page, plan, workflow
+    from unlimitedpipe.watch import format_duration, parse_duration
+
+    loaded = load_pipeline(pipeline)
+    seconds = parse_duration(every)
+    p = plan(pipeline, loaded, seconds)
+    workflow_path = p.root / p.workflow
+    if workflow_path.exists() and not force:
+        raise UsageError(f"{p.workflow} already exists", hint="pass --force to replace it")
+    workflow_path.parent.mkdir(parents=True, exist_ok=True)
+    workflow_path.write_text(workflow(p, loaded.name), encoding="utf-8")
+    index = p.root / p.site_dir / "index.html"
+    wrote_index = not index.exists()
+    if wrote_index:
+        index.parent.mkdir(parents=True, exist_ok=True)
+        index.write_text(
+            index_page(loaded.name, p.files, format_duration(seconds)), encoding="utf-8"
+        )
+    if (ctx.obj or {}).get("quiet"):
+        return
+    repo = github_repo(p.root)
+    slug = f"{repo[0]}/{repo[1]}" if repo else "OWNER/REPO"
+    say = lambda line="": click.echo(line, err=True)  # noqa: E731
+    say(f'Wrote {p.workflow} (runs every {format_duration(seconds)}, cron "{p.cron}")')
+    if wrote_index:
+        say(f"Wrote {p.site_dir / 'index.html'}")
+    say()
+    say("Next:")
+    files = f".github {p.site_dir} {p.pipeline}"
+    say(f"  1. git add {files} && git commit -m 'Publish {loaded.name}' && git push")
+    say("  2. Turn on GitHub Pages with GitHub Actions as the source (once per repository):")
+    say(f"       gh api -X POST repos/{slug}/pages -f build_type=workflow")
+    say("  3. Start the first run now instead of waiting for the schedule:")
+    say(f"       gh workflow run {p.workflow.name}")
+    if p.site_url:
+        say()
+        for name in p.files:
+            say(f"Your feed will be at {p.site_url}{name.as_posix()}")
+    say()
+    say("GitHub Pages needs a public repository on free GitHub plans.")
+
+
+for _command in (run_command, watch_command, new_command, publish_command):
     _command.kind = "tool"  # type: ignore[attr-defined]
 
 

@@ -200,8 +200,24 @@ error: competitor-watch.yml:8: sources[0] (web): unknown option 'feild' for web
 hint: did you mean 'field'?
 ```
 
-To run it somewhere else on a schedule (cron, or a GitHub Actions workflow for a free hosted
-feed), see [docs/pipelines.md](docs/pipelines.md).
+## Publish a feed for free
+
+`publish` turns a pipeline into a hosted feed: GitHub Actions runs it on a schedule, keeps the
+diff state in your repository, and GitHub Pages serves the result. No server, no account
+beyond GitHub.
+
+```bash
+unlimited publish feeds/ai-news.yml --every 1h
+# Wrote .github/workflows/unlimitedpipe-ai-news.yml (runs every 1h, cron "47 * * * *")
+# Wrote public/index.html
+# ...
+# Your feed will be at https://fuyuki0.github.io/unlimitedpipe-feed-demo/ai-news.xml
+```
+
+Live example: [unlimitedpipe-feed-demo](https://github.com/Fuyuki0/unlimitedpipe-feed-demo),
+an hourly AI-news feed from Hacker News and Lobsters. Its JSON Feed carries full events, so
+another pipeline can read it with `unlimited rss` and keep the provenance chain. Details, cron
+and manual setups: [docs/pipelines.md](docs/pipelines.md).
 
 ## Change detection
 
@@ -299,9 +315,9 @@ research into CSV, and a complete connector package.
 
 - **v0.1 Pipe** (this release): engine, CLI, `web` with product detection, `rss`, `file`,
   `inspect`, eight operators, JSON/JSONL/CSV/feed outputs, YAML pipelines, plugins.
-- **v0.2 Feed**: `watch`, `new` (generate a pipeline from a URL), `publish` (hosted feeds via
-  GitHub Actions), `webhook`, `sqlite`, GitHub/API/SEC connectors, optional browser fetching
-  and screenshot evidence.
+- **v0.2 Feed** (in progress): `watch`, `new`, `publish`, and the `github` connector are done;
+  `webhook`, `sqlite`, more connectors, optional browser fetching and screenshot evidence
+  are next.
 - **v0.3 Live**: streaming sources, `window`/`count`/`trend`, an MCP server for AI agents,
   optional AI operators.
 

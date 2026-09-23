@@ -96,6 +96,30 @@ def test_feed_item_for_changes_and_entries():
     )
 
 
+def test_added_items_read_like_the_item():
+    added = ev(
+        {
+            "change": "added",
+            "label": "Gemini 4",
+            "summary": "added: Gemini 4",
+            "after": {"title": "Gemini 4", "link": "https://n/1", "summary": "A new model."},
+        },
+        type="change",
+    )
+    item = feed_item(added)
+    assert (item["title"], item["link"], item["summary"]) == (
+        "Gemini 4",
+        "https://n/1",
+        "A new model.",
+    )
+
+
+def test_feed_summaries_are_short():
+    item = feed_item(ev({"title": "Long", "summary": "word " * 300}))
+    assert len(item["summary"]) <= 501 and item["summary"].endswith("…")
+    assert feed_item(ev({"title": "Page", "text": "Just text"}))["summary"] == "Just text"
+
+
 def test_rss_feed_keeps_history_newest_first(tmp_path):
     path = tmp_path / "changes.xml"
     write(Feed(path=str(path), title="Changes"), [change_event(49, 59)])

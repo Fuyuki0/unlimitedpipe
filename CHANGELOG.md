@@ -9,6 +9,10 @@ the event format is versioned separately by its `schema` field (see docs/events.
   after failed runs, reload the pipeline file when it changes.
 - `unlimited new URL`: inspect a page and write a commented pipeline file that watches it
   through its product data, its feed, or its text.
+- `unlimited publish PIPELINE --every 1h`: generate a GitHub Actions workflow that runs a
+  pipeline on a schedule, commits its outputs and diff state, and deploys them to GitHub Pages.
+- Feed items for newly added entries read like the entry itself (no "New:" prefix, the entry's
+  own summary); summaries are capped at 500 characters.
 - `github` source: releases, repository stats, tags, commits and issues through GitHub's
   official REST API, with optional `GITHUB_TOKEN`, ETag revalidation and clear rate-limit
   errors. The examples use it instead of GitHub's Atom feeds, which GitHub's robots.txt
