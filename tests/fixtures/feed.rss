@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"><channel>
+<title>Acme Blog</title><link>https://acme.example/blog</link><description>News</description>
+<item><title>Launching AI search</title><link>https://acme.example/blog/ai</link><guid>post-2</guid>
+<pubDate>Tue, 22 Sep 2026 08:00:00 GMT</pubDate><author>ana@acme.example (Ana)</author>
+<description>&lt;p&gt;We built &lt;b&gt;AI&lt;/b&gt; search.&lt;/p&gt;</description><category>ai</category><category>product</category></item>
+<item><title>Hello world</title><link>https://acme.example/blog/hello</link><guid>post-1</guid>
+<pubDate>Mon, 21 Sep 2026 08:00:00 GMT</pubDate><description>First post</description></item>
+</channel></rss>

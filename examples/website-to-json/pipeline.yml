@@ -1,0 +1,15 @@
+# Turn a web page into clean JSON: title, description, headings, word count.
+name: website-to-json
+
+sources:
+  - type: web
+    url: https://example.com
+
+operators:
+  - type: select
+    fields: [title, url, description, headings, word_count]
+
+outputs:
+  - type: json
+    path: example.json
+  - type: pretty

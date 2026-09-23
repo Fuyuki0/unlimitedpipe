@@ -1,0 +1,24 @@
+# Several news feeds -> only AI stories -> only new ones -> one RSS feed you can subscribe to.
+name: ai-news
+
+sources:
+  - type: rss
+    url:
+      - https://hnrss.org/frontpage
+      - https://simonwillison.net/atom/everything/
+      - https://lobste.rs/rss
+
+operators:
+  - type: grep
+    patterns: [AI, LLM, LLMs, language model, machine learning]
+  - type: dedupe
+    by: [link]
+  - type: diff
+    only: [added]
+    emit_initial: true   # the first run fills the feed instead of only saving a baseline
+
+outputs:
+  - type: feed
+    path: ai-news.xml
+    title: AI news (filtered by UnlimitedPipe)
+  - type: pretty

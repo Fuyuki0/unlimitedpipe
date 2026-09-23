@@ -1,0 +1,22 @@
+# Watch one product's price and stock. books.toscrape.com is a sandbox built for scraping
+# practice, so this example is safe to run as often as you like.
+name: price-monitor
+
+sources:
+  - type: web
+    url: https://books.toscrape.com/catalogue/a-light-in-the-attic_1000/index.html
+    field:
+      - title=h1
+      - price=.product_main .price_color
+      - stock=.product_main .availability
+
+operators:
+  - type: map
+    assign: ["price=number(price)"]   # "£51.77" -> 51.77, so `filter 'price < 40'` works
+  - type: diff
+
+outputs:
+  - type: feed
+    path: price-changes.xml
+    title: Price changes
+  - type: pretty

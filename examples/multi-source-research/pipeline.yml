@@ -1,0 +1,26 @@
+# Follow a topic across several sources and keep a spreadsheet of what was said.
+name: local-llm-research
+
+sources:
+  - type: rss
+    url:
+      - https://hnrss.org/newest?q=local+llm
+      - https://simonwillison.net/atom/everything/
+      - https://github.com/ollama/ollama/releases.atom
+      - https://github.com/ggml-org/llama.cpp/releases.atom
+
+operators:
+  - type: grep
+    patterns: [llama, ollama, local model, local models, gguf, quantization]
+  - type: dedupe
+    by: [link]
+  - type: sort
+    by: [published_at]
+    reverse: true
+  - type: select
+    fields: [published_at, title, link, source=feed.title]
+
+outputs:
+  - type: csv
+    path: research.csv
+  - type: pretty

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+<title>Releases</title><link href="https://github.com/acme/tool/releases"/><id>tag:github.com,2008:releases</id><updated>2026-09-20T00:00:00Z</updated>
+<entry><id>tag:github.com,2008:Repository/1/v2.0.0</id><title>v2.0.0</title><updated>2026-09-20T00:00:00Z</updated>
+<link rel="alternate" href="https://github.com/acme/tool/releases/tag/v2.0.0"/><content type="html">&lt;p&gt;Breaking changes&lt;/p&gt;</content><author><name>octo</name></author></entry>
+</feed>

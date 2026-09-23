@@ -1,0 +1,26 @@
+# Watch every item on a listing page: new items, removed items, price changes.
+# Adapt the selectors to a real pricing page, e.g.
+#   each: .pricing-plan      field: [name=.plan-name, price=.plan-price]
+name: competitor-watch
+
+sources:
+  - type: web
+    url:
+      - https://books.toscrape.com/catalogue/category/books/travel_2/index.html
+      - https://books.toscrape.com/catalogue/category/books/poetry_23/index.html
+    each: article.product_pod
+    field:
+      - name=h3 a@title
+      - price=.price_color
+      - stock=.availability
+      - url=h3 a@href
+
+operators:
+  - type: diff
+    key: name   # match items by name, so reordering the page is not a change
+
+outputs:
+  - type: feed
+    path: competitor-changes.xml
+    title: Competitor changes
+  - type: pretty

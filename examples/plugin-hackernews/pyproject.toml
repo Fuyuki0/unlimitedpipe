@@ -1,0 +1,18 @@
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[project]
+name = "unlimitedpipe-hackernews"
+version = "0.1.0"
+description = "Hacker News source for UnlimitedPipe (Algolia search API)."
+requires-python = ">=3.11"
+license = "Apache-2.0"
+dependencies = ["unlimitedpipe>=0.1"]
+
+# This line is the whole registration step: after `pip install`, `unlimited hackernews` exists.
+[project.entry-points."unlimitedpipe.plugins"]
+hackernews = "unlimitedpipe_hackernews:HackerNews"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/unlimitedpipe_hackernews"]

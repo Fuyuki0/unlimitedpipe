@@ -1,0 +1,38 @@
+name: Connector idea
+description: Propose a new source, operator or output
+labels: [connector]
+body:
+  - type: input
+    id: name
+    attributes:
+      label: Name
+      placeholder: e.g. hackernews, sec-filings, bluesky
+    validations:
+      required: true
+  - type: textarea
+    id: access
+    attributes:
+      label: How is the data accessed?
+      description: Link the official API, feed or public page. Is a key needed? What are the rate limits and terms?
+    validations:
+      required: true
+  - type: textarea
+    id: events
+    attributes:
+      label: Events it would emit
+      description: Event `type`, `key` and the main `data` fields.
+  - type: checkboxes
+    id: front-door
+    attributes:
+      label: Front-door rule
+      options:
+        - label: The data is public or available through an official API, without bypassing logins, CAPTCHAs or blocks.
+          required: true
+        - label: It does not collect data about private individuals.
+          required: true
+  - type: checkboxes
+    id: help
+    attributes:
+      label: Contribution
+      options:
+        - label: I would like to build it (see docs/connectors.md).

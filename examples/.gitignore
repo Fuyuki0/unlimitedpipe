@@ -1,0 +1,4 @@
+# Files the example pipelines write when run
+*/example.json
+*/*.xml
+*/research.csv
