@@ -344,6 +344,10 @@ class Operator(Component):
     buffering: ClassVar[bool] = False  # needs the whole stream before emitting (sort)
     bounded: ClassVar[bool] = False  # always ends the stream after finitely many events (limit)
 
+    def needs_whole_stream(self) -> bool:
+        """True when nothing is emitted before the stream ends. Override when options decide."""
+        return self.buffering
+
     def process(self, event: Event) -> Event | Iterable[Event] | None:
         raise NotImplementedError
 

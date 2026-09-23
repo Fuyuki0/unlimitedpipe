@@ -172,10 +172,11 @@ def parse_pipeline(
             hint="add e.g.\nsources:\n  - type: web\n    url: https://example.com",
         )
 
-    diffs = [op for op in built["operators"] if op.name == "diff"]
-    for number, op in enumerate(diffs, 1):
-        if getattr(op, "namespace", None) is None and getattr(op, "state", None) is None:
-            op.namespace = name if number == 1 else f"{name}-{number}"  # type: ignore[attr-defined]
+    for kind in ("diff", "trend"):
+        stateful = [op for op in built["operators"] if op.name == kind]
+        for number, op in enumerate(stateful, 1):
+            if getattr(op, "namespace", None) is None and getattr(op, "state", None) is None:
+                op.namespace = name if number == 1 else f"{name}-{number}"  # type: ignore[attr-defined]
 
     return Pipeline(
         name=name,

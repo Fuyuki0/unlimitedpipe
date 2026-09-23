@@ -140,6 +140,9 @@ unlimited github repo pallets/click | unlimited select title stars forks
 | `sort --by published_at -r` | Sort (reads the whole stream) |
 | `limit 20` | First N events, then stop upstream |
 | `diff` | Only what changed since the last run |
+| `extract hashtags\|cashtags\|domains\|words\|REGEX` | Pull matches out of text into a list |
+| `count --by tags --every 10m` | Count per value, overall or per time window |
+| `trend` | Values rising sharply compared with earlier windows |
 
 Fields are looked up in `data` first, then in the envelope (`source_url`, `metadata.status`).
 

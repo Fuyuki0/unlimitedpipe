@@ -40,6 +40,9 @@ BUILTINS: dict[str, str] = {
     "limit": "unlimitedpipe.operators.limit:Limit",
     "sort": "unlimitedpipe.operators.sort:Sort",
     "diff": "unlimitedpipe.operators.diff:Diff",
+    "extract": "unlimitedpipe.operators.extract:Extract",
+    "count": "unlimitedpipe.operators.count:Count",
+    "trend": "unlimitedpipe.operators.trend:Trend",
     # outputs
     "jsonl": "unlimitedpipe.outputs.jsonl:Jsonl",
     "json": "unlimitedpipe.outputs.json:Json",

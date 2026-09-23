@@ -95,7 +95,7 @@ def build_stream(
         raise ConfigError("a pipeline needs at least one source")
     infinite = [s.name for s in sources if not s.finite]
     for op in operators:
-        if op.buffering and infinite:
+        if op.needs_whole_stream() and infinite:
             raise ConfigError(
                 f"{op.name!r} needs the whole stream, but {infinite[0]!r} never ends",
                 hint="put a `limit` before it",

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 import re
 from collections import Counter
 from pathlib import Path
@@ -14,6 +13,7 @@ from unlimitedpipe.context import Context
 from unlimitedpipe.errors import ConfigError
 from unlimitedpipe.event import Event, content_hash, utcnow
 from unlimitedpipe.fields import MISSING, delete_path, resolve, split_path
+from unlimitedpipe.state import state_path, write_json_atomic
 
 STATE_VERSION = 1
 ChangeKind = Literal["added", "removed", "modified"]
@@ -110,11 +110,8 @@ class DiffState:
         state kept in Git does not produce empty commits."""
         if self._loaded is not None and self._fingerprint() == self._loaded:
             return
-        self.path.parent.mkdir(parents=True, exist_ok=True)
         payload = {"version": STATE_VERSION, "updated_at": utcnow(), "items": self.items}
-        tmp = self.path.with_suffix(self.path.suffix + ".tmp")
-        tmp.write_text(json.dumps(payload, ensure_ascii=False, default=str), encoding="utf-8")
-        os.replace(tmp, self.path)
+        write_json_atomic(self.path, payload)
 
 
 class Diff(Operator):
@@ -149,15 +146,12 @@ class Diff(Operator):
         self._wanted: set[str] = set(self.only) or {"added", "removed", "modified"}
 
     def _state_path(self, event: Event, ctx: Context) -> Path:
-        if self.state:
-            return Path(self.state).expanduser()
         namespace = self.namespace
-        if namespace is None:
+        if namespace is None and not self.state:
             namespace = default_namespace(event)
             if event.source_url is None:
                 ctx.warn("diff: events have no source URL; name this watch with --namespace")
-        safe = re.sub(r"[^\w.-]+", "-", namespace).strip("-") or "default"
-        return ctx.state_dir / "diff" / f"{safe}.json"
+        return state_path(ctx, "diff", namespace or "", self.state)
 
     def _item_key(self, event: Event, data: dict[str, Any]) -> str:
         if self._key_path is not None:

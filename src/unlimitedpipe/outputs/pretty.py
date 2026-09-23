@@ -36,14 +36,17 @@ class Pretty(Output):
 
         self._console = Console(highlight=False)
         self._count = 0
+        self._last_type = ""
 
     async def write(self, event: Event) -> None:
         from rich.text import Text
 
         renderer = _RENDERERS.get(event.type, _record)
         lines: list[Text] = renderer(event)
-        if self._count:
+        compact = event.type in ("count", "trend") and event.type == self._last_type
+        if self._count and not compact:
             self._console.print()
+        self._last_type = event.type
         for line in lines:
             self._console.print(line, overflow="ellipsis", no_wrap=True, crop=True)
         self._count += 1
@@ -223,6 +226,39 @@ def _inspection(event: Event):
     return lines
 
 
+def _count(event: Event):
+    from rich.text import Text
+
+    d = event.data
+    window = f"{str(d.get('window_start', ''))[11:16]}–{str(d.get('window_end', ''))[11:16]}"
+    return [
+        Text.assemble(
+            (f"{d.get('count', 0):>6}", "bold cyan"),
+            "  ",
+            str(d.get("value")),
+            ("   " + window, "dim"),
+        )
+    ]
+
+
+def _trend(event: Event):
+    from rich.text import Text
+
+    d = event.data
+    change = "new" if not d.get("baseline") else f"+{d.get('change_pct', 0):.0f}%"
+    return [
+        Text.assemble(
+            (f"↑ {change:>6}", "bold green"),
+            "  ",
+            (str(d.get("value")), "bold"),
+            (
+                f"   {d.get('count')} now, usually {str(d.get('baseline')).removesuffix('.0')}",
+                "dim",
+            ),
+        )
+    ]
+
+
 def _record(event: Event):
     from rich.text import Text
 
@@ -246,4 +282,6 @@ _RENDERERS: dict[str, Callable[[Event], list[Any]]] = {
     "change": _change,
     "error": _error,
     "inspection": _inspection,
+    "count": _count,
+    "trend": _trend,
 }
