@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import io
 import json
 import os
+import queue
 import threading
 from collections.abc import AsyncIterator
 from typing import BinaryIO
@@ -20,21 +22,17 @@ async def read_lines(stream: BinaryIO, *, chunk_size: int = 65536) -> AsyncItera
     """Yield lines from a blocking binary stream, read on a background thread.
 
     Lines are handed over as soon as they arrive, so slow real-time producers stream through
-    immediately while fast producers are batched.
+    immediately while fast producers are batched. The thread only touches a thread-safe queue
+    and wakes the loop with ``call_soon_threadsafe``, so it can outlive the event loop (after
+    ``limit`` or Ctrl+C) without errors.
     """
     loop = asyncio.get_running_loop()
-    queue: asyncio.Queue[object] = asyncio.Queue(maxsize=64)
-
-    def put(item: object) -> bool:
-        try:
-            asyncio.run_coroutine_threadsafe(queue.put(item), loop).result()
-            return True
-        except (RuntimeError, asyncio.CancelledError):
-            return False  # the loop is gone: the consumer stopped early
+    handoff: queue.Queue[object] = queue.Queue(maxsize=64)
+    ready = asyncio.Event()
 
     try:
         # Read the file descriptor directly: a thread blocked in os.read holds no Python-level
-        # lock, so the process can exit cleanly while it waits (e.g. after `limit`).
+        # lock, so the process can exit cleanly while it waits.
         fd = stream.fileno()
 
         def read(size: int) -> bytes:
@@ -46,6 +44,11 @@ async def read_lines(stream: BinaryIO, *, chunk_size: int = 65536) -> AsyncItera
         def read(size: int) -> bytes:
             return read_chunk(size)
 
+    def hand_over(item: object) -> None:
+        handoff.put(item)  # blocks while the consumer is behind: backpressure
+        with contextlib.suppress(RuntimeError):  # the loop is closed: nobody is listening
+            loop.call_soon_threadsafe(ready.set)
+
     def pump() -> None:
         pending = b""
         try:
@@ -55,17 +58,25 @@ async def read_lines(stream: BinaryIO, *, chunk_size: int = 65536) -> AsyncItera
                     break
                 pending += chunk
                 *lines, pending = pending.split(b"\n")
-                if lines and not put(lines):
-                    return
+                if lines:
+                    hand_over(lines)
             if pending.strip():
-                put([pending])
+                hand_over([pending])
         except Exception as exc:
-            put(exc)
-        put(_EOF)
+            hand_over(exc)
+        hand_over(_EOF)
 
     threading.Thread(target=pump, name="unlimitedpipe-stdin", daemon=True).start()
     while True:
-        item = await queue.get()
+        try:
+            item = handoff.get_nowait()
+        except queue.Empty:
+            ready.clear()
+            try:  # check again after clearing, so a wake-up between the two is not lost
+                item = handoff.get_nowait()
+            except queue.Empty:
+                await ready.wait()
+                continue
         if item is _EOF:
             return
         if isinstance(item, Exception):

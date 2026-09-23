@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 from typing import TextIO
 
@@ -23,15 +24,29 @@ class Jsonl(Output):
     async def open(self, ctx) -> None:
         self._stream: TextIO
         self._stream, self._stdout = open_target(self.path, append=self.append)
+        self._flush_pending = False
+        self._flush_error: Exception | None = None
 
     async def write(self, event: Event) -> None:
+        if self._flush_error is not None:
+            raise self._flush_error  # e.g. BrokenPipeError: the reader is gone, stop the pipe
         if self.data:
             line = json.dumps(event.data, ensure_ascii=False, separators=(",", ":"), default=str)
         else:
             line = event.to_json()
         self._stream.write(line + "\n")
-        if self._stdout:
+        if self._stdout and not self._flush_pending:
+            # Flush once the loop is idle: bursts are written together, while a slow real-time
+            # stream still reaches the next pipe stage immediately.
+            self._flush_pending = True
+            asyncio.get_running_loop().call_soon(self._flush)
+
+    def _flush(self) -> None:
+        self._flush_pending = False
+        try:
             self._stream.flush()
+        except (OSError, ValueError) as exc:
+            self._flush_error = exc
 
     async def close(self) -> None:
         if self._stdout:

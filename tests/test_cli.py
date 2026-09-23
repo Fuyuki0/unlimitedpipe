@@ -188,3 +188,9 @@ def test_python_api_runs_the_same_components(tmp_path, data_file):
         )
     )
     assert json.loads(Path(out).read_text()) == [DATA[1]]
+
+
+def test_endless_input_stops_when_the_reader_goes_away(env):
+    result = sh("yes '{\"a\": 1}' | unlimited select a | head -3", env)
+    assert len(result.stdout.splitlines()) == 3
+    assert "Traceback" not in result.stderr

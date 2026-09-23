@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import time
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
@@ -18,9 +19,16 @@ SCHEMA = "unlimitedpipe.event/1"
 SCHEMA_PREFIX = "unlimitedpipe.event/"
 
 
+_now_cache: tuple[int, str] = (0, "")
+
+
 def utcnow() -> str:
-    """Current time as an ISO 8601 UTC string, second precision."""
-    return datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    """Current time as an ISO 8601 UTC string, second precision (formatted once per second)."""
+    global _now_cache
+    second = int(time.time())
+    if _now_cache[0] != second:
+        _now_cache = (second, datetime.fromtimestamp(second, UTC).strftime("%Y-%m-%dT%H:%M:%SZ"))
+    return _now_cache[1]
 
 
 def iso(value: datetime | str | None) -> str | None:
@@ -38,11 +46,7 @@ def canonical_json(value: Any) -> str:
 
 def content_hash(*parts: Any) -> str:
     """Stable SHA-256 over JSON-serializable parts."""
-    digest = hashlib.sha256()
-    for part in parts:
-        digest.update(canonical_json(part).encode())
-        digest.update(b"\x1f")
-    return digest.hexdigest()
+    return hashlib.sha256(canonical_json(parts).encode()).hexdigest()
 
 
 @dataclass(slots=True)
