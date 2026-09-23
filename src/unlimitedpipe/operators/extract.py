@@ -55,7 +55,10 @@ class Extract(Operator):
 
     what: str = arg("hashtags, cashtags, domains, words, or a regular expression")
     field: list[str] = opt(
-        "Field to search (repeatable; default: title, summary, text)", short="-f", metavar="PATH"
+        "Field to search (repeatable; default: title, summary, text)",
+        short="-f",
+        metavar="PATH",
+        default_factory=list,
     )
     into: str | None = opt("Field for the list of matches (default: the preset name)", default=None)
     keep_case: bool = opt("Do not change the case of matches", default=False)

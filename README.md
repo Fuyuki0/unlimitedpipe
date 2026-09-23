@@ -248,7 +248,8 @@ State lives in your platform's user state directory; set `UNLIMITEDPIPE_STATE_DI
 
 ## AI integration
 
-UnlimitedPipe is useful without AI, and v0.1 ships none. Optional AI operators
+UnlimitedPipe is useful without AI and ships no AI models. Agents can use it as a tool (see
+MCP above). Optional AI operators
 (`ai extract`, `ai summarize`, `ai classify`) are planned behind a provider interface with
 local models (Ollama) first, and every AI result will keep the provenance of the event it came
 from. Until then, pipe events into any LLM command-line tool:
@@ -256,6 +257,23 @@ from. Until then, pipe events into any LLM command-line tool:
 ```bash
 unlimited web https://example.com/changelog | jq -r .data.text | llm "What changed?"
 ```
+
+## For AI agents (MCP)
+
+`unlimited mcp` is a Model Context Protocol server, so Claude, Cursor and other agents can
+read the public web through UnlimitedPipe and cite where every value came from:
+
+```bash
+claude mcp add unlimitedpipe -- unlimited mcp                       # Claude Code
+unlimited mcp competitor-watch.yml ai-news.yml                      # your pipelines as tools
+```
+
+Built-in tools: `fetch_page` (products, documents or CSS selections), `read_feed`,
+`inspect_url` and `github`. Each pipeline file becomes a tool too, so an agent can ask "what
+changed on the competitor's pricing page?" and get the `diff` result. Results are events with
+their source URL, observation time and provenance. Built-in tools refuse private and local
+addresses, including through redirects, so a page an agent reads cannot steer it into your
+network.
 
 ## Creating a connector
 

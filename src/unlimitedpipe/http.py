@@ -172,6 +172,26 @@ def _retry_after(response: httpx.Response) -> float | None:
         return None
 
 
+async def _refuse_private_hosts(request: httpx.Request) -> None:
+    """Runs before every request, redirects included: refuse hosts on private networks, so
+    content an agent reads cannot steer it to internal services or cloud metadata."""
+    import ipaddress
+
+    host = request.url.host
+    try:
+        infos = await asyncio.get_running_loop().getaddrinfo(host, None)
+    except OSError:
+        return  # unresolvable: the request itself fails with a clear message
+    for info in infos:
+        address = ipaddress.ip_address(info[4][0])
+        if not address.is_global:
+            raise FetchError(
+                f"{host} resolves to a private address ({address}); only the public web is allowed",
+                url=str(request.url),
+                hint="start `unlimited mcp` with --allow-private to lift this in trusted setups",
+            )
+
+
 class HttpClient:
     """One client per pipeline run, shared by all sources."""
 
@@ -181,14 +201,17 @@ class HttpClient:
         cache_dir: Path,
         transport: httpx.AsyncBaseTransport | None = None,
         interval: float = DEFAULT_INTERVAL,
+        public_only: bool = False,
     ) -> None:
         self.cache_dir = cache_dir
         self.interval = interval
+        hooks = {"request": [_refuse_private_hosts]} if public_only else {}
         self._client = httpx.AsyncClient(
             follow_redirects=True,
             max_redirects=10,
             transport=transport,
             headers={"User-Agent": USER_AGENT},
+            event_hooks=hooks,
         )
         self._next_slot: dict[str, float] = {}
         self._host_locks: dict[str, asyncio.Lock] = {}

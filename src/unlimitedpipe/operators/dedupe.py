@@ -17,7 +17,9 @@ class Dedupe(Operator):
     """
 
     name = "dedupe"
-    by: list[str] = opt("Field(s) that identify an event, or `content`", metavar="PATH")
+    by: list[str] = opt(
+        "Field(s) that identify an event, or `content`", metavar="PATH", default_factory=list
+    )
     window: int = opt("How many identities to remember", default=100_000)
 
     def __post_init__(self) -> None:

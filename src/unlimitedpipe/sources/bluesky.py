@@ -48,7 +48,9 @@ class Bluesky(Source):
     search: list[str] = arg(
         "Only posts containing any of these words (default: all)", default_factory=list
     )
-    lang: list[str] = opt("Only posts in this language, e.g. en (repeatable)", short="-l")
+    lang: list[str] = opt(
+        "Only posts in this language, e.g. en (repeatable)", short="-l", default_factory=list
+    )
     replies: bool = opt("Include replies", default=False)
     endpoint: str = opt("Jetstream WebSocket URL", default=JETSTREAM)
 

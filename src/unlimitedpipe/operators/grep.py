@@ -19,8 +19,12 @@ class Grep(Operator):
     """
 
     name = "grep"
-    patterns: list[str] = arg("Words or phrases to look for (any one matches)")
-    field: list[str] = opt("Only search this field (repeatable)", short="-f", metavar="PATH")
+    patterns: list[str] = arg(
+        "Words or phrases to look for (any one matches)", default_factory=list
+    )
+    field: list[str] = opt(
+        "Only search this field (repeatable)", short="-f", metavar="PATH", default_factory=list
+    )
     regex: bool = opt("Treat patterns as regular expressions", short="-E", default=False)
     substring: bool = opt("Match inside words too", default=False)
     case_sensitive: bool = opt("Respect case", short="-s", default=False)

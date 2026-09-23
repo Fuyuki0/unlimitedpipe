@@ -40,12 +40,16 @@ class Web(Source):
     name = "web"
     url: list[str] = arg("Page URLs (or piped in, one per line)", default_factory=list)
     selector: list[str] = opt(
-        "Emit one `element` event per match of this CSS selector", short="-s", metavar="CSS"
+        "Emit one `element` event per match of this CSS selector",
+        short="-s",
+        metavar="CSS",
+        default_factory=list,
     )
     field: list[str] = opt(
         "Extract NAME=CSS or NAME=CSS@attr into one `record` (repeatable)",
         short="-f",
         metavar="NAME=CSS",
+        default_factory=list,
     )
     each: str | None = opt(
         "With --field: one record per element matching this selector", metavar="CSS", default=None

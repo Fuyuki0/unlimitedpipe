@@ -41,7 +41,9 @@ class Select(Operator):
     """
 
     name = "select"
-    fields: list[str] = arg("Fields to keep: `title`, `price=offers.0.price`, `link=link|url`")
+    fields: list[str] = arg(
+        "Fields to keep: `title`, `price=offers.0.price`, `link=link|url`", default_factory=list
+    )
 
     def __post_init__(self) -> None:
         if not self.fields:

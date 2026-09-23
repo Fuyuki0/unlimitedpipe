@@ -136,8 +136,12 @@ class Diff(Operator):
     )
     state: str | None = opt("State file path (overrides --namespace)", default=None, metavar="FILE")
     reset: bool = opt("Forget previous state and create a new baseline", default=False)
-    ignore: list[str] = opt("Field to ignore when comparing (repeatable)", metavar="PATH")
-    only: list[ChangeKind] = opt("Only emit these changes (repeatable): added, removed, modified")
+    ignore: list[str] = opt(
+        "Field to ignore when comparing (repeatable)", metavar="PATH", default_factory=list
+    )
+    only: list[ChangeKind] = opt(
+        "Only emit these changes (repeatable): added, removed, modified", default_factory=list
+    )
     emit_initial: bool = opt("On the first run, emit every item as added", default=False)
 
     def __post_init__(self) -> None:

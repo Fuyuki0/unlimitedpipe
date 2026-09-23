@@ -16,7 +16,9 @@ class Map(Operator):
 
     name = "map"
     assign: list[str] = arg("NAME=EXPRESSION assignments", default_factory=list)
-    drop: list[str] = opt("Remove this field (repeatable)", short="-d", metavar="PATH")
+    drop: list[str] = opt(
+        "Remove this field (repeatable)", short="-d", metavar="PATH", default_factory=list
+    )
 
     def __post_init__(self) -> None:
         if not self.assign and not self.drop:

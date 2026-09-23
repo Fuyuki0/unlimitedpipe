@@ -417,7 +417,33 @@ def publish_command(ctx: click.Context, pipeline: Path, every: str, force: bool)
     say("GitHub Pages needs a public repository on free GitHub plans.")
 
 
-for _command in (run_command, watch_command, new_command, publish_command):
+@cli.command("mcp")
+@click.argument("pipelines", nargs=-1, type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option("--no-builtin", is_flag=True, help="Serve only the given pipelines.")
+@click.option(
+    "--allow-private",
+    is_flag=True,
+    help="Let built-in tools reach private and local addresses (trusted setups only).",
+)
+def mcp_command(pipelines: tuple[Path, ...], no_builtin: bool, allow_private: bool) -> None:
+    """Serve public web data to AI agents over the Model Context Protocol (stdio).
+
+    Built-in tools: fetch_page, read_feed, inspect_url and github. Each pipeline file given
+    becomes a tool too, so an agent can ask what changed. Results carry provenance. Built-in
+    tools refuse private and local addresses, so content an agent reads cannot steer it into
+    your network.
+
+    \b
+    Claude Code:     claude mcp add unlimitedpipe -- unlimited mcp
+    Claude Desktop:  {"mcpServers": {"unlimitedpipe": {"command": "unlimited", "args": ["mcp"]}}}
+    With pipelines:  unlimited mcp competitor-watch.yml ai-news.yml
+    """
+    from unlimitedpipe.mcp import run_server
+
+    run_server(list(pipelines), builtins=not no_builtin, allow_private=allow_private)
+
+
+for _command in (run_command, watch_command, new_command, publish_command, mcp_command):
     _command.kind = "tool"  # type: ignore[attr-defined]
 
 

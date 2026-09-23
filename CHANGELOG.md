@@ -8,6 +8,12 @@ the event format is versioned separately by its `schema` field (see docs/events.
 - `webhook` output: one Discord or Slack message per event (format recognized from the URL),
   or the event as JSON. Mentions are disabled, Markdown is escaped, messages per run are capped
   with one summary message, rate limits are retried, and webhook URLs never appear in errors.
+- `unlimited mcp [PIPELINE...]`: a Model Context Protocol server (stdio). Built-in tools
+  fetch_page, read_feed, inspect_url and github, plus one tool per pipeline file (with `diff`
+  state kept between calls). Results carry provenance; built-in tools refuse private and local
+  addresses, including through redirects. Tested against the official MCP Python SDK.
+- List and bool options of built-in components declare their defaults explicitly, so the
+  Python API type-checks.
 - `bluesky` source: new public posts, live, from Bluesky's Jetstream, filtered by words and
   language, with hashtags and links from post facets; reconnects and resumes from its cursor.
   Optional dependency: `pip install "unlimitedpipe[live]"`.

@@ -49,7 +49,9 @@ class GitHub(Source):
     )
 
     resource: Literal["releases", "repo", "tags", "commits", "issues"] = arg("What to read")
-    repo: list[str] = arg("Repositories as owner/repo", metavar="OWNER/REPO...")
+    repo: list[str] = arg(
+        "Repositories as owner/repo", metavar="OWNER/REPO...", default_factory=list
+    )
     limit: int = opt("Items per repository, up to 100 (not used for `repo`)", default=30)
     token: str | None = opt("API token (default: $GITHUB_TOKEN)", default=None, secret=True)
     timeout: float = opt("Seconds to wait for each response", default=20.0)

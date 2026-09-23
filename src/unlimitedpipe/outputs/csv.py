@@ -18,7 +18,9 @@ class Csv(Output):
 
     name = "csv"
     path: str | None = arg("File to write (default: stdout)", default=None)
-    columns: list[str] = opt("Column to write (repeatable; default: all fields)", short="-c")
+    columns: list[str] = opt(
+        "Column to write (repeatable; default: all fields)", short="-c", default_factory=list
+    )
     source_url: bool = opt("Add a source_url column", default=False)
 
     async def open(self, ctx) -> None:

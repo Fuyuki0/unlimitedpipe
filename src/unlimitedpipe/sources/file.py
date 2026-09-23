@@ -47,7 +47,7 @@ class File(Source):
     """
 
     name = "file"
-    path: list[str] = arg("Files to read ('-' for stdin)")
+    path: list[str] = arg("Files to read ('-' for stdin)", default_factory=list)
     format: Literal["auto", "json", "jsonl", "csv"] = opt(
         "File format (default: from the extension)", default="auto"
     )

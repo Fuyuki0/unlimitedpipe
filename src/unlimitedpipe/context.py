@@ -47,6 +47,7 @@ class Context:
         state_dir: Path | None = None,
         cache_dir: Path | None = None,
         host_interval: float | None = None,
+        public_only: bool = False,
     ) -> None:
         self.errors_as_events = errors_as_events
         self.quiet = quiet
@@ -57,6 +58,7 @@ class Context:
         self._cache_dir = cache_dir
         self._http: HttpClient | None = None
         self._host_interval = host_interval
+        self.public_only = public_only
 
     @property
     def state_dir(self) -> Path:
@@ -78,7 +80,10 @@ class Context:
 
             interval = DEFAULT_INTERVAL if self._host_interval is None else self._host_interval
             self._http = HttpClient(
-                cache_dir=self.cache_dir / "http", transport=self._transport, interval=interval
+                cache_dir=self.cache_dir / "http",
+                transport=self._transport,
+                interval=interval,
+                public_only=self.public_only,
             )
         return self._http
 
