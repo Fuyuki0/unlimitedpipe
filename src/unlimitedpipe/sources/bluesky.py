@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
+import os
 import re
 from datetime import UTC, datetime
 from typing import Any
@@ -15,6 +17,8 @@ from unlimitedpipe.errors import UsageError
 from unlimitedpipe.event import Event
 
 JETSTREAM = "wss://jetstream2.us-east.bsky.network/subscribe"
+# Salt for author keys: new on every run, so keys cannot be linked across runs or to accounts.
+_RUN_SALT = os.urandom(16)
 POST = "app.bsky.feed.post"
 TAG = "app.bsky.richtext.facet#tag"
 LINK = "app.bsky.richtext.facet#link"
@@ -33,16 +37,19 @@ class Bluesky(Source):
     """Stream new public Bluesky posts as they are published, from Bluesky's Jetstream.
 
     Never ends: pair it with `limit`, `count --every` or `watch`-style outputs. Filter with
-    words and languages; hashtags and links come from each post's facets. Reconnects on its
-    own and resumes where it stopped. Needs the optional WebSocket client:
-    pip install "unlimitedpipe[live]". There is deliberately no filter by author.
+    words and languages; hashtags and links come from each post's facets. Each post has an
+    opaque `author_key` (new on every run) so trends can count people, not posts:
+    `count --by tags --distinct author_key`. There is deliberately no filter by author.
+    Reconnects on its own and resumes where it stopped. Needs the optional WebSocket client:
+    pip install "unlimitedpipe[live]".
     """
 
     name = "bluesky"
     finite = False
     examples = (
         "unlimited bluesky claude openai --lang en | unlimited limit 20",
-        "unlimited run bluesky --lang en -- count --by tags --every 10m -- trend",
+        "unlimited run bluesky --lang en -- count --by tags --distinct author_key --every 10m "
+        "-- trend",
     )
 
     search: list[str] = arg(
@@ -103,6 +110,9 @@ class Bluesky(Source):
                 "url": f"https://bsky.app/profile/{did}/post/{rkey}",
                 "created_at": record.get("createdAt"),
                 "reply": bool(record.get("reply")),
+                # Lets `count --distinct author_key` count people rather than posts, so one
+                # account posting 100 times counts once. Opaque and different on every run.
+                "author_key": hashlib.sha256(_RUN_SALT + did.encode()).hexdigest()[:16],
             },
             metadata={"method": "jetstream"},
         )

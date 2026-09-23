@@ -28,6 +28,24 @@ def iso(seconds: float) -> str:
     return datetime.fromtimestamp(seconds, UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+class _Tally:
+    """Counts per value: events, or distinct keys (one author posting 100 times counts once)."""
+
+    def __init__(self, distinct: bool) -> None:
+        self.counts: Counter[str] = Counter()
+        self._seen: dict[str, set[str]] | None = {} if distinct else None
+
+    def add(self, values: list[str], key: str) -> None:
+        if self._seen is None:
+            self.counts.update(values)
+            return
+        for value in values:
+            keys = self._seen.setdefault(value, set())
+            if key not in keys:
+                keys.add(key)
+                self.counts[value] += 1
+
+
 class Count(Operator):
     """Count events per value of a field, for the whole stream or per time window.
 
@@ -52,11 +70,17 @@ class Count(Operator):
         "Window length, e.g. 10m, 1h, 1d (default: the whole stream)", default=None
     )
     top: int = opt("Only the N most frequent values per window (0: all)", default=0)
+    distinct: str | None = opt(
+        "Count distinct values of this field instead of events, e.g. author_key",
+        default=None,
+        metavar="PATH",
+    )
 
     def __post_init__(self) -> None:
         from unlimitedpipe.watch import parse_duration
 
         self._path = split_path(self.by)
+        self._distinct = split_path(self.distinct) if self.distinct else None
         self._window = parse_duration(self.every) if self.every else None
         if self.top < 0:
             raise ValueError("--top must be 0 or more")
@@ -71,16 +95,23 @@ class Count(Operator):
         items = value if isinstance(value, list) else [value]
         return [str(item) for item in items if item is not None and item != ""]
 
+    def _key(self, event: Event) -> str:
+        if self._distinct is None:
+            return ""
+        value = resolve(event, self._distinct)
+        return event.id if value is MISSING or value is None else str(value)
+
     def _report(
         self,
         start: float,
         end: float,
-        counts: Counter[str],
+        tally: _Tally,
         events: int,
         sample: Event,
         complete: bool = True,
     ) -> list[Event]:
-        ranked = counts.most_common(self.top or None)
+        ranked = tally.counts.most_common(self.top or None)
+        truncated = len(ranked) < len(tally.counts)
         return [
             Event(
                 source="count",
@@ -95,15 +126,20 @@ class Count(Operator):
                     "window_start": iso(start),
                     "window_end": iso(end),
                     "complete": complete,
+                    # Lets `trend` act on a window as soon as its last value arrives, and
+                    # know that values missing from a cut-off list were below the cut.
+                    "rank": rank,
+                    "values": len(ranked),
+                    "truncated": truncated,
                 },
                 provenance=list(sample.provenance),
             )
-            for value, count in ranked
+            for rank, (value, count) in enumerate(ranked, 1)
         ]
 
     async def apply(self, events, ctx):
         if self._window is None:
-            counts: Counter[str] = Counter()
+            tally = _Tally(self._distinct is not None)
             first = last = None
             total = 0
             sample: Event | None = None
@@ -113,9 +149,9 @@ class Count(Operator):
                 last = moment if last is None else max(last, moment)
                 total += 1
                 sample = sample or event
-                counts.update(self._values(event))
+                tally.add(self._values(event), self._key(event))
             if sample is not None and first is not None and last is not None:
-                for result in self._report(first, last, counts, total, sample):
+                for result in self._report(first, last, tally, total, sample):
                     yield result
             return
 
@@ -127,7 +163,7 @@ class Count(Operator):
         grace = min(size / 10, 60.0)
         slack = size / 10
         earliest = float("inf")
-        windows: dict[float, list[Any]] = {}  # start -> [Counter, events, sample, last update]
+        windows: dict[float, list[Any]] = {}  # start -> [tally, events, sample, last update]
         newest = float("-inf")
         closed_before = float("-inf")
         late = 0
@@ -138,8 +174,8 @@ class Count(Operator):
                 late += 1
                 continue
             now = time.monotonic()
-            window = windows.setdefault(start, [Counter(), 0, event, now])
-            window[0].update(self._values(event))
+            window = windows.setdefault(start, [_Tally(self._distinct is not None), 0, event, now])
+            window[0].add(self._values(event), self._key(event))
             window[1] += 1
             window[3] = now
             newest = max(newest, moment)

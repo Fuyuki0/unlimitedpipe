@@ -9,6 +9,7 @@ sources:
 operators:
   - type: count
     by: tags          # hashtags from each post's facets
+    distinct: author_key   # count people, not posts: one bot posting 100 times counts once
     every: 10m
   - type: trend       # compares each 10-minute window with the previous hour
     min_count: 5

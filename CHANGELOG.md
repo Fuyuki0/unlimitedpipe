@@ -3,7 +3,9 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
-## Unreleased
+## 0.3.0 - 2026-09-23
+
+Third release: "Live". Alerts, a queryable history, trends, a live source and an MCP server.
 
 - `webhook` output: one Discord or Slack message per event (format recognized from the URL),
   or the event as JSON. Mentions are disabled, Markdown is escaped, messages per run are capped
@@ -15,15 +17,18 @@ the event format is versioned separately by its `schema` field (see docs/events.
 - List and bool options of built-in components declare their defaults explicitly, so the
   Python API type-checks.
 - `bluesky` source: new public posts, live, from Bluesky's Jetstream, filtered by words and
-  language, with hashtags and links from post facets; reconnects and resumes from its cursor.
+  language, with hashtags and links from post facets and an opaque per-run `author_key` for
+  distinct counting; reconnects and resumes from its cursor.
   Optional dependency: `pip install "unlimitedpipe[live]"`.
 - SIGTERM (docker stop, systemd, CI timeouts) now shuts down like Ctrl+C, closing outputs and
   saving state; JSONL files are flushed whenever the pipeline goes idle; `file -` streams JSONL
   from stdin instead of waiting for the end of the input.
-- Trend engine: `extract` (hashtags, $cashtags, domains, words without stopwords, or any
-  regex), `count --by FIELD [--every WINDOW]` (windows follow each event's time, in any order),
-  and `trend` (spikes against earlier windows, with history kept across runs). Windows the
-  data only partly covers are marked and never used for comparisons.
+- Trend engine: `extract` (hashtags, $cashtags, domains, words without stopwords, links,
+  handles or dates, or any regex), `count --by FIELD [--every WINDOW] [--distinct FIELD]`
+  (windows follow each event's time, in any order; `--distinct` counts people rather than
+  posts), and `trend` (spikes against earlier windows as soon as a window completes, with
+  history kept across runs). Windows the data only partly covers are marked and never
+  compared, and values below a `--top` cut are not mistaken for new.
 - `sqlite` output: one row per distinct observation (re-runs add only what is new), with
   data, metadata and provenance as JSON columns for SQLite's JSON functions.
 - `${NAME}` in pipeline files reads environment variables; `publish` passes them to the

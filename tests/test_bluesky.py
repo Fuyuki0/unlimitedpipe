@@ -119,3 +119,11 @@ def test_is_an_endless_source():
     assert Bluesky.finite is False
     with pytest.raises(ValueError, match="ws://"):
         Bluesky(endpoint="https://example.com")
+
+
+def test_author_key_is_opaque():
+    event = Bluesky().post_event(message("hello"))
+    assert event is not None
+    key = event.data["author_key"]
+    assert len(key) == 16 and "did" not in key and "abc" not in key
+    assert Bluesky().post_event(message("again")).data["author_key"] == key  # same run, same key

@@ -12,7 +12,7 @@ from unlimitedpipe.errors import ConfigError
 from unlimitedpipe.event import Event, content_hash
 from unlimitedpipe.state import state_path, write_json_atomic
 
-STATE_VERSION = 1
+STATE_VERSION = 2
 
 
 class Trend(Operator):
@@ -48,7 +48,7 @@ class Trend(Operator):
         if self.history < 1:
             raise ValueError("--history must be at least 1")
 
-    def _load(self, ctx: Context, first: Event) -> tuple[Any, dict[str, dict[str, int]]]:
+    def _load(self, ctx: Context, first: Event) -> tuple[Any, dict[str, Any]]:
         namespace = self.namespace
         if namespace is None and not self.state:
             field = first.data.get("field", "value")
@@ -61,6 +61,8 @@ class Trend(Operator):
             return path, {}
         try:
             raw = json.loads(path.read_text(encoding="utf-8"))
+            if raw.get("version") == 1:  # before floors: plain counts per window
+                return path, {s: {"counts": c, "floor": 0} for s, c in raw["windows"].items()}
             if raw.get("version") != STATE_VERSION:
                 raise ValueError("unknown format")
             return path, dict(raw["windows"])
@@ -69,20 +71,20 @@ class Trend(Operator):
                 f"cannot read trend history {path}: {exc}", hint="start over with --reset"
             ) from None
 
-    def _evaluate(
-        self, start: str, window: list[Event], windows: dict[str, dict[str, int]]
-    ) -> list[Event]:
+    def _evaluate(self, start: str, window: list[Event], windows: dict[str, Any]) -> list[Event]:
         if window[0].data.get("complete") is False:
             self._partial += 1  # comparing a partly covered window would invent spikes
             return []
         earlier = sorted(s for s in windows if s < start)[-self.history :]
         counts = {str(e.data["value"]): int(e.data["count"]) for e in window}
-        windows[start] = counts
+        # A value missing from a cut-off list (count --top) was at most the lowest count kept.
+        floor = min(counts.values()) if window[0].data.get("truncated") and counts else 0
+        windows[start] = {"counts": counts, "floor": floor}
         if not earlier:
             return []
         rising = []
         for value, count in counts.items():
-            past = [windows[s].get(value, 0) for s in earlier]
+            past = [windows[s]["counts"].get(value, windows[s].get("floor", 0)) for s in earlier]
             baseline = sum(past) / len(past)
             change = (count - baseline) / max(baseline, 1.0) * 100
             if count >= self.min_count and change >= self.min_change:
@@ -118,7 +120,7 @@ class Trend(Operator):
     async def apply(self, events: AsyncIterator[Event], ctx: Context):
         self._partial = 0
         path = None
-        windows: dict[str, dict[str, int]] = {}
+        windows: dict[str, Any] = {}
         current: str | None = None
         pending: list[Event] = []
         try:
@@ -128,12 +130,16 @@ class Trend(Operator):
                 if path is None:
                     path, windows = self._load(ctx, event)
                 start = str(event.data.get("window_start"))
-                if current is not None and start != current:
+                if current is not None and start != current and pending:
                     for result in self._evaluate(current, pending, windows):
                         yield result
                     pending = []
                 current = start
                 pending.append(event)
+                if len(pending) == event.data.get("values"):  # the window's last value
+                    for result in self._evaluate(current, pending, windows):
+                        yield result
+                    pending = []
             if current is not None and pending:
                 for result in self._evaluate(current, pending, windows):
                     yield result

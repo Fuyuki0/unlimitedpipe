@@ -7,16 +7,29 @@ from unlimitedpipe.component import Operator, arg, opt
 from unlimitedpipe.event import Event
 from unlimitedpipe.fields import MISSING, iter_strings, resolve, set_path, split_path
 
-# A small English stoplist: enough to keep "the" and "with" out of word counts.
+# Common English words that say nothing about a topic, so word counts show subjects.
 STOPWORDS = frozenset(
-    """a about after again against all also am an and any are as at be because been before
-    being between both but by can could did do does doing down during each few for from
-    further had has have having he her here hers him his how i if in into is it its itself
-    just me more most my new no nor not now of off on once only or other our ours out over
-    own same she should so some such than that the their theirs them then there these they
-    this those through to too under until up very was we were what when where which while who
-    whom why will with would you your yours get got like make made one two use using used via
-    show hn ask says said us ok vs etc it's don't i'm you're let's way""".split()  # noqa: SIM905
+    """a about above after again against ago all almost along already also although always am
+    among an and another any anyone anything are around as ask asked at away back bad be
+    became because become been before being below best better between big both but by came
+    can can't cannot come could couldn't day days did didn't do does doesn't doing don't
+    done down during each either else etc even ever every everyone everything few find first
+    for found from full further get gets getting give go goes going gone good got great had
+    has hasn't have haven't having he he's her here hers herself him himself his hn how i
+    i'd i'll i'm i've if in into is isn't it it's its itself just keep know last least less
+    let let's like little look lot lots made make makes many may maybe me might more most
+    much must my myself need needs never new next no nor not nothing now of off often oh ok
+    okay old on once one only or other others our ours out over own part people put rather
+    really right said same saw say says see seem seems shall she she's should show since so
+    some someone something still such sure take tell than thank thanks that that's the their
+    theirs them then there there's these they they're thing things think this those though
+    thought through time to today too took two under until up upon us use used using very
+    via vs want wants was wasn't way we we're well went were weren't what what's when where
+    whether which while who whom whose why will with within without won't would wouldn't
+    yeah year years yes yet you you'd you'll you're you've your yours yourself""".split()  # noqa: SIM905
+) | frozenset(  # dates in bot posts ("Wed, Sep 23") are not topics either
+    """jan feb mar apr jun jul aug sep sept oct nov dec
+    mon tue tues wed thu thurs fri sat sun pm""".split()  # noqa: SIM905
 )
 
 
@@ -34,7 +47,10 @@ PRESETS = {
     "words": Preset(r"(?<![\w'])([A-Za-z][A-Za-z'+-]*[A-Za-z+])", "lower", "words, no stopwords"),
 }
 PREFIX = {"hashtags": "#", "cashtags": "$"}
-_URL = re.compile(r"(?:https?://|www\.)\S+", re.IGNORECASE)
+# Links, bare domains (example.com/page) and @handles are not words; people are not topics.
+_NOT_WORDS = re.compile(
+    r"(?:https?://|www\.)\S+|@[\w.-]+|\b[\w-]+(?:\.[\w-]+)*\.[a-z]{2,}(?:/\S*)?", re.IGNORECASE
+)
 
 
 class Extract(Operator):
@@ -93,7 +109,7 @@ class Extract(Operator):
                 continue
             for text in iter_strings(value):
                 if self._strip_urls:
-                    text = _URL.sub(" ", text)
+                    text = _NOT_WORDS.sub(" ", text)
                 for match in self._regex.finditer(text):
                     item = self._normalize(match)
                     if self._words and item in STOPWORDS:

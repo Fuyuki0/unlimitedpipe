@@ -171,3 +171,55 @@ def test_partly_covered_windows_are_marked_and_skipped(tmp_path):
         ctx=Context(quiet=True, state_dir=tmp_path),
     )
     assert trends == []  # only one complete window: history, nothing to compare
+
+
+def test_count_distinct_counts_people_not_posts():
+    events = [ev({"t": "spam", "who": "bot"}) for _ in range(50)]
+    events += [ev({"t": "news", "who": w}) for w in ("a", "b", "c")]
+    out = run_ops(events, Count(by="t", distinct="who"))
+    assert [(e.data["value"], e.data["count"]) for e in out] == [("news", 3), ("spam", 1)]
+    assert [(e.data["rank"], e.data["values"]) for e in out] == [(1, 2), (2, 2)]
+
+
+def test_trend_uses_the_floor_of_cut_off_lists(tmp_path):
+    # Window 1 kept only its top value; "rare" was below the cut, i.e. at most 5.
+    window1 = [at(m, t="common") for m in range(5)] + [at(10 + m, t="rare") for m in range(2)]
+    window1 += [at(59, t="common")]
+    window2 = [at(60 + m, t="rare") for m in range(8)] + [at(119, t="rare")]
+    out = run_ops(
+        window1 + window2,
+        Count(by="t", every="1h", top=1),
+        Trend(namespace="f", min_count=3, min_change=50),
+        ctx=Context(quiet=True, state_dir=tmp_path),
+    )
+    [spike] = out
+    assert spike.data["value"] == "rare" and spike.data["baseline"] == 6.0  # the floor, not 0
+
+
+def test_trend_reports_a_window_as_soon_as_it_is_complete(tmp_path):
+    counts = run_ops(spike_events(), Count(by="t", every="1h"))
+
+    class LiveCounts(Source):
+        name = "live-counts"
+        finite = False
+
+        async def collect(self, ctx):
+            for event in counts:
+                yield event
+            await asyncio.Event().wait()  # the stream stays open, like a live source
+
+    async def go():
+        stream = build_stream(
+            [LiveCounts()], [Trend(namespace="now")], Context(quiet=True, state_dir=tmp_path)
+        )
+        first = await asyncio.wait_for(anext(stream), timeout=5)
+        await stream.aclose()
+        return first
+
+    assert asyncio.run(go()).data["value"] == "ai"
+
+
+def test_words_skip_domains_handles_and_dates():
+    text = "Wed, Sep 23: @someone.bsky.social says example.com/x is up. Climate talks resume."
+    [out] = run_ops([ev({"text": text})], Extract(what="words"))
+    assert out.data["words"] == ["climate", "talks", "resume"]
