@@ -123,7 +123,9 @@ def test_feed_summaries_are_short():
 def test_rss_feed_keeps_history_newest_first(tmp_path):
     path = tmp_path / "changes.xml"
     write(Feed(path=str(path), title="Changes"), [change_event(49, 59)])
+    before = path.read_bytes()
     write(Feed(path=str(path), title="Changes"), [])
+    assert path.read_bytes() == before  # an empty run leaves the file untouched
     write(
         Feed(path=str(path), title="Changes", max_items=2),
         [change_event(59, 69), change_event(69, 79)],

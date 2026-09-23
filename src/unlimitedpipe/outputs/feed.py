@@ -152,6 +152,8 @@ class Feed(Output):
     async def close(self) -> None:
         builder = {"rss": self._rss, "atom": self._atom, "json": self._json}[self.resolved_format]
         existing = self._existing()
+        if existing is not None and not self._events:
+            return  # nothing new: leave the file (and its build date) exactly as it was
         text = builder(self._meta(existing), existing)
         stream, is_stdout = open_target(self.path)
         stream.write(text)

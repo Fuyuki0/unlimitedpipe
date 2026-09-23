@@ -84,6 +84,10 @@ class DiffState:
         self.path = path
         self.items = items
         self.existed = existed
+        self._loaded = self._fingerprint() if existed else None
+
+    def _fingerprint(self) -> str:
+        return json.dumps(self.items, sort_keys=True, ensure_ascii=False, default=str)
 
     @classmethod
     def load(cls, path: Path) -> DiffState:
@@ -102,6 +106,10 @@ class DiffState:
         return cls(path, items, existed=True)
 
     def save(self) -> None:
+        """Write the state, unless nothing changed: an idle run leaves the file untouched, so a
+        state kept in Git does not produce empty commits."""
+        if self._loaded is not None and self._fingerprint() == self._loaded:
+            return
         self.path.parent.mkdir(parents=True, exist_ok=True)
         payload = {"version": STATE_VERSION, "updated_at": utcnow(), "items": self.items}
         tmp = self.path.with_suffix(self.path.suffix + ".tmp")
@@ -191,7 +199,7 @@ class Diff(Operator):
             source_url=base.source_url if base else entry.get("source_url"),
             key=key,
             data=data,
-            metadata=dict(base.metadata) if base else {"last_seen": entry.get("seen")},
+            metadata=dict(base.metadata) if base else {"seen": entry.get("seen")},
             provenance=list(base.provenance) if base else [],
         )
 
@@ -229,7 +237,8 @@ class Diff(Operator):
                     "seen": event.observed_at,
                 }
                 old = store.items.get(key)
-                store.items[key] = entry
+                if old is None or old.get("hash") != entry["hash"]:
+                    store.items[key] = entry  # "seen": when this version was first seen
                 if baseline:
                     counts["baseline"] += 1
                     if self.emit_initial and "added" in self._wanted:

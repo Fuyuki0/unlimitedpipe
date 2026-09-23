@@ -76,6 +76,18 @@ def test_key_field_ignore_and_reset(diff_ctx):
     assert run_ops(changed, Diff(key="name", reset=True), ctx=diff_ctx()) == []
 
 
+def test_idle_run_leaves_the_state_file_untouched(tmp_path):
+    ctx = lambda: Context(quiet=True, state_dir=tmp_path)  # noqa: E731
+    run_ops(plans(pro=49), Diff(namespace="w"), ctx=ctx())
+    path = tmp_path / "diff" / "w.json"
+    before = path.read_bytes()
+    later = plans(pro=49)
+    for event in later:
+        event.observed_at = "2030-01-01T00:00:00Z"
+    run_ops(later, Diff(namespace="w"), ctx=ctx())
+    assert path.read_bytes() == before
+
+
 def test_error_events_pass_through(diff_ctx):
     error = ev({"error": "boom"}, type="error")
     assert run_ops([error], Diff(), ctx=diff_ctx()) == [error]
