@@ -249,7 +249,7 @@ State lives in your platform's user state directory; set `UNLIMITEDPIPE_STATE_DI
 ## AI integration
 
 UnlimitedPipe is useful without AI and ships no AI models. Agents can use it as a tool (see
-MCP above). Optional AI operators
+the next section). Optional AI operators
 (`ai extract`, `ai summarize`, `ai classify`) are planned behind a provider interface with
 local models (Ollama) first, and every AI result will keep the provenance of the event it came
 from. Until then, pipe events into any LLM command-line tool:
@@ -338,13 +338,13 @@ research into CSV, and a complete connector package.
 
 ## Roadmap
 
-- **v0.1 Pipe** (this release): engine, CLI, `web` with product detection, `rss`, `file`,
-  `inspect`, eight operators, JSON/JSONL/CSV/feed outputs, YAML pipelines, plugins.
-- **v0.2 Feed** (in progress): `watch`, `new`, `publish`, and the `github` connector are done;
-  `webhook`, `sqlite`, more connectors, optional browser fetching and screenshot evidence
-  are next.
-- **v0.3 Live**: streaming sources, `window`/`count`/`trend`, an MCP server for AI agents,
-  optional AI operators.
+- **v0.1 Pipe**: engine, CLI, `web` with product detection, `rss`, `file`, `inspect`, eight
+  operators, JSON/JSONL/CSV/feed outputs, YAML pipelines, plugins.
+- **v0.2 Feed**: `watch`, `new`, `publish` (free hosted feeds), the `github` connector.
+- **v0.3 Live** (this release): `webhook` (Discord, Slack), `sqlite`, the trend engine
+  (`extract`, `count`, `trend`), the live `bluesky` source, and the MCP server for AI agents.
+- **Next**: optional AI operators (local models first), browser fetching and screenshot
+  evidence, more connectors (SEC filings, DexScreener), a public registry of feeds.
 
 ## Responsible use
 

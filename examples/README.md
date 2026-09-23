@@ -11,6 +11,8 @@ next to the pipeline file.
 | [price-monitor](price-monitor) | Price and stock changes, with or without selectors |
 | [competitor-watch](competitor-watch) | Added, removed and changed items on a listing page |
 | [multi-source-research](multi-source-research) | One topic across several sources into a CSV |
+| [discord-price-alerts](discord-price-alerts) | Price and stock changes as Discord messages |
+| [bluesky-trends](bluesky-trends) | Hashtags rising on Bluesky, live |
 | [plugin-hackernews](plugin-hackernews) | A complete connector package to copy |
 
 Change detection keeps its state in your user data directory. Set

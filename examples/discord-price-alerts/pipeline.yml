@@ -1,0 +1,16 @@
+# Post to a Discord channel whenever a product's price or stock changes.
+# export DISCORD_WEBHOOK=https://discord.com/api/webhooks/...  (see README)
+name: discord-price-alerts
+
+sources:
+  - type: web
+    url: https://www.allbirds.com/products/mens-strider-explore
+
+operators:
+  - type: diff
+    only: [modified]   # price or stock changes of existing variants
+
+outputs:
+  - type: webhook
+    url: ${DISCORD_WEBHOOK}
+  - type: pretty
