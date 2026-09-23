@@ -408,7 +408,10 @@ def publish_command(
         say(f"Wrote {p.site_dir / 'index.html'}")
     say()
     say("Next:")
-    files = " ".join([".github", p.site_dir.as_posix(), *(i.path.as_posix() for i in p.pipelines)])
+    paths = [i.path.as_posix() for i in p.pipelines]
+    if len(paths) > 3:  # name the folders rather than every file
+        paths = sorted({i.path.parent.as_posix() for i in p.pipelines})
+    files = " ".join([".github", p.site_dir.as_posix(), *paths])
     say(f"  1. git add {files} && git commit -m 'Publish {p.name}' && git push")
     say("  2. Turn on GitHub Pages with GitHub Actions as the source (once per repository):")
     say(f"       gh api -X POST repos/{slug}/pages -f build_type=workflow")
