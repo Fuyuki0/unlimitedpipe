@@ -3,7 +3,9 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
-## Unreleased
+## 0.2.0 - 2026-09-23
+
+Second release: "Feed".
 
 - `unlimited watch --every DURATION`: run a pipeline on an interval in one process, keep going
   after failed runs, reload the pipeline file when it changes.

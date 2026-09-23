@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "unlimitedpipe"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Pipe the public internet: collect, transform, diff and publish public web data as JSONL events."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -43,6 +43,9 @@ unlimited = "unlimitedpipe.cli:main"
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "ruff>=0.6", "pyright>=1.1.380"]
+
+[tool.hatch.version]
+path = "src/unlimitedpipe/_version.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/unlimitedpipe"]

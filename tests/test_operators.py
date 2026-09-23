@@ -3,7 +3,7 @@ import asyncio
 import pytest
 
 from tests.conftest import ev, run_ops
-from unlimitedpipe import Context, Source
+from unlimitedpipe import Context, Source, __version__
 from unlimitedpipe.engine import build_stream
 from unlimitedpipe.errors import ConfigError, ExpressionError
 from unlimitedpipe.operators.dedupe import Dedupe
@@ -23,7 +23,7 @@ def test_select_keeps_renames_and_fills_missing_with_null():
     assert out.provenance == [
         {
             "step": "select",
-            "version": "0.1.0",
+            "version": __version__,
             "args": {"fields": ["title", "price=offers.0.price", "source_url", "gone"]},
         }
     ]
