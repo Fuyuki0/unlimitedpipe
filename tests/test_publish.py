@@ -136,3 +136,31 @@ def test_publish_command_writes_files_and_refuses_to_overwrite(repo):
     assert "gh api -X POST repos/Ana/price-feeds/pages -f build_type=workflow" in first.stderr
     second = subprocess.run(command, cwd=repo, capture_output=True, text=True, env=env)
     assert second.returncode == 2 and "already exists" in second.stderr
+
+
+def test_secrets_referenced_by_the_pipeline_reach_the_workflow(repo):
+    path = repo / "feeds" / "prices.yml"
+    path.write_text(PIPELINE + "  - type: webhook\n    url: ${DISCORD_HOOK}\n")
+    p = plan(
+        path, load_pipeline_with(path, DISCORD_HOOK="https://discord.com/api/webhooks/1/x"), 3600
+    )
+    assert p.secrets == ["DISCORD_HOOK"]
+    run_step = next(
+        s
+        for s in yaml.safe_load(workflow(p, "prices"))["jobs"]["run"]["steps"]
+        if s.get("name") == "Run the pipeline"
+    )
+    assert run_step["env"]["DISCORD_HOOK"] == "${{ secrets.DISCORD_HOOK }}"
+
+
+def load_pipeline_with(path, **env):
+    old = {k: os.environ.get(k) for k in env}
+    os.environ.update(env)
+    try:
+        return load_pipeline(path)
+    finally:
+        for key, value in old.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value

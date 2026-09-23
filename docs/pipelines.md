@@ -46,6 +46,9 @@ unlimited run tech-news.yml --validate     # check without running
 - A single value is accepted where a list is expected: `url: https://...`.
 - Relative `path` and `state` values are resolved from the pipeline file's directory, so a
   pipeline works from any working directory.
+- `${NAME}` is replaced by the environment variable `NAME`, so secrets stay out of the file:
+  `url: ${DISCORD_WEBHOOK}`. A missing variable is an error that names the line.
+  `unlimited publish` passes such variables to the workflow from repository secrets.
 - Each `diff` gets its state name from the pipeline `name` (`tech-news`, then `tech-news-2`
   for a second diff) unless `namespace` or `state` is set.
 

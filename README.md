@@ -151,6 +151,7 @@ Fields are looked up in `data` first, then in the envelope (`source_url`, `metad
 | `json [PATH]` | One JSON array of data (`--full` for whole events) |
 | `csv [PATH]` | Data as CSV, nested fields as dotted columns |
 | `feed PATH` | RSS (`.xml`), Atom (`.atom`) or JSON Feed (`.json`), keeping earlier items |
+| `webhook URL` | A Discord or Slack message per event (recognized from the URL), or the event as JSON |
 | `pretty` | Readable terminal output (the default when stdout is a terminal) |
 
 ## Pipelines
@@ -227,7 +228,8 @@ and manual setups: [docs/pipelines.md](docs/pipelines.md).
 - Changes come out as `change` events with field-level `old` and `new` values.
 - An item counts as removed only if its page or feed was fetched in this run, so a network
   failure never looks like everything disappeared.
-- `--only added` turns any feed into a stream of new items. `--ignore FIELD` skips noisy
+- `--only added` turns any feed into a stream of new items; add `webhook` to get each change
+  as a Discord or Slack message. `--ignore FIELD` skips noisy
   fields. `--reset` starts a new baseline.
 
 ```json

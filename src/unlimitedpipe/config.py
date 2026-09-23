@@ -16,11 +16,14 @@
         path: public/changes.xml
 
 Relative paths (``path``, ``state``) are resolved from the pipeline file's directory.
-Every error names the file, line and option at fault.
+``${NAME}`` in a value is replaced by the environment variable NAME, so secrets such as
+webhook URLs stay out of the file. Every error names the file, line and option at fault.
 """
 
 from __future__ import annotations
 
+import os
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -35,6 +38,27 @@ SECTIONS = {"sources": "source", "operators": "operator", "outputs": "output"}
 TOP_LEVEL = {"name", "description", "sources", "operators", "outputs", "settings"}
 SETTINGS = {"errors_as_events"}
 PATH_OPTIONS = {"path", "state"}
+ENV_REFERENCE = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
+
+
+def env_references(text: str) -> list[str]:
+    """Environment variables a pipeline file refers to, in order of appearance."""
+    return list(dict.fromkeys(ENV_REFERENCE.findall(text)))
+
+
+def _interpolate(value: Any) -> Any:
+    if isinstance(value, str):
+
+        def replace(match: re.Match[str]) -> str:
+            name = match.group(1)
+            if name not in os.environ:
+                raise KeyError(name)
+            return os.environ[name]
+
+        return ENV_REFERENCE.sub(replace, value)
+    if isinstance(value, list):
+        return [_interpolate(item) for item in value]
+    return value
 
 
 @dataclass
@@ -194,6 +218,17 @@ def _build(
             f"{where}: {type_name!r} is {article} {actual}, not a {kind}", section, index, "type"
         )
     options = {k: v for k, v in entry.items() if k != "type"}
+    for key, value in options.items():
+        try:
+            options[key] = _interpolate(value)
+        except KeyError as missing:
+            raise fail(
+                f"{where}: environment variable {missing.args[0]} is not set",
+                section,
+                index,
+                str(key),
+                hint=f"export {missing.args[0]}=... before running",
+            ) from None
     if base_dir is not None:
         for key in PATH_OPTIONS & options.keys():
             value = options[key]

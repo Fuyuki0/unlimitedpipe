@@ -389,6 +389,82 @@ class HttpClient:
             return response
         raise FetchError(error, url=url)
 
+    async def post(
+        self,
+        url: str,
+        *,
+        json_body: Any,
+        headers: dict[str, str] | None = None,
+        timeout: float = 20.0,
+        retries: int = 2,
+        secret_url: bool = True,
+    ) -> Response:
+        """POST JSON with the same per-host throttling and retries as ``get``.
+
+        With ``secret_url`` (the default: webhook URLs contain credentials), messages show only
+        the host.
+        """
+        shown = redact_url(url) if secret_url else url
+        host = urlsplit(url).netloc.lower()
+        error = f"{shown}: unknown error"
+        for attempt in range(retries + 1):
+            await self._throttle(host, self.interval)
+            started = time.monotonic()
+            try:
+                raw = await self._client.post(url, json=json_body, headers=headers, timeout=timeout)
+            except (httpx.InvalidURL, httpx.UnsupportedProtocol):
+                raise FetchError(f"invalid URL {shown}", url=shown) from None
+            except httpx.HTTPError as exc:
+                error = _describe(exc, shown)
+                if attempt < retries:
+                    await asyncio.sleep(2**attempt + random.random())
+                    continue
+                raise FetchError(
+                    error, url=shown, hint="check the URL and your connection"
+                ) from None
+            if raw.status_code in RETRY_STATUS and attempt < retries:
+                delay = (
+                    _retry_after(raw) or _json_retry_after(raw) or (2**attempt + random.random())
+                )
+                await asyncio.sleep(min(delay, 60.0))
+                continue
+            response = Response(
+                url=shown,
+                final_url=shown,
+                status=raw.status_code,
+                headers={k.lower(): v for k, v in raw.headers.items()},
+                content=raw.content,
+                encoding=raw.charset_encoding,
+                elapsed_ms=int((time.monotonic() - started) * 1000),
+            )
+            if response.status >= 400:
+                detail = response.text.strip()[:200]
+                raise FetchError(
+                    f"{shown} returned HTTP {response.status}" + (f": {detail}" if detail else ""),
+                    url=shown,
+                    hint="check that the webhook URL is complete and still active"
+                    if response.status in (401, 403, 404)
+                    else None,
+                )
+            return response
+        raise FetchError(error, url=shown)
+
+
+def redact_url(url: str) -> str:
+    """``https://discord.com/api/webhooks/123/SECRET`` -> ``https://discord.com/…``: webhook URLs
+    carry their credentials, so they never appear in messages or logs."""
+    parts = urlsplit(url)
+    return f"{parts.scheme}://{parts.netloc}/…" if parts.netloc else "(webhook URL)"
+
+
+def _json_retry_after(response: httpx.Response) -> float | None:
+    """Discord and others put the wait in the JSON body: ``{"retry_after": 1.5}``."""
+    try:
+        value = response.json().get("retry_after")
+        return max(0.0, float(value)) if value is not None else None
+    except (ValueError, AttributeError, TypeError):
+        return None
+
 
 def _status_hint(status: int) -> str | None:
     if status == 404:

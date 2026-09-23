@@ -400,6 +400,12 @@ def publish_command(ctx: click.Context, pipeline: Path, every: str, force: bool)
     say(f"  1. git add {files} && git commit -m 'Publish {loaded.name}' && git push")
     say("  2. Turn on GitHub Pages with GitHub Actions as the source (once per repository):")
     say(f"       gh api -X POST repos/{slug}/pages -f build_type=workflow")
+    if p.secrets:
+        say(
+            "  2b. Store the secrets the pipeline uses (once; the values stay encrypted on GitHub):"
+        )
+        for secret in p.secrets:
+            say(f"       gh secret set {secret} -R {slug}")
     say("  3. Start the first run now instead of waiting for the schedule:")
     say(f"       gh workflow run {p.workflow.name}")
     if p.site_url:

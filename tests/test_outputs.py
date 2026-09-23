@@ -86,12 +86,12 @@ def test_feed_item_for_changes_and_entries():
     assert item["title"] == "Pro: price: 49 → 59"
     assert item["link"] == "https://s/pro"
     entry = feed_item(
-        ev({"title": "Post", "link": "https://b/1", "summary": "Hi", "categories": ["ai"]})
+        ev({"title": "Post", "link": "https://b/1", "summary": "Hi there", "categories": ["ai"]})
     )
     assert (entry["title"], entry["link"], entry["summary"], entry["categories"]) == (
         "Post",
         "https://b/1",
-        "Hi",
+        "Hi there",
         ["ai"],
     )
 
@@ -112,6 +112,32 @@ def test_added_items_read_like_the_item():
         "https://n/1",
         "A new model.",
     )
+
+
+def test_boilerplate_summaries_are_dropped():
+    hn = (
+        "Article URL: https://a.example/x\n"
+        "Comments URL: https://news.ycombinator.com/item?id=1\n"
+        "Points: 74\n# Comments: 45"
+    )
+    assert feed_item(ev({"title": "A", "summary": hn}))["summary"] is None
+    assert feed_item(ev({"title": "B", "summary": "Comments"}))["summary"] is None
+    assert (
+        feed_item(ev({"title": "C", "summary": "Security update"}))["summary"] == "Security update"
+    )
+
+
+def test_new_records_show_their_values():
+    added = ev(
+        {
+            "change": "added",
+            "label": "Team",
+            "item_type": "record",
+            "after": {"name": "Team", "price": "$99"},
+        },
+        type="change",
+    )
+    assert feed_item(added)["summary"] == "price $99"
 
 
 def test_feed_summaries_are_short():

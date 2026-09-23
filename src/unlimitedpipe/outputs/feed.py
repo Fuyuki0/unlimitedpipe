@@ -56,8 +56,39 @@ def _shorten(text: str | None, limit: int) -> str | None:
     return text[:limit].rsplit(" ", 1)[0].rstrip(" ,.;:") + "…"
 
 
+_METADATA_LINE = re.compile(r"^[#\w .-]{1,24}:\s*\S*$")
+_PLAIN_FACTS = ("title", "name", "label", "link", "url", "summary", "description", "text", "id")
+
+
+def _prose(text: str | None) -> str | None:
+    """Drop summaries that carry no prose, like Hacker News' "Article URL: … Points: 74"
+    lines or a lone "Comments"."""
+    if not text:
+        return None
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    if all(_METADATA_LINE.match(line) for line in lines) or len(text.split()) < 2:
+        return None
+    return text
+
+
+def _facts(data: dict[str, Any]) -> str | None:
+    """``price $99 · stock In stock`` for records that have no text of their own."""
+    facts = [
+        f"{key} {value}"
+        for key, value in data.items()
+        if key not in _PLAIN_FACTS
+        and isinstance(value, (str, int, float))
+        and value not in ("", False)
+    ][:4]
+    return " · ".join(facts) or None
+
+
 def _summary(data: dict[str, Any]) -> str | None:
-    return _text(data.get("summary")) or _text(data.get("description")) or _text(data.get("text"))
+    return (
+        _prose(_text(data.get("summary")))
+        or _prose(_text(data.get("description")))
+        or _prose(_text(data.get("text")))
+    )
 
 
 def feed_item(event: Event) -> dict[str, Any]:
@@ -69,14 +100,18 @@ def feed_item(event: Event) -> dict[str, Any]:
         details = data.get("after") or data.get("before") or {}
         details = details if isinstance(details, dict) else {}
         link = _text(details.get("link")) or _text(details.get("url")) or event.source_url
-        if kind == "added":  # a new item reads like the item itself
-            title, summary = label, _summary(details)
-        elif kind == "removed":
-            title, summary = f"Removed: {label}", _summary(details)
+        textual = data.get("item_type") in ("entry", "document", "release", "story")
+        if kind in ("added", "removed"):  # a new item reads like the item itself
+            title = label if kind == "added" else f"Removed: {label}"
+            summary = _summary(details) or (None if textual else _facts(details))
         else:
-            title, summary = (
-                f"{label}: {data.get('summary', 'changed')}",
-                _text(data.get("summary")),
+            # The title carries the change; list every field only when it had to cut some.
+            title = f"{label}: {data.get('summary', 'changed')}"
+            fields = data.get("fields") or []
+            summary = (
+                "\n".join(f"{f.get('path')}: {f.get('old')} → {f.get('new')}" for f in fields)
+                if len(fields) > 4
+                else None
             )
     else:
         details = data

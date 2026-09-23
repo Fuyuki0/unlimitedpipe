@@ -3,6 +3,18 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## Unreleased
+
+- `webhook` output: one Discord or Slack message per event (format recognized from the URL),
+  or the event as JSON. Mentions are disabled, Markdown is escaped, messages per run are capped
+  with one summary message, rate limits are retried, and webhook URLs never appear in errors.
+- `${NAME}` in pipeline files reads environment variables; `publish` passes them to the
+  workflow from repository secrets.
+- Feed items and messages drop metadata-only summaries (Hacker News "Article URL: … Points: 74",
+  Lobsters "Comments"), no longer repeat a change in both title and summary, and show the values
+  of newly added records.
+- `grep` skips web addresses when searching for plain words.
+
 ## 0.2.0 - 2026-09-23
 
 Second release: "Feed".
