@@ -343,8 +343,9 @@ research into CSV, and a complete connector package.
 - **v0.2 Feed**: `watch`, `new`, `publish` (free hosted feeds), the `github` connector.
 - **v0.3 Live** (this release): `webhook` (Discord, Slack), `sqlite`, the trend engine
   (`extract`, `count`, `trend`), the live `bluesky` source, and the MCP server for AI agents.
-- **Next**: optional AI operators (local models first), browser fetching and screenshot
-  evidence, more connectors (SEC filings, DexScreener), a public registry of feeds.
+- **Next**: optional AI operators (local models first), bot-network filtering for trends,
+  browser fetching and screenshot evidence, more connectors (SEC filings, DexScreener), a
+  public registry of feeds.
 
 ## Responsible use
 
