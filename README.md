@@ -152,6 +152,7 @@ Fields are looked up in `data` first, then in the envelope (`source_url`, `metad
 | `csv [PATH]` | Data as CSV, nested fields as dotted columns |
 | `feed PATH` | RSS (`.xml`), Atom (`.atom`) or JSON Feed (`.json`), keeping earlier items |
 | `webhook URL` | A Discord or Slack message per event (recognized from the URL), or the event as JSON |
+| `sqlite FILE` | One row per distinct observation, with JSON columns for SQL queries |
 | `pretty` | Readable terminal output (the default when stdout is a terminal) |
 
 ## Pipelines

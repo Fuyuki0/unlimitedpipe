@@ -8,6 +8,8 @@ the event format is versioned separately by its `schema` field (see docs/events.
 - `webhook` output: one Discord or Slack message per event (format recognized from the URL),
   or the event as JSON. Mentions are disabled, Markdown is escaped, messages per run are capped
   with one summary message, rate limits are retried, and webhook URLs never appear in errors.
+- `sqlite` output: one row per distinct observation (re-runs add only what is new), with
+  data, metadata and provenance as JSON columns for SQLite's JSON functions.
 - `${NAME}` in pipeline files reads environment variables; `publish` passes them to the
   workflow from repository secrets.
 - Feed items and messages drop metadata-only summaries (Hacker News "Article URL: … Points: 74",

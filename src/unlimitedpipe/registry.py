@@ -46,6 +46,7 @@ BUILTINS: dict[str, str] = {
     "csv": "unlimitedpipe.outputs.csv:Csv",
     "feed": "unlimitedpipe.outputs.feed:Feed",
     "webhook": "unlimitedpipe.outputs.webhook:Webhook",
+    "sqlite": "unlimitedpipe.outputs.sqlite:Sqlite",
     "pretty": "unlimitedpipe.outputs.pretty:Pretty",
 }
 
