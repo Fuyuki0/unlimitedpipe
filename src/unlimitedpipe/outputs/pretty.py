@@ -226,11 +226,24 @@ def _inspection(event: Event):
     return lines
 
 
+def _post(event: Event):
+    from rich.text import Text
+
+    d = event.data
+    stamp = (event.timestamp or "")[11:19]
+    lines = [Text.assemble((stamp + "  ", "dim"), _clip(d.get("text") or "", 150))]
+    extras = [" ".join(d.get("tags") or []), d.get("url") or ""]
+    lines.append(_dim("          " + "  ·  ".join(x for x in extras if x)))
+    return lines
+
+
 def _count(event: Event):
     from rich.text import Text
 
     d = event.data
     window = f"{str(d.get('window_start', ''))[11:16]}–{str(d.get('window_end', ''))[11:16]}"
+    if d.get("complete") is False:
+        window += " (partial)"
     return [
         Text.assemble(
             (f"{d.get('count', 0):>6}", "bold cyan"),
@@ -282,6 +295,7 @@ _RENDERERS: dict[str, Callable[[Event], list[Any]]] = {
     "change": _change,
     "error": _error,
     "inspection": _inspection,
+    "post": _post,
     "count": _count,
     "trend": _trend,
 }

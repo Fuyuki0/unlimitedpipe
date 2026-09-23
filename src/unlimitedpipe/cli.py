@@ -9,6 +9,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import signal
 import sys
 from pathlib import Path
 from typing import Any
@@ -439,6 +440,9 @@ def _protect_stage_separators(args: list[str]) -> list[str]:
 
 
 def main() -> None:
+    # `docker stop`, systemd and CI timeouts send SIGTERM: shut down like Ctrl+C, so outputs
+    # are closed and diff state is saved.
+    signal.signal(signal.SIGTERM, signal.default_int_handler)
     try:
         cli.main(
             args=_protect_stage_separators(sys.argv[1:]),

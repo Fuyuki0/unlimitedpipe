@@ -7,7 +7,7 @@ import csv
 import io
 import json
 import sys
-from collections.abc import Iterator
+from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
 from typing import Any, Literal
 
@@ -61,8 +61,48 @@ class File(Source):
             raise ValueError("file needs a path (or '-' for stdin)")
         self._records_path = split_path(self.records) if self.records else None
 
+    def _event(self, value: Any, source_url: str | None) -> Event:
+        if is_envelope(value):
+            return Event.from_dict(value)
+        return Event(
+            source=self.name,
+            type="record",
+            source_url=source_url,
+            data=value if isinstance(value, dict) else {"value": value},
+        )
+
+    async def _stdin(self) -> AsyncIterator[Any]:
+        """Stream JSONL from stdin line by line; JSON documents and CSV need the whole input."""
+        from unlimitedpipe.jsonl import read_lines
+
+        fmt = self.format
+        buffered: list[str] = []
+        lineno = 0
+        async for raw in read_lines(sys.stdin.buffer):
+            lineno += 1
+            line = raw.decode("utf-8-sig" if lineno == 1 else "utf-8", errors="replace")
+            if fmt == "auto":
+                if not line.strip():
+                    continue
+                fmt = _detect("-", line)
+            if fmt == "jsonl":
+                if line.strip():
+                    try:
+                        yield json.loads(line)
+                    except ValueError as exc:
+                        raise InputError(f"stdin line {lineno} is not valid JSON: {exc}") from None
+            else:
+                buffered.append(line)
+        if buffered:
+            for value in self._parse(fmt, "stdin", "\n".join(buffered)):
+                yield value
+
     async def collect(self, ctx: Context):
         for name in self.path:
+            if name == "-":
+                async for value in self._stdin():
+                    yield self._event(value, None)
+                continue
             try:
                 text = self._read(name)
             except OSError as exc:
@@ -79,19 +119,9 @@ class File(Source):
             for index, value in enumerate(self._parse(fmt, name, text)):
                 if index % 1000 == 999:
                     await asyncio.sleep(0)
-                if is_envelope(value):
-                    yield Event.from_dict(value)
-                    continue
-                yield Event(
-                    source=self.name,
-                    type="record",
-                    source_url=source_url,
-                    data=value if isinstance(value, dict) else {"value": value},
-                )
+                yield self._event(value, source_url)
 
     def _read(self, name: str) -> str:
-        if name == "-":
-            return sys.stdin.buffer.read().decode("utf-8-sig", errors="replace")
         return Path(name).expanduser().read_text(encoding="utf-8-sig", errors="replace")
 
     def _parse(self, fmt: str, name: str, text: str) -> Iterator[Any]:

@@ -112,6 +112,7 @@ blogs and news sites, and page text otherwise, with commented hints for narrowin
 | `unlimited rss URL...` | One `entry` per item of an RSS, Atom or JSON Feed. Given a page, uses the feed it advertises. |
 | `unlimited file PATH...` | One `record` per JSON item, JSONL line or CSV row. `-` reads stdin. |
 | `unlimited github releases\|repo\|tags\|commits\|issues OWNER/REPO...` | Public GitHub data through the official REST API. Optional `GITHUB_TOKEN` for higher limits. |
+| `unlimited bluesky [WORDS...]` | New public Bluesky posts, live, from Bluesky's Jetstream (endless; `pip install "unlimitedpipe[live]"`) |
 | `unlimited inspect URL...` | An `inspection`: robots.txt, feeds, JSON-LD, products, sitemap, JavaScript, suggested commands. |
 
 Sources also read URLs from stdin, so crawls compose:

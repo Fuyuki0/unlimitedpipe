@@ -22,7 +22,8 @@ class Trend(Operator):
     with its average over the previous --history windows, which are kept on disk like `diff`
     state, so trends work across `watch` runs. A value is reported when it reaches
     --min-count and rises by at least --min-change percent; new values count as rising from
-    zero. The first window only builds history.
+    zero. The first complete window only builds history; windows the data covers only in
+    part are skipped.
     """
 
     name = "trend"
@@ -71,6 +72,9 @@ class Trend(Operator):
     def _evaluate(
         self, start: str, window: list[Event], windows: dict[str, dict[str, int]]
     ) -> list[Event]:
+        if window[0].data.get("complete") is False:
+            self._partial += 1  # comparing a partly covered window would invent spikes
+            return []
         earlier = sorted(s for s in windows if s < start)[-self.history :]
         counts = {str(e.data["value"]): int(e.data["count"]) for e in window}
         windows[start] = counts
@@ -112,6 +116,7 @@ class Trend(Operator):
         return results
 
     async def apply(self, events: AsyncIterator[Event], ctx: Context):
+        self._partial = 0
         path = None
         windows: dict[str, dict[str, int]] = {}
         current: str | None = None
@@ -142,3 +147,5 @@ class Trend(Operator):
             ctx.warn("trend: no `count` events; use count --by FIELD --every DURATION before trend")
         elif len(windows) < 2:
             ctx.notice("trend: history started; trends appear once there are earlier windows")
+        if self._partial:
+            ctx.notice(f"trend: skipped {self._partial} partly covered window(s)")

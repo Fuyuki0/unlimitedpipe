@@ -82,7 +82,8 @@ def spike_events():
     ]
     burst = [at(181 + i, t="ai") for i in range(9)] + [at(185, t="rust"), at(186, t="rust")]
     burst += [at(190 + i, t="mcp") for i in range(4)]
-    return quiet + burst
+    # the data runs to the end of the last hour, so that window is complete
+    return [*quiet, *burst, at(238, t="filler")]
 
 
 def test_trend_reports_spikes_against_earlier_windows(tmp_path):
@@ -156,3 +157,17 @@ def test_live_stream_windows_close_as_they_go(monkeypatch):
     out = asyncio.run(go())
     emitted_before_end = [e.data["value"] for e in out]
     assert emitted_before_end == ["x", "y"]  # the 10:00 window closed before "late" arrived
+
+
+def test_partly_covered_windows_are_marked_and_skipped(tmp_path):
+    # Data starts 30 minutes into the first hour and stops 10 minutes into the last one.
+    events = [at(30 + i, t="x") for i in range(0, 100, 5)]  # 10:30 to 12:05
+    counts = run_ops(events, Count(by="t", every="1h"))
+    assert [e.data["complete"] for e in counts] == [False, True, False]
+    trends = run_ops(
+        events,
+        Count(by="t", every="1h"),
+        Trend(namespace="p", min_count=1, min_change=0),
+        ctx=Context(quiet=True, state_dir=tmp_path),
+    )
+    assert trends == []  # only one complete window: history, nothing to compare

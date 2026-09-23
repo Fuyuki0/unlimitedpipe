@@ -220,3 +220,41 @@ def test_watch_refuses_shell_strings_and_tiny_intervals(env):
     assert result.returncode == 2 and "not through a shell" in result.stderr
     result = sh("unlimited watch --every 5s web https://example.com", env)
     assert result.returncode == 2 and "too frequent" in result.stderr
+
+
+def test_sigterm_closes_outputs_and_saves_state(env, tmp_path):
+    import signal
+    import time
+
+    out = tmp_path / "out.jsonl"
+    feeder = subprocess.Popen(
+        ["bash", "-c", 'for i in $(seq 1 500); do echo "{\\"n\\": $i}"; sleep 0.02; done'],
+        stdout=subprocess.PIPE,
+    )
+    command = [
+        sys.executable,
+        "-m",
+        "unlimitedpipe",
+        "run",
+        "file",
+        "-",
+        "--",
+        "diff",
+        "--key",
+        "n",
+        "-n",
+        "t",
+        "--emit-initial",
+        "--",
+        "jsonl",
+        str(out),
+    ]
+    proc = subprocess.Popen(command, stdin=feeder.stdout, stderr=subprocess.PIPE, env=env)
+    time.sleep(1.5)
+    assert out.exists() and out.read_text().strip()  # streamed and flushed while running
+    proc.send_signal(signal.SIGTERM)
+    _, err = proc.communicate(timeout=20)
+    feeder.kill()
+    assert proc.returncode == 130 and b"interrupted" in err
+    state = json.loads((tmp_path / "state" / "diff" / "t.json").read_text())
+    assert len(state["items"]) == len(out.read_text().splitlines())

@@ -35,9 +35,9 @@ class Jsonl(Output):
         else:
             line = event.to_json()
         self._stream.write(line + "\n")
-        if self._stdout and not self._flush_pending:
+        if not self._flush_pending:
             # Flush once the loop is idle: bursts are written together, while a slow real-time
-            # stream still reaches the next pipe stage immediately.
+            # stream still reaches the next stage (or the file) immediately.
             self._flush_pending = True
             asyncio.get_running_loop().call_soon(self._flush)
 

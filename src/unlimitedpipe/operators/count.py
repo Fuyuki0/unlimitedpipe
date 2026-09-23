@@ -35,7 +35,9 @@ class Count(Operator):
     With --every, windows follow each event's own time (published, else observed), so
     timestamped history such as a feed is bucketed correctly in any order; on a live stream
     each window is reported shortly after it ends. Emits one `count` event per value and
-    window, most frequent first. Feed them to `trend` to spot spikes.
+    window, most frequent first, marked `complete: false` when the data covers only part of
+    the window (the first window of a live stream, the edges of a feed). Feed them to `trend`
+    to spot spikes.
     """
 
     name = "count"
@@ -70,7 +72,13 @@ class Count(Operator):
         return [str(item) for item in items if item is not None and item != ""]
 
     def _report(
-        self, start: float, end: float, counts: Counter[str], events: int, sample: Event
+        self,
+        start: float,
+        end: float,
+        counts: Counter[str],
+        events: int,
+        sample: Event,
+        complete: bool = True,
     ) -> list[Event]:
         ranked = counts.most_common(self.top or None)
         return [
@@ -86,6 +94,7 @@ class Count(Operator):
                     "events": events,
                     "window_start": iso(start),
                     "window_end": iso(end),
+                    "complete": complete,
                 },
                 provenance=list(sample.provenance),
             )
@@ -116,6 +125,8 @@ class Count(Operator):
         # stream each window is reported shortly after it ends.
         size = self._window
         grace = min(size / 10, 60.0)
+        slack = size / 10
+        earliest = float("inf")
         windows: dict[float, list[Any]] = {}  # start -> [Counter, events, sample, last update]
         newest = float("-inf")
         closed_before = float("-inf")
@@ -132,17 +143,22 @@ class Count(Operator):
             window[1] += 1
             window[3] = now
             newest = max(newest, moment)
+            earliest = min(earliest, moment)
             ready_windows = sorted(
                 s for s, w in windows.items() if s + size <= newest and now - w[3] >= grace
             )
             for ready in ready_windows:
                 tally, seen, example, _ = windows.pop(ready)
                 closed_before = max(closed_before, ready + size)
-                for result in self._report(ready, ready + size, tally, seen, example):
+                # A window the data only partly covers (the stream began after it started, as
+                # when joining a live stream mid-window) would distort comparisons.
+                complete = earliest <= ready + slack
+                for result in self._report(ready, ready + size, tally, seen, example, complete):
                     yield result
         for start in sorted(windows):
             tally, seen, example, _ = windows[start]
-            for result in self._report(start, start + size, tally, seen, example):
+            complete = earliest <= start + slack and newest >= start + size - slack
+            for result in self._report(start, start + size, tally, seen, example, complete):
                 yield result
         if late:
             ctx.notice(f"count: {late} late event(s) arrived after their window was reported")
