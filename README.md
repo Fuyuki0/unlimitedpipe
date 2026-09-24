@@ -1,11 +1,21 @@
 # UnlimitedPipe
 
+[![PyPI](https://img.shields.io/pypi/v/unlimitedpipe)](https://pypi.org/project/unlimitedpipe/)
+[![Python](https://img.shields.io/pypi/pyversions/unlimitedpipe)](https://pypi.org/project/unlimitedpipe/)
+[![CI](https://github.com/Fuyuki0/unlimitedpipe/actions/workflows/ci.yml/badge.svg)](https://github.com/Fuyuki0/unlimitedpipe/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/Fuyuki0/unlimitedpipe/blob/main/LICENSE)
+
 **Pipe the public internet.**
 
 Collect public web data, transform it, detect what changed, and send it anywhere, from the
-command line. Local-first, no account, no API key, no AI required.
+command line. Local-first, no account, no API key, no AI required. Think Yahoo Pipes, rebuilt
+as Unix commands.
 
-![UnlimitedPipe detecting a price change, a new plan and a removed plan on a pricing page](docs/assets/demo.svg)
+**See it running:** [20 free feeds](https://fuyuki0.github.io/unlimitedpipe-feed-demo/) (AI releases, exploited
+vulnerabilities, cloud incidents, earthquakes, rocket launches…), each one a YAML file of about
+15 lines, updated hourly on GitHub Actions. [Fork them](https://github.com/Fuyuki0/unlimitedpipe-feed-demo).
+
+![UnlimitedPipe detecting a price change, a new plan and a removed plan on a pricing page](https://raw.githubusercontent.com/Fuyuki0/unlimitedpipe/main/docs/assets/demo.svg)
 
 ```bash
 pip install unlimitedpipe
@@ -48,10 +58,23 @@ once and done well:
 - **Composable.** JSONL in, JSONL out. Plain JSON from other tools is accepted too.
 - **Extensible.** A connector is one small Python class; `pip install` makes it a command.
 
-How it compares: `curl | jq` has no memory or change detection. changedetection.io and paid
-monitors are apps, not composable pipes. Firecrawl and similar crawlers turn pages into text
-for LLMs. UnlimitedPipe turns public sources into typed events with history and receipts,
-and can use those tools as sources.
+How it compares:
+
+- **Yahoo Pipes** (2007–2015) had the right idea: wire feeds and pages together, filter them,
+  get a feed out. It was a hosted app, and it died with its host. UnlimitedPipe is the same
+  idea as local commands and text files you own; `publish` hosts the result for free on
+  GitHub.
+- **Huginn and n8n** are always-on servers with a database and a web UI. UnlimitedPipe needs
+  neither: a pipeline is a YAML file, state is a small JSON file, and a schedule is cron or
+  GitHub Actions.
+- **RSS-Bridge and RSSHub** turn sites into feeds with a server and one bridge per site.
+  UnlimitedPipe reads what sites already publish (feeds, JSON APIs, product data), filters and
+  merges it, and writes feeds as one output among several.
+- **changedetection.io** and paid monitors are apps. `diff` gives the same field-level change
+  detection as a pipe stage you can combine with anything.
+- **`curl | jq`** has no memory, no politeness and no change detection. **Firecrawl** and
+  similar crawlers turn pages into text for LLMs; UnlimitedPipe turns public sources into
+  typed events with history and receipts.
 
 ## Quick start
 
@@ -133,7 +156,7 @@ unlimited github repo pallets/click | unlimited select title stars forks
 | Command | Does |
 | --- | --- |
 | `select title price=offers.0.price link=link\|url` | Keep, rename, or fall back between fields |
-| `filter 'price > 100 and availability == "InStock"'` | Keep matching events ([syntax](docs/expressions.md)) |
+| `filter 'price > 100 and availability == "InStock"'` | Keep matching events ([syntax](https://github.com/Fuyuki0/unlimitedpipe/blob/main/docs/expressions.md)) |
 | `filter --field country --eq Thailand` | The same without expression syntax |
 | `map 'price=number(price)' --drop junk` | Set fields from expressions, drop fields |
 | `grep AI LLM` | Keep events mentioning any word (whole words, any case) |
@@ -213,17 +236,18 @@ diff state in your repository, and GitHub Pages serves the result. No server, no
 beyond GitHub.
 
 ```bash
-unlimited publish feeds/ai-news.yml --every 1h
-# Wrote .github/workflows/unlimitedpipe-ai-news.yml (runs every 1h, cron "47 * * * *")
+unlimited publish feeds/*.yml --every 1h
+# Wrote .github/workflows/unlimitedpipe-feeds.yml (runs every 1h, cron "54 * * * *")
 # Wrote public/index.html
 # ...
-# Your feed will be at https://fuyuki0.github.io/unlimitedpipe-feed-demo/ai-news.xml
+# Index: https://fuyuki0.github.io/unlimitedpipe-feed-demo/
 ```
 
-Live example: [unlimitedpipe-feed-demo](https://github.com/Fuyuki0/unlimitedpipe-feed-demo),
-an hourly AI-news feed from Hacker News and Lobsters. Its JSON Feed carries full events, so
-another pipeline can read it with `unlimited rss` and keep the provenance chain. Details, cron
-and manual setups: [docs/pipelines.md](docs/pipelines.md).
+Live example: [the feed catalog](https://github.com/Fuyuki0/unlimitedpipe-feed-demo), 20 feeds published this way from one
+workflow. A feed whose source is down keeps its last good state while the others update. Each
+JSON Feed carries full events, so another pipeline can read it with `unlimited rss` and keep
+the provenance chain. Details, cron and manual setups:
+[docs/pipelines.md](https://github.com/Fuyuki0/unlimitedpipe/blob/main/docs/pipelines.md).
 
 ## Change detection
 
@@ -303,14 +327,14 @@ class HackerNews(Source):
 
 Register it with one entry point, `pip install` it, and `unlimited hackernews "local llm"`
 works, with rate limiting, retries, robots.txt, `--help` and YAML support included.
-[examples/plugin-hackernews](examples/plugin-hackernews) is a complete package to copy, and
-[docs/connectors.md](docs/connectors.md) walks through creating, registering, testing,
+[examples/plugin-hackernews](https://github.com/Fuyuki0/unlimitedpipe/tree/main/examples/plugin-hackernews) is a complete package to copy, and
+[docs/connectors.md](https://github.com/Fuyuki0/unlimitedpipe/blob/main/docs/connectors.md) walks through creating, registering, testing,
 documenting and submitting one.
 
 ## Architecture
 
 - **Event** (`unlimitedpipe.event/1`): `id`, `source`, `type`, `key`, `source_url`,
-  `timestamp`, `observed_at`, `data`, `metadata`, `provenance`. See [docs/events.md](docs/events.md).
+  `timestamp`, `observed_at`, `data`, `metadata`, `provenance`. See [docs/events.md](https://github.com/Fuyuki0/unlimitedpipe/blob/main/docs/events.md).
 - **Components** are dataclasses: sources implement `collect`, operators `process` or
   `apply`, outputs `open`/`write`/`close`. The CLI and YAML loader are generated from their
   fields.
@@ -325,23 +349,26 @@ documenting and submitting one.
 ```text
 src/unlimitedpipe/
   event.py  component.py  engine.py  context.py  http.py  config.py  cli.py
-  sources/    web, rss, file, inspect
-  operators/  select, filter, map, grep, dedupe, limit, sort, diff
-  outputs/    jsonl, json, csv, feed, pretty
+  expr.py   watch.py  scaffold.py  publish.py  mcp.py
+  sources/    web, rss, file, github, bluesky, inspect
+  operators/  select, filter, map, grep, dedupe, limit, sort, diff, extract, count, trend
+  outputs/    jsonl, json, csv, feed, webhook, sqlite, pretty
 ```
 
 ## Examples
 
-Runnable pipelines in [examples/](examples): website to JSON, an RSS news filter published as
-a feed, GitHub release watching, price monitoring, competitor pricing watch, multi-source
-research into CSV, and a complete connector package.
+Runnable pipelines in [examples/](https://github.com/Fuyuki0/unlimitedpipe/tree/main/examples): website to JSON, an RSS news filter published as
+a feed, GitHub release watching, price monitoring with Discord alerts, competitor pricing
+watch, multi-source research into CSV, Bluesky trends, and a complete connector package. The
+[feed catalog](https://github.com/Fuyuki0/unlimitedpipe-feed-demo/tree/main/feeds) has 20
+more.
 
 ## Roadmap
 
 - **v0.1 Pipe**: engine, CLI, `web` with product detection, `rss`, `file`, `inspect`, eight
   operators, JSON/JSONL/CSV/feed outputs, YAML pipelines, plugins.
 - **v0.2 Feed**: `watch`, `new`, `publish` (free hosted feeds), the `github` connector.
-- **v0.3 Live** (this release): `webhook` (Discord, Slack), `sqlite`, the trend engine
+- **v0.3 Live** (current): `webhook` (Discord, Slack), `sqlite`, the trend engine
   (`extract`, `count`, `trend`), the live `bluesky` source, and the MCP server for AI agents.
 - **Next**: optional AI operators (local models first), bot-network filtering for trends,
   browser fetching and screenshot evidence, more connectors (SEC filings, DexScreener), a
@@ -353,13 +380,13 @@ UnlimitedPipe is for public data and data you are authorized to access. It uses 
 door: official APIs and feeds when they exist, polite HTML otherwise. It does not bypass
 logins, CAPTCHAs or blocks, and it is not for collecting data about individuals. You are
 responsible for complying with each site's terms and applicable law. See
-[docs/responsible-use.md](docs/responsible-use.md).
+[docs/responsible-use.md](https://github.com/Fuyuki0/unlimitedpipe/blob/main/docs/responsible-use.md).
 
 ## Contributing
 
 Connectors, recipes and bug reports are all welcome. Start with
-[CONTRIBUTING.md](CONTRIBUTING.md); `make test lint` runs the same checks as CI.
+[CONTRIBUTING.md](https://github.com/Fuyuki0/unlimitedpipe/blob/main/CONTRIBUTING.md); `make test lint` runs the same checks as CI.
 
 ## License
 
-[Apache-2.0](LICENSE)
+[Apache-2.0](https://github.com/Fuyuki0/unlimitedpipe/blob/main/LICENSE)

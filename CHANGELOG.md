@@ -3,6 +3,18 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.3.2 - 2026-09-24
+
+The launch release.
+
+- Expressions: `date(value)` turns ISO 8601, RFC 2822 or Unix times (seconds or milliseconds,
+  as JSON APIs often send them) into ISO 8601 UTC: `published_at=date(properties.time)`.
+- Feed items read their date from Unix times and RFC 2822 text too, and skip a date they
+  cannot read instead of falling back to the time of the run.
+- The User-Agent, package links and published index pages point to the GitHub repository.
+- README: the live feed catalog, and how UnlimitedPipe compares with Yahoo Pipes, Huginn,
+  n8n, RSS-Bridge and changedetection.io.
+
 ## 0.3.1 - 2026-09-24
 
 What the seed feed catalog needed. 0.3.0 on PyPI was built before these changes.

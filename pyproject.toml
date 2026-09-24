@@ -11,7 +11,7 @@ requires-python = ">=3.11"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 authors = [{ name = "UnlimitedPipe contributors" }]
-keywords = ["cli", "jsonl", "pipeline", "rss", "change-detection", "web", "scraping", "feeds"]
+keywords = ["cli", "jsonl", "pipeline", "rss", "feeds", "change-detection", "web", "scraping", "monitoring", "yahoo-pipes", "github-actions", "mcp"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Environment :: Console",
@@ -36,7 +36,11 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://pypi.org/project/unlimitedpipe/"
+Homepage = "https://github.com/Fuyuki0/unlimitedpipe"
+Documentation = "https://github.com/Fuyuki0/unlimitedpipe/tree/main/docs"
+Changelog = "https://github.com/Fuyuki0/unlimitedpipe/blob/main/CHANGELOG.md"
+Issues = "https://github.com/Fuyuki0/unlimitedpipe/issues"
+"Feed catalog" = "https://fuyuki0.github.io/unlimitedpipe-feed-demo/"
 
 [project.scripts]
 unlimited = "unlimitedpipe.cli:main"

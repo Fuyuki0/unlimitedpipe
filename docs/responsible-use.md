@@ -35,7 +35,7 @@ controls. Connectors that do are not accepted.
   almost nothing.
 - **Retries** back off and honor `Retry-After`. HTTP 429 is retried after the delay the site
   asks for, then reported; 403 is reported and never worked around.
-- **An honest User-Agent**: `UnlimitedPipe/<version> (+https://pypi.org/project/unlimitedpipe/)`.
+- **An honest User-Agent**: `UnlimitedPipe/<version> (+https://github.com/Fuyuki0/unlimitedpipe)`.
 - **A size cap** of 20 MB per response.
 
 ## Your responsibilities

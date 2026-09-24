@@ -297,7 +297,7 @@ def index_page(p: PublishPlan, every: str) -> str:
     <p>Updated every {html.escape(every)} by a GitHub Actions workflow. Subscribe to any feed
     in a feed reader (XML), or read it as data (JSON).</p>
 {body}
-    <p>Built with <a href="https://pypi.org/project/unlimitedpipe/">UnlimitedPipe</a>.
+    <p>Built with <a href="https://github.com/Fuyuki0/unlimitedpipe">UnlimitedPipe</a>.
     Make your own: <code>pip install unlimitedpipe</code>, then <code>unlimited publish</code>.</p>
   </body>
 </html>
