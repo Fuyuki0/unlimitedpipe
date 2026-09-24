@@ -145,6 +145,12 @@ def test_feed_date_falls_back_to_data_fields():
         ev({"title": "CVE", "published_at": "2026-09-22"}, observed_at="2030-01-01T00:00:00Z")
     )
     assert item["date"].strftime("%Y-%m-%d") == "2026-09-22"
+    epoch = feed_item(ev({"title": "Quake", "published_at": 1790500655624}))
+    assert epoch["date"].isoformat() == "2026-09-27T09:17:35.624000+00:00"
+    unparseable = feed_item(
+        ev({"title": "X", "published_at": "soon", "date": "Tue, 22 Sep 2026 10:00:00 GMT"})
+    )
+    assert unparseable["date"].strftime("%Y-%m-%d %H:%M") == "2026-09-22 10:00"
 
 
 def test_feed_summaries_are_short():

@@ -16,7 +16,7 @@ from typing import Any, Literal
 
 from unlimitedpipe._version import PROJECT_URL, __version__
 from unlimitedpipe.component import Output, arg, opt
-from unlimitedpipe.event import SCHEMA, Event, content_hash, utcnow
+from unlimitedpipe.event import SCHEMA, Event, content_hash, parse_time, utcnow
 from unlimitedpipe.outputs import open_target
 
 ATOM_NS = "http://www.w3.org/2005/Atom"
@@ -24,16 +24,6 @@ ATOM_NS = "http://www.w3.org/2005/Atom"
 # republishing other people's full text.
 SUMMARY_CHARS = 500
 GENERATOR = f"UnlimitedPipe {__version__}"
-
-
-def _parse_iso(value: str | None) -> datetime:
-    if value:
-        try:
-            parsed = datetime.fromisoformat(value)
-            return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
-        except ValueError:
-            pass
-    return datetime.now(UTC)
 
 
 def _text(value: Any) -> str | None:
@@ -124,11 +114,18 @@ def feed_item(event: Event) -> dict[str, Any]:
         "title": title,
         "link": link,
         "summary": _shorten(summary, SUMMARY_CHARS),
-        "date": _parse_iso(
-            event.timestamp
-            or _text(details.get("published_at") if isinstance(details, dict) else None)
-            or _text(details.get("date") if isinstance(details, dict) else None)
-            or event.observed_at
+        "date": next(
+            (
+                when
+                for value in (
+                    event.timestamp,
+                    details.get("published_at") if isinstance(details, dict) else None,
+                    details.get("date") if isinstance(details, dict) else None,
+                    event.observed_at,
+                )
+                if (when := parse_time(value)) is not None
+            ),
+            datetime.now(UTC),
         ),
         "categories": [c for c in categories or [] if isinstance(c, str)],
     }

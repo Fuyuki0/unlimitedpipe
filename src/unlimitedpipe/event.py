@@ -11,6 +11,7 @@ import json
 import time
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from email.utils import parsedate_to_datetime
 from typing import Any
 
 from unlimitedpipe.errors import InputError
@@ -38,6 +39,36 @@ def iso(value: datetime | str | None) -> str | None:
     if value.tzinfo is None:
         value = value.replace(tzinfo=UTC)
     return value.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def parse_time(value: Any) -> datetime | None:
+    """A point in time from ISO 8601 or RFC 2822 text, or a Unix time in seconds,
+    milliseconds (as JavaScript and the USGS API send it) or microseconds. Naive times are
+    taken as UTC; anything else is None."""
+    if isinstance(value, str):
+        text = value.strip()
+        try:
+            value = float(text)
+        except ValueError:
+            try:
+                parsed = datetime.fromisoformat(text)
+            except ValueError:
+                try:
+                    parsed = parsedate_to_datetime(text)
+                except (TypeError, ValueError, IndexError):
+                    return None
+            return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    seconds = float(value)
+    if abs(seconds) >= 1e14:
+        seconds /= 1e6
+    elif abs(seconds) >= 1e11:
+        seconds /= 1e3
+    try:
+        return datetime.fromtimestamp(seconds, UTC)
+    except (OverflowError, OSError, ValueError):
+        return None
 
 
 def canonical_json(value: Any) -> str:

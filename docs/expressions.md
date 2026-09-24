@@ -48,6 +48,7 @@ A field on its own is true when it is present and not empty, zero or false.
 | `number(x)` | A number from text such as `"$1,299.00"`, `"1.299,00 €"` or `"฿1,299"` |
 | `exists(field)` | Whether the field is present at all (even if empty) |
 | `replace(text, pattern, replacement)` | Text with a regular expression substituted |
+| `date(x)` | ISO 8601 UTC time from ISO 8601 or RFC 2822 text, or a Unix time in seconds or milliseconds (`published_at=date(properties.time)`) |
 
 `+` joins text and adds numbers: `"https://nvd.nist.gov/vuln/detail/" + cveID`.
 

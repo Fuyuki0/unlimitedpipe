@@ -3,7 +3,7 @@ import json
 import pytest
 
 from unlimitedpipe.errors import InputError
-from unlimitedpipe.event import SCHEMA, Event
+from unlimitedpipe.event import SCHEMA, Event, iso, parse_time
 from unlimitedpipe.fields import MISSING, flatten, resolve
 
 
@@ -72,3 +72,25 @@ def test_flatten_uses_dotted_keys_and_json_lists():
         "tags": '["x"]',
         "empty": "{}",
     }
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ("2026-09-20T09:17:35Z", "2026-09-20T09:17:35Z"),
+        ("2026-09-20T16:17:35+07:00", "2026-09-20T09:17:35Z"),
+        ("2026-09-20", "2026-09-20T00:00:00Z"),
+        ("Sun, 20 Sep 2026 09:17:35 GMT", "2026-09-20T09:17:35Z"),
+        (1790500655, "2026-09-27T09:17:35Z"),
+        (1790500655624, "2026-09-27T09:17:35Z"),
+        (1790500655624000, "2026-09-27T09:17:35Z"),
+        ("1790500655624", "2026-09-27T09:17:35Z"),
+        ("next week", None),
+        (True, None),
+        (None, None),
+        ([2026], None),
+        ("nan", None),
+    ],
+)
+def test_parse_time(value, expected):
+    assert iso(parse_time(value)) == expected

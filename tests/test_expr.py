@@ -55,6 +55,9 @@ EVENT = Event(
         ("missing + 1 == null", True),
         ('replace(name, "Trail ", "") == "Shoe"', True),
         ('replace(missing, "a", "b") == null', True),
+        ('date(1790500655624) == "2026-09-27T09:17:35Z"', True),
+        ('date("Sun, 20 Sep 2026 09:17:35 GMT") == "2026-09-20T09:17:35Z"', True),
+        ("date(name) == null", True),
     ],
 )
 def test_expressions(expression, expected):
@@ -70,7 +73,7 @@ def test_parse_error_points_at_the_problem():
 
 
 def test_unknown_function_lists_known_ones():
-    with pytest.raises(ExpressionError, match="known: exists"):
+    with pytest.raises(ExpressionError, match="known: date, exists"):
         compile_expression("shout(name)")
 
 

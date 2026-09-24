@@ -19,6 +19,8 @@ Rules:
 * ``+`` adds numbers and joins text: ``"https://nvd.nist.gov/vuln/detail/" + cveID``.
 * ``replace(text, pattern, replacement)`` substitutes a regular expression:
   ``replace(summary, "^arXiv:\\S+ .*? Abstract: ", "")``.
+* ``date(value)`` reads ISO 8601, RFC 2822 or Unix time (seconds or milliseconds) and
+  returns ISO 8601 UTC, so ``published_at=date(properties.time)`` dates feed items.
 * A missing field is ``null``; ordering comparisons with ``null`` are false.
 """
 
@@ -30,6 +32,7 @@ from functools import lru_cache
 from typing import TYPE_CHECKING, Any
 
 from unlimitedpipe.errors import ExpressionError
+from unlimitedpipe.event import iso, parse_time
 from unlimitedpipe.fields import MISSING, resolve, split_path
 
 if TYPE_CHECKING:
@@ -288,6 +291,10 @@ def _number(value: Any) -> float | int | None:
     return parse_price(value) if isinstance(value, str) else None
 
 
+def _date(value: Any) -> str | None:
+    return iso(parse_time(value))
+
+
 def _replace(value: Any, pattern: Any, replacement: Any) -> Any:
     if not isinstance(value, str):
         return value
@@ -296,6 +303,7 @@ def _replace(value: Any, pattern: Any, replacement: Any) -> Any:
 
 _FUNCTIONS: dict[str, Callable[..., Any]] = {
     "replace": _replace,
+    "date": _date,
     "lower": lambda v: v.lower() if isinstance(v, str) else v,
     "upper": lambda v: v.upper() if isinstance(v, str) else v,
     "trim": lambda v: v.strip() if isinstance(v, str) else v,
