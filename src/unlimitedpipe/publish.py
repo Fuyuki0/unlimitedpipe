@@ -202,7 +202,11 @@ jobs:
   run:
     runs-on: ubuntu-latest
     steps:
+      # The branch as it is now, not the commit that queued this run: an earlier run may
+      # have pushed new outputs and state while this one waited.
       - uses: {ACTIONS["checkout"]}
+        with:
+          ref: ${{{{ github.ref }}}}
       - uses: {ACTIONS["setup-python"]}
         with:
           python-version: "3.12"

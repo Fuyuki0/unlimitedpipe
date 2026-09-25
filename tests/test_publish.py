@@ -85,6 +85,7 @@ def test_generated_workflow_is_valid(repo):
     triggers = document.get("on") or document[True]  # PyYAML reads the key `on` as True
     assert triggers["schedule"][0]["cron"] == p.cron
     steps = document["jobs"]["run"]["steps"]
+    assert steps[0]["with"]["ref"] == "${{ github.ref }}"  # the latest outputs, not a stale commit
     run_step = next(s for s in steps if s.get("name") == "Run the pipelines")
     assert 'for pipeline in "feeds/prices.yml"' in run_step["run"]
     save_step = next(s for s in steps if s.get("name") == "Save outputs and state")
