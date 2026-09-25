@@ -379,11 +379,26 @@ def publish_command(
       unlimited publish feeds/blog.yml --every 1h
       unlimited publish feeds/*.yml --every 1h        # a catalog of feeds
     """
-    from unlimitedpipe.config import load_pipeline
+    from unlimitedpipe.config import env_references, load_pipeline
     from unlimitedpipe.publish import INDEX_MARKER, github_repo, index_page, plan, workflow
     from unlimitedpipe.watch import format_duration, parse_duration
 
-    items = [(path, load_pipeline(path)) for path in pipelines]
+    # Secrets reach the workflow by name and are read on GitHub at run time, so publishing
+    # must not need their values here: a missing one gets a placeholder while the pipelines
+    # are checked.
+    missing = [
+        variable
+        for path in pipelines
+        if path.is_file()
+        for variable in env_references(path.read_text(encoding="utf-8"))
+        if variable not in os.environ
+    ]
+    try:
+        os.environ.update({v: f"https://secret.invalid/{v}" for v in missing})
+        items = [(path, load_pipeline(path)) for path in pipelines]
+    finally:
+        for variable in missing:
+            os.environ.pop(variable, None)
     seconds = parse_duration(every)
     p = plan(items, seconds, name)
     workflow_path = p.root / p.workflow

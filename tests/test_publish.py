@@ -157,6 +157,25 @@ def test_secrets_referenced_by_the_pipeline_reach_the_workflow(repo):
     assert run_step["env"]["DISCORD_HOOK"] == "${{ secrets.DISCORD_HOOK }}"
 
 
+def test_publish_does_not_need_secret_values(repo, monkeypatch):
+    monkeypatch.delenv("DISCORD_HOOK", raising=False)
+    (repo / "feeds" / "prices.yml").write_text(
+        PIPELINE + "  - type: webhook\n    url: ${DISCORD_HOOK}\n"
+    )
+    env = {k: v for k, v in os.environ.items() if k != "DISCORD_HOOK"}
+    env["UNLIMITEDPIPE_STATE_DIR"] = str(repo / "state")
+    result = subprocess.run(
+        [sys.executable, "-m", "unlimitedpipe", "publish", "feeds/prices.yml"],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    assert result.returncode == 0, result.stderr
+    text = (repo / ".github/workflows/unlimitedpipe-prices.yml").read_text()
+    assert "${{ secrets.DISCORD_HOOK }}" in text and "secret.invalid" not in text
+
+
 def load_pipeline_with(path, **env):
     old = {k: os.environ.get(k) for k in env}
     os.environ.update(env)
