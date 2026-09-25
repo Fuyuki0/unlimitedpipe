@@ -11,9 +11,9 @@ Collect public web data, transform it, detect what changed, and send it anywhere
 command line. Local-first, no account, no API key, no AI required. Think Yahoo Pipes, rebuilt
 as Unix commands.
 
-**See it running:** [20 free feeds](https://fuyuki0.github.io/unlimitedpipe-feed-demo/) (AI releases, exploited
+**See it running:** [26 free feeds](https://fuyuki0.github.io/unlimitedpipe-feeds/) (AI releases, exploited
 vulnerabilities, cloud incidents, earthquakes, rocket launches…), each one a YAML file of about
-15 lines, updated hourly on GitHub Actions. [Fork them](https://github.com/Fuyuki0/unlimitedpipe-feed-demo).
+15 lines, updated hourly on GitHub Actions. [Fork them](https://github.com/Fuyuki0/unlimitedpipe-feeds).
 
 ![UnlimitedPipe detecting a price change, a new plan and a removed plan on a pricing page](https://raw.githubusercontent.com/Fuyuki0/unlimitedpipe/main/docs/assets/demo.svg)
 
@@ -240,10 +240,10 @@ unlimited publish feeds/*.yml --every 1h
 # Wrote .github/workflows/unlimitedpipe-feeds.yml (runs every 1h, cron "54 * * * *")
 # Wrote public/index.html
 # ...
-# Index: https://fuyuki0.github.io/unlimitedpipe-feed-demo/
+# Index: https://fuyuki0.github.io/unlimitedpipe-feeds/
 ```
 
-Live example: [the feed catalog](https://github.com/Fuyuki0/unlimitedpipe-feed-demo), 20 feeds published this way from one
+Live example: [the feed catalog](https://github.com/Fuyuki0/unlimitedpipe-feeds), 26 feeds published this way from one
 workflow. A feed whose source is down keeps its last good state while the others update. Each
 JSON Feed carries full events, so another pipeline can read it with `unlimited rss` and keep
 the provenance chain. Details, cron and manual setups:
@@ -360,7 +360,7 @@ src/unlimitedpipe/
 Runnable pipelines in [examples/](https://github.com/Fuyuki0/unlimitedpipe/tree/main/examples): website to JSON, an RSS news filter published as
 a feed, GitHub release watching, price monitoring with Discord alerts, competitor pricing
 watch, multi-source research into CSV, Bluesky trends, and a complete connector package. The
-[feed catalog](https://github.com/Fuyuki0/unlimitedpipe-feed-demo/tree/main/feeds) has 20
+[feed catalog](https://github.com/Fuyuki0/unlimitedpipe-feeds/tree/main/feeds) has 26
 more.
 
 ## Roadmap

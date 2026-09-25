@@ -40,7 +40,7 @@ Homepage = "https://github.com/Fuyuki0/unlimitedpipe"
 Documentation = "https://github.com/Fuyuki0/unlimitedpipe/tree/main/docs"
 Changelog = "https://github.com/Fuyuki0/unlimitedpipe/blob/main/CHANGELOG.md"
 Issues = "https://github.com/Fuyuki0/unlimitedpipe/issues"
-"Feed catalog" = "https://fuyuki0.github.io/unlimitedpipe-feed-demo/"
+"Feed catalog" = "https://fuyuki0.github.io/unlimitedpipe-feeds/"
 
 [project.scripts]
 unlimited = "unlimitedpipe.cli:main"
