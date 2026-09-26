@@ -6,3 +6,9 @@ dist/
 .pytest_cache/
 .ruff_cache/
 state/
+
+# research data and environment (private news items)
+research/data/
+research/ask/data/
+research/.venv/
+research/**/results/

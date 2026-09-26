@@ -1,0 +1,3 @@
+# Research only: not needed to use UnlimitedPipe.
+numpy>=2.0
+scikit-learn>=1.5
