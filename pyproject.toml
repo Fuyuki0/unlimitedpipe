@@ -56,6 +56,9 @@ path = "src/unlimitedpipe/_version.py"
 [tool.hatch.build.targets.wheel]
 packages = ["src/unlimitedpipe"]
 
+[tool.hatch.build.targets.wheel.force-include]
+"skills/unlimitedpipe/SKILL.md" = "unlimitedpipe/SKILL.md"
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"

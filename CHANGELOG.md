@@ -3,6 +3,20 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.9.0 - 2026-09-26
+
+"Setup": one command.
+
+- `install.sh`: `curl -fsSL .../install.sh | sh` installs `unlimited` with uv, pipx or pip,
+  then runs `unlimited setup`. It runs the command it just installed, even when an older one
+  comes first on the PATH, and asks its questions on the terminal when piped from curl.
+- `unlimited setup` checks the machine, then sets up (asking first, or all with `--yes`, each
+  step skippable with `--skip`): Playwright and Chromium; Ollama and a model sized for the
+  machine's memory (0.5B to 7B); the MCP tools and skill for Claude Code, registered with the
+  running copy; and an offline copy of the catalog with three months of archive. Steps already
+  done are skipped, so it is safe to run again. Without a terminal and `--yes` it only checks.
+- The agent skill ships inside the package.
+
 ## 0.8.0 - 2026-09-26
 
 "History": look back, and work offline.

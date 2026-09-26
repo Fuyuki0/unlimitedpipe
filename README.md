@@ -17,9 +17,18 @@ vulnerabilities, cloud incidents, earthquakes, rocket launches…), each one a Y
 
 ![UnlimitedPipe detecting a price change, a new plan and a removed plan on a pricing page](https://raw.githubusercontent.com/Fuyuki0/unlimitedpipe/main/docs/assets/demo.svg)
 
-```bash
-pip install unlimitedpipe
+Install and set everything up with one command (it asks before each step):
 
+```bash
+curl -fsSL https://raw.githubusercontent.com/Fuyuki0/unlimitedpipe/main/install.sh | sh
+```
+
+It installs the `unlimited` command and runs `unlimited setup`, which adds what this machine can
+use: the browser for JavaScript pages, a local AI model sized for its memory, the tools and skill
+for Claude Code, and an offline copy of the feed catalog. Already have Python? `pip install
+unlimitedpipe`, then `unlimited setup`.
+
+```bash
 unlimited web https://example.com
 unlimited web https://example.com | unlimited select title url | unlimited json
 unlimited rss https://hnrss.org/frontpage | unlimited grep AI | unlimited diff --only added
@@ -458,8 +467,10 @@ more.
   evidence.
 - **v0.7 Platforms**: `mastodon`, `telegram`, `youtube`, `reddit` and `x` through
   their official doors, `unlimited doctor`, and a skill file for AI agents.
-- **v0.8 History** (current): a monthly archive of every catalog item, `--since` for
+- **v0.8 History**: a monthly archive of every catalog item, `--since` for
   `search`, `ask` and the MCP tool, local catalogs, `mirror` and `serve` for offline use.
+- **v0.9 Setup** (current): a one-line installer and `unlimited setup`, which sets up the
+  browser, a local AI model, Claude Code's tools and skill, and an offline catalog.
 - **Next**: searching the archive from the web page,
   bot-network filtering for trends, a network of catalogs.
 

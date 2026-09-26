@@ -596,6 +596,30 @@ def serve_command(folder: Path, port: int, lan: bool) -> None:
     serve(folder, port=port, lan=lan)
 
 
+@cli.command("setup")
+@click.option("-y", "--yes", is_flag=True, help="Accept every step without asking.")
+@click.option(
+    "--skip",
+    type=click.Choice(["browser", "ai", "agents", "offline"]),
+    multiple=True,
+    help="Leave out a step (repeatable).",
+)
+@click.option("--catalog", default=None, help="Catalog to use (default: the public one).")
+def setup_command(yes: bool, skip: tuple[str, ...], catalog: str | None) -> None:
+    """Set up everything in one go: check the machine, add the browser for JavaScript pages,
+    a local AI model sized for this machine, the tools and skill for Claude Code, and an
+    offline copy of the feed catalog. Asks before each step; safe to run again.
+
+    \b
+    Examples:
+      unlimited setup
+      unlimited setup --yes --skip ai
+    """
+    from unlimitedpipe.onboard import Setup
+
+    Setup(yes=yes, skip=set(skip), catalog=catalog)()
+
+
 @cli.command("doctor")
 @click.option("--catalog", default=None, help="Catalog to check (default: the public one).")
 @click.option("--json", "as_json", is_flag=True, help="Print the checks as JSON, for agents.")
