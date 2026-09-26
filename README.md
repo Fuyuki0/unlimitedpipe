@@ -11,7 +11,7 @@ Collect public web data, transform it, detect what changed, and send it anywhere
 command line. Local-first, no account, no API key, no AI required. Think Yahoo Pipes, rebuilt
 as Unix commands.
 
-**See it running:** [26 free feeds](https://fuyuki0.github.io/unlimitedpipe-feeds/) (AI releases, exploited
+**See it running:** [26 free feeds](https://feeds.daemonfill.dev/) (AI releases, exploited
 vulnerabilities, cloud incidents, earthquakes, rocket launches…), each one a YAML file of about
 15 lines, updated hourly on GitHub Actions. [Fork them](https://github.com/Fuyuki0/unlimitedpipe-feeds).
 
@@ -240,7 +240,7 @@ unlimited publish feeds/*.yml --every 1h
 # Wrote .github/workflows/unlimitedpipe-feeds.yml (runs every 1h, cron "54 * * * *")
 # Wrote public/index.html
 # ...
-# Index: https://fuyuki0.github.io/unlimitedpipe-feeds/
+# Index: https://feeds.daemonfill.dev/
 ```
 
 Live example: [the feed catalog](https://github.com/Fuyuki0/unlimitedpipe-feeds), 26 feeds published this way from one
