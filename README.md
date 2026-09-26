@@ -23,6 +23,7 @@ pip install unlimitedpipe
 unlimited web https://example.com
 unlimited web https://example.com | unlimited select title url | unlimited json
 unlimited rss https://hnrss.org/frontpage | unlimited grep AI | unlimited diff --only added
+unlimited search "cyber attack"          # search 50+ live public-record feeds at once
 ```
 
 ## What is UnlimitedPipe?
@@ -136,12 +137,22 @@ blogs and news sites, and page text otherwise, with commented hints for narrowin
 | `unlimited file PATH...` | One `record` per JSON item, JSONL line or CSV row. `-` reads stdin. |
 | `unlimited github releases\|repo\|tags\|commits\|issues OWNER/REPO...` | Public GitHub data through the official REST API. Optional `GITHUB_TOKEN` for higher limits. |
 | `unlimited bluesky [WORDS...]` | New public Bluesky posts, live, from Bluesky's Jetstream (endless; `pip install "unlimitedpipe[live]"`) |
+| `unlimited sec insider-trades` | Insider purchases and sales as they are filed with the SEC: who, their role, shares, price and total value. Needs a contact email (`--contact` or `SEC_CONTACT`), as the SEC asks. |
+| `unlimited search WORDS...` | Items from every feed of a published catalog that mention all the words, in one request (default catalog: [feeds.daemonfill.dev](https://feeds.daemonfill.dev/)). `--list-feeds` lists its feeds. |
 | `unlimited inspect URL...` | An `inspection`: robots.txt, feeds, JSON-LD, products, sitemap, JavaScript, suggested commands. |
 
 Sources also read URLs from stdin, so crawls compose:
 
 ```bash
 unlimited web https://blog.example.com --emit links | unlimited grep 2026 | unlimited web
+```
+
+Insider trades read like news, straight from the filings:
+
+```text
+$ unlimited sec insider-trades --min-value 500000
+LENNAR CORP (LEN): Berkshire Hathaway Inc (10% owner) bought 1,679,700 shares at $81.19 ($136.4M)
+PubMatic, Inc. (PUBM): Rajeev K. Goel (CHIEF EXECUTIVE OFFICER, director, 10% owner) sold 50,453 shares at $18.45 ($930.6K)
 ```
 
 Public GitHub data comes through the official API, no account needed:
@@ -292,8 +303,9 @@ claude mcp add unlimitedpipe -- unlimited mcp                       # Claude Cod
 unlimited mcp competitor-watch.yml ai-news.yml                      # your pipelines as tools
 ```
 
-Built-in tools: `fetch_page` (products, documents or CSS selections), `read_feed`,
-`inspect_url` and `github`. Each pipeline file becomes a tool too, so an agent can ask "what
+Built-in tools: `search_feeds` and `list_feeds` (the whole public catalog, searched in one
+request: ask "did any company disclose a cyberattack to the SEC this week?"), `fetch_page`
+(products, documents or CSS selections), `read_feed`, `inspect_url` and `github`. Each pipeline file becomes a tool too, so an agent can ask "what
 changed on the competitor's pricing page?" and get the `diff` result. Results are events with
 their source URL, observation time and provenance. Built-in tools refuse private and local
 addresses, including through redirects, so a page an agent reads cannot steer it into your
@@ -350,7 +362,7 @@ documenting and submitting one.
 src/unlimitedpipe/
   event.py  component.py  engine.py  context.py  http.py  config.py  cli.py
   expr.py   watch.py  scaffold.py  publish.py  mcp.py
-  sources/    web, rss, file, github, bluesky, inspect
+  sources/    web, rss, file, github, sec, bluesky, search, inspect
   operators/  select, filter, map, grep, dedupe, limit, sort, diff, extract, count, trend
   outputs/    jsonl, json, csv, feed, webhook, sqlite, pretty
 ```
@@ -368,11 +380,13 @@ more.
 - **v0.1 Pipe**: engine, CLI, `web` with product detection, `rss`, `file`, `inspect`, eight
   operators, JSON/JSONL/CSV/feed outputs, YAML pipelines, plugins.
 - **v0.2 Feed**: `watch`, `new`, `publish` (free hosted feeds), the `github` connector.
-- **v0.3 Live** (current): `webhook` (Discord, Slack), `sqlite`, the trend engine
+- **v0.3 Live**: `webhook` (Discord, Slack), `sqlite`, the trend engine
   (`extract`, `count`, `trend`), the live `bluesky` source, and the MCP server for AI agents.
-- **Next**: optional AI operators (local models first), bot-network filtering for trends,
-  browser fetching and screenshot evidence, more connectors (SEC filings, DexScreener), a
-  public registry of feeds.
+- **v0.4 Search** (current): `search` across a whole feed catalog, `catalog` indexes,
+  `list_feeds`/`search_feeds` for AI agents, the `sec` source for insider trades, arithmetic
+  and `short()` in expressions.
+- **Next**: browser fetching for pages that need JavaScript, optional AI operators (local
+  models first), bot-network filtering for trends, a public registry of feeds.
 
 ## Responsible use
 

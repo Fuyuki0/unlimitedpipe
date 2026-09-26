@@ -30,6 +30,8 @@ BUILTINS: dict[str, str] = {
     "rss": "unlimitedpipe.sources.rss:Rss",
     "file": "unlimitedpipe.sources.file:File",
     "github": "unlimitedpipe.sources.github:GitHub",
+    "sec": "unlimitedpipe.sources.sec:Sec",
+    "search": "unlimitedpipe.sources.search:Search",
     "bluesky": "unlimitedpipe.sources.bluesky:Bluesky",
     "inspect": "unlimitedpipe.sources.inspect:Inspect",
     # operators

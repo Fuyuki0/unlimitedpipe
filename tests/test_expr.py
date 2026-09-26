@@ -58,6 +58,25 @@ EVENT = Event(
         ('date(1790500655624) == "2026-09-27T09:17:35Z"', True),
         ('date("Sun, 20 Sep 2026 09:17:35 GMT") == "2026-09-20T09:17:35Z"', True),
         ("date(name) == null", True),
+        ("stock - 1 == 2", True),
+        ("price - stock == 86", True),
+        ("stock * 2 + 1 == 7", True),
+        ("(stock + 1) * 2 == 8", True),
+        ("price / 2 == 44.5", True),
+        ("stock / 0 == null", True),
+        ("-stock == -3", True),
+        ("stock > -1", True),
+        ("missing - 1 == null", True),
+        ("name - 1 == null", True),
+        ("round(price / 7) == 13", True),
+        ("round(price / 7, 2) == 12.71", True),
+        ("abs(0 - stock) == 3", True),
+        ('short(1400000000) == "1.4B"', True),
+        ('short(7000000) == "7M"', True),
+        ('short(-250000) == "-250K"', True),
+        ('short(950) == "950"', True),
+        ('short(12.5) == "12.5"', True),
+        ("short(name) == null", True),
     ],
 )
 def test_expressions(expression, expected):
@@ -73,7 +92,7 @@ def test_parse_error_points_at_the_problem():
 
 
 def test_unknown_function_lists_known_ones():
-    with pytest.raises(ExpressionError, match="known: date, exists"):
+    with pytest.raises(ExpressionError, match="known: abs, date, exists"):
         compile_expression("shout(name)")
 
 
@@ -87,6 +106,8 @@ def test_function_arity_is_checked():
         compile_expression('replace(name, "a")')
     with pytest.raises(ExpressionError, match=r"lower\(\) takes 1 argument"):
         compile_expression("lower(name, name)")
+    with pytest.raises(ExpressionError, match=r"round\(\) takes 1 or 2 argument"):
+        compile_expression("round(price, 1, 2)")
 
 
 def test_empty_expression():

@@ -345,6 +345,27 @@ def new_command(ctx: click.Context, url: str, output: str | None, force: bool) -
         click.echo(f"  unlimited watch --every 1h {path}  # keep watching", err=True)
 
 
+def _load_for_publishing(pipelines: tuple[Path, ...]):
+    """Load pipelines to publish or index them. Secrets reach the workflow by name and are
+    read on GitHub at run time, so their values are not needed here: a missing one gets a
+    placeholder while the pipelines are checked."""
+    from unlimitedpipe.config import env_references, load_pipeline
+
+    missing = [
+        variable
+        for path in pipelines
+        if path.is_file()
+        for variable in env_references(path.read_text(encoding="utf-8"))
+        if variable not in os.environ
+    ]
+    try:
+        os.environ.update({v: f"https://secret.invalid/{v}" for v in missing})
+        return [(path, load_pipeline(path)) for path in pipelines]
+    finally:
+        for variable in missing:
+            os.environ.pop(variable, None)
+
+
 @cli.command("publish")
 @click.argument(
     "pipelines",
@@ -379,26 +400,17 @@ def publish_command(
       unlimited publish feeds/blog.yml --every 1h
       unlimited publish feeds/*.yml --every 1h        # a catalog of feeds
     """
-    from unlimitedpipe.config import env_references, load_pipeline
-    from unlimitedpipe.publish import INDEX_MARKER, github_repo, index_page, plan, workflow
+    from unlimitedpipe.publish import (
+        INDEX_MARKER,
+        github_repo,
+        index_page,
+        plan,
+        workflow,
+        write_catalog,
+    )
     from unlimitedpipe.watch import format_duration, parse_duration
 
-    # Secrets reach the workflow by name and are read on GitHub at run time, so publishing
-    # must not need their values here: a missing one gets a placeholder while the pipelines
-    # are checked.
-    missing = [
-        variable
-        for path in pipelines
-        if path.is_file()
-        for variable in env_references(path.read_text(encoding="utf-8"))
-        if variable not in os.environ
-    ]
-    try:
-        os.environ.update({v: f"https://secret.invalid/{v}" for v in missing})
-        items = [(path, load_pipeline(path)) for path in pipelines]
-    finally:
-        for variable in missing:
-            os.environ.pop(variable, None)
+    items = _load_for_publishing(pipelines)
     seconds = parse_duration(every)
     p = plan(items, seconds, name)
     workflow_path = p.root / p.workflow
@@ -412,6 +424,7 @@ def publish_command(
     if wrote_index:
         index.parent.mkdir(parents=True, exist_ok=True)
         index.write_text(index_page(p, format_duration(seconds)), encoding="utf-8")
+    write_catalog(p)
     if (ctx.obj or {}).get("quiet"):
         return
     repo = github_repo(p.root)
@@ -445,6 +458,34 @@ def publish_command(
             say(f"       … and {len(p.files) - 10} more")
     say()
     say("GitHub Pages needs a public repository on free GitHub plans.")
+
+
+@cli.command("catalog")
+@click.argument(
+    "pipelines",
+    nargs=-1,
+    required=True,
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+)
+@click.pass_context
+def catalog_command(ctx: click.Context, pipelines: tuple[Path, ...]) -> None:
+    """Index published feeds for search: write feeds.json next to them.
+
+    Lists every pipeline's feeds with its description, plus the latest items of all its JSON
+    Feeds, so `unlimited search` and AI agents can search the whole catalog in one request.
+    Workflows written by `unlimited publish` run it after every run.
+
+    \b
+    Examples:
+      unlimited catalog feeds/*.yml
+    """
+    from unlimitedpipe.publish import CATALOG, plan, write_catalog
+
+    p = plan(_load_for_publishing(pipelines), 3600)
+    written = write_catalog(p)
+    if not (ctx.obj or {}).get("quiet"):
+        where = p.site_dir / CATALOG
+        click.echo(f"Wrote {where}" if written else f"{where} is up to date", err=True)
 
 
 @cli.command("mcp")

@@ -48,9 +48,16 @@ A field on its own is true when it is present and not empty, zero or false.
 | `number(x)` | A number from text such as `"$1,299.00"`, `"1.299,00 €"` or `"฿1,299"` |
 | `exists(field)` | Whether the field is present at all (even if empty) |
 | `replace(text, pattern, replacement)` | Text with a regular expression substituted |
+| `round(x)`, `round(x, digits)` | A number rounded; `round(price * 1.07, 2)` |
+| `abs(x)` | A number without its sign |
+| `short(x)` | A number the way people say it: `1400000000` becomes `"1.4B"`, `250000` becomes `"250K"` |
 | `date(x)` | ISO 8601 UTC time from ISO 8601 or RFC 2822 text, or a Unix time in seconds or milliseconds (`published_at=date(properties.time)`) |
 
 `+` joins text and adds numbers: `"https://nvd.nist.gov/vuln/detail/" + cveID`.
+`-`, `*` and `/` do arithmetic, with the usual precedence and parentheses:
+`change=supply - supply_yesterday`, `"$" + short(shares * price)`. Put spaces around `-`,
+because `a-b` is read as a field name. A calculation with a missing or non-numeric value, or a
+division by zero, gives `null`.
 
 ## Without expression syntax
 

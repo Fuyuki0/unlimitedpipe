@@ -107,7 +107,46 @@ def builtin_tools() -> list[Tool]:
         source = GitHub(resource=args["resource"], repo=[args["repo"]], limit=limit)
         return await _run_source(source, ctx, limit)
 
+    async def search_feeds(args: dict[str, Any], ctx: Context) -> list[Event]:
+        from unlimitedpipe.sources.search import Search
+
+        limit = int(args.get("limit", 20))
+        words = str(args.get("query", "")).split()
+        feeds = [args["feed"]] if args.get("feed") else []
+        return await _run_source(Search(words=words, feed=feeds, limit=limit), ctx, limit)
+
+    async def list_feeds(args: dict[str, Any], ctx: Context) -> list[Event]:
+        from unlimitedpipe.sources.search import Search
+
+        return await _run_source(Search(list_feeds=True), ctx, 500)
+
     return [
+        Tool(
+            "search_feeds",
+            "Search the latest items of every feed in the public UnlimitedPipe catalog at once "
+            "(50+ feeds refreshed hourly: SEC company events and IPO filings, US sanctions, "
+            "lobbying, new rules, central banks, crypto hacks and exchange listings, security "
+            "advisories and data breaches, disasters, disease outbreaks, world and country "
+            "news). Every word must appear. Answers in one request; each result links to its "
+            f"source. Use list_feeds to see what each feed covers. {UNTRUSTED}",
+            {
+                "type": "object",
+                "properties": {
+                    "query": _string("Words to look for, e.g. 'Thailand flood'"),
+                    "feed": _string("Optional feed name to search only, from list_feeds"),
+                    "limit": {"type": "integer", "description": "Results (default 20)"},
+                },
+                "required": ["query"],
+            },
+            search_feeds,
+        ),
+        Tool(
+            "list_feeds",
+            "List the feeds of the public UnlimitedPipe catalog: name, what each follows, and "
+            "its RSS and JSON URLs (read one with read_feed).",
+            {"type": "object", "properties": {}},
+            list_feeds,
+        ),
         Tool(
             "fetch_page",
             "Read a public web page politely (robots.txt, rate limits). Returns product data "

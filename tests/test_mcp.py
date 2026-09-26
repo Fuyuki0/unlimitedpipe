@@ -46,7 +46,14 @@ def test_initialize_negotiates_the_protocol(server):
 
 def test_tools_list_and_errors(server):
     tools = call(server, "tools/list")["result"]["tools"]
-    assert [t["name"] for t in tools] == ["fetch_page", "read_feed", "inspect_url", "github"]
+    assert [t["name"] for t in tools] == [
+        "search_feeds",
+        "list_feeds",
+        "fetch_page",
+        "read_feed",
+        "inspect_url",
+        "github",
+    ]
     assert all(t["inputSchema"]["type"] == "object" for t in tools)
     assert call(server, "nope")["error"]["code"] == -32601
     assert call(server, "tools/call", {"name": "nope"})["error"]["code"] == -32602

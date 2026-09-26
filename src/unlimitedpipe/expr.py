@@ -17,6 +17,8 @@ Rules:
 * ``contains``, ``startswith``, ``endswith`` and ``in`` on text ignore case; ``==`` does not.
 * ``matches`` is a Python regular expression search.
 * ``+`` adds numbers and joins text: ``"https://nvd.nist.gov/vuln/detail/" + cveID``.
+  ``-``, ``*`` and ``/`` do arithmetic; put spaces around ``-`` (``a-b`` is a field name).
+* ``round(x, digits)``, ``abs(x)`` and ``short(x)`` (``1400000000`` -> ``"1.4B"``) shape numbers.
 * ``replace(text, pattern, replacement)`` substitutes a regular expression:
   ``replace(summary, "^arXiv:\\S+ .*? Abstract: ", "")``.
 * ``date(value)`` reads ISO 8601, RFC 2822 or Unix time (seconds or milliseconds) and
@@ -41,10 +43,10 @@ if TYPE_CHECKING:
 _TOKEN = re.compile(
     r"""
     (?P<ws>\s+)
-  | (?P<number>-?\d+(?:\.\d+)?(?![\w.]))
+  | (?P<number>\d+(?:\.\d+)?(?![\w.]))
   | (?P<string>"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')
   | (?P<quoted>`[^`]+`)
-  | (?P<op>==|!=|>=|<=|&&|\|\||[<>=!+])
+  | (?P<op>==|!=|>=|<=|&&|\|\||[<>=!+\-*/])
   | (?P<punct>[()\[\],])
   | (?P<word>[A-Za-z_$@][\w$@:-]*(?:\.[\w$@:-]+)*)
     """,
@@ -166,14 +168,25 @@ class _Parser:
         return left
 
     def parse_sum(self) -> Node:
+        node = self.parse_product()
+        while self.at("+", "-"):
+            _, op, _ = self.take()
+            right = self.parse_product()
+            # `+` also joins text; the other operators only do arithmetic.
+            node = ("add", node, right) if op == "+" else ("arith", op, node, right)
+        return node
+
+    def parse_product(self) -> Node:
         node = self.parse_value()
-        while self.at("+"):
-            self.take()
-            node = ("add", node, self.parse_value())
+        while self.at("*", "/"):
+            _, op, _ = self.take()
+            node = ("arith", op, node, self.parse_value())
         return node
 
     def parse_value(self) -> Node:
         kind, value, pos = self.take()
+        if kind == "op" and value == "-":
+            return ("arith", "-", ("lit", 0), self.parse_value())
         if kind == "lit":
             return ("lit", value)
         if kind == "path":
@@ -205,9 +218,10 @@ class _Parser:
             self.take()
             arguments.append(self.parse_or())
         self.expect(")")
-        expected = _ARITY.get(function, 1)
-        if len(arguments) != expected:
-            self.fail(f"{function}() takes {expected} argument(s), got {len(arguments)}", pos)
+        expected = _ARITY.get(function, (1,))
+        if len(arguments) not in expected:
+            count = " or ".join(str(n) for n in expected)
+            self.fail(f"{function}() takes {count} argument(s), got {len(arguments)}", pos)
         if function == "exists" and arguments[0][0] != "path":
             self.fail("exists() takes a field name", pos)
         return ("call", function, arguments)
@@ -295,6 +309,41 @@ def _date(value: Any) -> str | None:
     return iso(parse_time(value))
 
 
+def _round(value: Any, digits: Any = 0) -> float | int | None:
+    number, places = _as_number(value), _as_number(digits)
+    if number is None or places is None:
+        return None
+    rounded = round(number, int(places))
+    return int(rounded) if int(places) <= 0 else rounded
+
+
+def short_number(value: Any) -> str | None:
+    """A number the way people say it: 1400000000 -> "1.4B", 7000000 -> "7M", 950 -> "950"."""
+    number = _as_number(value)
+    if number is None:
+        return None
+    for size, suffix in ((1e12, "T"), (1e9, "B"), (1e6, "M"), (1e3, "K")):
+        if abs(number) >= size:
+            text = f"{number / size:.1f}".removesuffix(".0")
+            return text + suffix
+    return f"{number:.2f}".rstrip("0").rstrip(".")
+
+
+def _arith(op: str, left: Any, right: Any) -> float | int | None:
+    ln, rn = _as_number(left), _as_number(right)
+    if ln is None or rn is None:
+        return None
+    if op == "-":
+        result = ln - rn
+    elif op == "*":
+        result = ln * rn
+    elif rn == 0:
+        return None  # division by zero is missing, like any value that cannot be computed
+    else:
+        result = ln / rn
+    return int(result) if isinstance(result, float) and result.is_integer() else result
+
+
 def _replace(value: Any, pattern: Any, replacement: Any) -> Any:
     if not isinstance(value, str):
         return value
@@ -309,9 +358,12 @@ _FUNCTIONS: dict[str, Callable[..., Any]] = {
     "trim": lambda v: v.strip() if isinstance(v, str) else v,
     "len": lambda v: len(v) if isinstance(v, (str, list, dict)) else 0,
     "number": _number,
+    "round": _round,
+    "abs": lambda v: abs(n) if (n := _as_number(v)) is not None else None,
+    "short": short_number,
     "exists": lambda v: v is not MISSING,
 }
-_ARITY = {"replace": 3}
+_ARITY = {"replace": (3,), "round": (1, 2)}
 
 
 def _evaluate(node: Node, event: Event) -> Any:
@@ -343,6 +395,8 @@ def _evaluate(node: Node, event: Event) -> Any:
         if left is None or right is None:
             return None  # a missing part makes the whole value missing, not "None"
         return f"{left}{right}"
+    if tag == "arith":
+        return _arith(node[1], _evaluate(node[2], event), _evaluate(node[3], event))
     if tag == "call":
         if node[1] == "exists":
             return resolve(event, node[2][0][1]) is not MISSING

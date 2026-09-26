@@ -3,6 +3,29 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.4.0 - 2026-09-26
+
+"Search": ask a whole feed catalog at once, and insider trades from the SEC.
+
+- `unlimited search WORDS...` searches every feed of a published catalog in one request and
+  returns the matching items with their links; `--feed` narrows it, `--list-feeds` lists the
+  feeds. The default catalog is https://feeds.daemonfill.dev/ (50 feeds); `--catalog` or
+  `UNLIMITEDPIPE_CATALOG` points it at any site made by `unlimited publish`.
+- `unlimited catalog PIPELINES...` writes `feeds.json` next to published feeds: each feed with
+  its description and files, plus the latest items of all of them. `publish` writes it, and
+  its workflows refresh it after every run.
+- MCP: `search_feeds` and `list_feeds` let AI agents search the catalog ("did any company
+  disclose a cyberattack to the SEC this week?") without knowing which feed to read.
+- `sec insider-trades`: the latest Form 4 filings as readable trades, from each filing's own
+  data: who (and their role) bought or sold how many shares, at what price, for how much.
+  Open-market purchases and sales by default (`--code` for others), `--min-value` for big
+  ones. The SEC asks for a contact email: `--contact` or `SEC_CONTACT`.
+- Expressions: `-`, `*` and `/` (with precedence and parentheses), `round(x, digits)`,
+  `abs(x)` and `short(x)` (`1400000000` -> `"1.4B"`).
+- `publish` no longer needs secret values on the machine that publishes, only their names.
+- Published workflows check out the branch tip, so a run queued behind another no longer
+  works from stale outputs and fails to push.
+
 ## 0.3.2 - 2026-09-24
 
 The launch release.
