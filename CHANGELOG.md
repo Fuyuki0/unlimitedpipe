@@ -3,6 +3,21 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.8.0 - 2026-09-26
+
+"History": look back, and work offline.
+
+- `unlimited catalog` appends every new item to a monthly archive next to `feeds.json`
+  (`archive/YYYY-MM.jsonl`, by the item's date or when it was first seen), each once, with an
+  `archive/index.json` of the months. The files only grow at the end.
+- `search --since DATE` and `ask --since DATE` also search the archive from that month or day
+  on; the MCP tool `search_feeds` takes `since` too.
+- A catalog can be a local folder or file (`--catalog ~/feeds`), so search and ask work offline.
+- `unlimited mirror DIR` downloads a catalog (search index, archive, index page, and with
+  `--feeds` every feed file) into a folder; it never writes outside it.
+- `unlimited serve DIR` serves such a folder, search box included, on this machine or with
+  `--lan` to the local network, and warns when the address is public.
+
 ## 0.7.0 - 2026-09-26
 
 "Platforms": social platforms through their official doors, and a skill for AI agents.

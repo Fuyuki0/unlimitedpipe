@@ -19,7 +19,7 @@ from unlimitedpipe.context import Context
 from unlimitedpipe.errors import FetchError, UsageError
 from unlimitedpipe.event import Event
 from unlimitedpipe.operators.extract import STOPWORDS
-from unlimitedpipe.sources.search import catalog_url, load_catalog, word_pattern
+from unlimitedpipe.sources.search import catalog_url, items_since, load_catalog, word_pattern
 
 OLLAMA = "http://127.0.0.1:11434"
 ANTHROPIC = "https://api.anthropic.com/v1/messages"
@@ -134,7 +134,14 @@ class Ask(Source):
         "Who answers: a local Ollama model, Claude, or auto (Ollama if running)", default="auto"
     )
     model: str | None = opt("Model name (default: the best installed Ollama model)", default=None)
-    catalog: str | None = opt("Catalog site or feeds.json URL", default=None)
+    catalog: str | None = opt(
+        "Catalog: a site, a feeds.json URL, or a downloaded catalog folder", default=None
+    )
+    since: str | None = opt(
+        "Also use the archive back to this month or day (2026-08, 2026-08-15)",
+        default=None,
+        metavar="DATE",
+    )
     sources: int = opt("How many catalog items to give the model", default=10)
     timeout: float = opt("Seconds to wait for the answer", default=300.0)
 
@@ -143,6 +150,10 @@ class Ask(Source):
             raise ValueError('ask needs a question, e.g. unlimited ask "what happened in Bangkok?"')
         if not 1 <= self.sources <= 40:
             raise ValueError("--sources must be between 1 and 40")
+        if self.since:
+            from unlimitedpipe.archive import parse_since
+
+            self.since = parse_since(self.since)
 
     async def collect(self, ctx: Context):
         question = " ".join(self.question).strip()
@@ -153,6 +164,8 @@ class Ask(Source):
             if (error := ctx.fail(exc, source=self.name, url=url)) is not None:
                 yield error
             return
+        if self.since:
+            document = {**document, "items": await items_since(ctx, url, document, self.since)}
         items = rank(document, terms(question), self.sources)
         found = [
             {

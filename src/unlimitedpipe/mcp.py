@@ -113,7 +113,10 @@ def builtin_tools() -> list[Tool]:
         limit = int(args.get("limit", 20))
         words = str(args.get("query", "")).split()
         feeds = [args["feed"]] if args.get("feed") else []
-        return await _run_source(Search(words=words, feed=feeds, limit=limit), ctx, limit)
+        since = str(args["since"]) if args.get("since") else None
+        return await _run_source(
+            Search(words=words, feed=feeds, limit=limit, since=since), ctx, limit
+        )
 
     async def list_feeds(args: dict[str, Any], ctx: Context) -> list[Event]:
         from unlimitedpipe.sources.search import Search
@@ -134,6 +137,10 @@ def builtin_tools() -> list[Tool]:
                 "properties": {
                     "query": _string("Words to look for, e.g. 'Thailand flood'"),
                     "feed": _string("Optional feed name to search only, from list_feeds"),
+                    "since": _string(
+                        "Optional: also search the archive back to this month or day, "
+                        "e.g. 2026-08 or 2026-08-15 (the latest items are always searched)"
+                    ),
                     "limit": {"type": "integer", "description": "Results (default 20)"},
                 },
                 "required": ["query"],

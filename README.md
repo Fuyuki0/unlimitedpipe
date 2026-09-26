@@ -25,6 +25,7 @@ unlimited web https://example.com | unlimited select title url | unlimited json
 unlimited rss https://hnrss.org/frontpage | unlimited grep AI | unlimited diff --only added
 unlimited search "cyber attack"          # search 50+ live public-record feeds at once
 unlimited ask "what is the weather in Bangkok?"   # answered from the feeds, with sources
+unlimited mirror ~/feeds && unlimited search flood --catalog ~/feeds   # works offline
 ```
 
 ## What is UnlimitedPipe?
@@ -321,6 +322,27 @@ nothing leaves your machine: `ollama pull qwen2.5:3b`), otherwise Claude when
 `ANTHROPIC_API_KEY` is set. Small models make small mistakes, which is why the sources are
 always there to check. UnlimitedPipe itself never needs a model.
 
+## History and offline
+
+Every run of a published catalog also appends its new items to a monthly archive
+(`archive/2026-09.jsonl`), so questions can reach back further than the latest items:
+
+```bash
+unlimited search sanctions --since 2026-08
+unlimited ask "how did the Ebola outbreak develop?" --since 2026-07
+```
+
+A catalog also works without the internet. `mirror` downloads it into a folder, including the
+search index, the archive and the index page with its search box; `serve` shares that folder
+with other devices on the same network (a school, a newsroom, a disaster area):
+
+```bash
+unlimited mirror ~/feeds --since 2026-08            # run it again to refresh
+unlimited search flood --catalog ~/feeds            # offline
+unlimited ask "what happened in Bangkok?" --catalog ~/feeds   # offline, with a local model
+unlimited serve ~/feeds --lan                       # phones on the same Wi-Fi get the search page
+```
+
 ## Platforms
 
 Every platform is read through the door it offers: open APIs and feeds where they exist, and
@@ -434,9 +456,11 @@ more.
 - **v0.6 Browser**: `web --browser` renders pages that need JavaScript in a headless
   browser under the same rules (robots.txt, pacing, honest User-Agent), with screenshots as
   evidence.
-- **v0.7 Platforms** (current): `mastodon`, `telegram`, `youtube`, `reddit` and `x` through
+- **v0.7 Platforms**: `mastodon`, `telegram`, `youtube`, `reddit` and `x` through
   their official doors, `unlimited doctor`, and a skill file for AI agents.
-- **Next**: an archive of past items for search and `ask`, offline copies of a catalog,
+- **v0.8 History** (current): a monthly archive of every catalog item, `--since` for
+  `search`, `ask` and the MCP tool, local catalogs, `mirror` and `serve` for offline use.
+- **Next**: searching the archive from the web page,
   bot-network filtering for trends, a network of catalogs.
 
 ## Responsible use

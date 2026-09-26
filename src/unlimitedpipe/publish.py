@@ -350,7 +350,13 @@ def catalog(
                     }
                 )
     items.sort(key=lambda i: i["date"] or "", reverse=True)
-    return {"schema": CATALOG_SCHEMA, "title": p.name, "feeds": feeds, "items": items}
+    return {
+        "schema": CATALOG_SCHEMA,
+        "title": p.name,
+        "archive": "archive/index.json",  # every item ever listed, by month
+        "feeds": feeds,
+        "items": items,
+    }
 
 
 def _newest(path: Path) -> str | None:
@@ -362,9 +368,15 @@ def _newest(path: Path) -> str | None:
     return max((d for d in dates if isinstance(d, str)), default=None)
 
 
-def write_catalog(p: PublishPlan, results: dict[str, int] | None = None) -> Path | None:
-    """Write feeds.json into the site folder unless a pipeline writes a file of that name.
-    Returns the path when the file changed."""
+def write_catalog(
+    p: PublishPlan, results: dict[str, int] | None = None, archived: dict[str, int] | None = None
+) -> Path | None:
+    """Write feeds.json into the site folder unless a pipeline writes a file of that name, and
+    add new items to the archive (their counts per month go into ``archived``). Returns the
+    path when feeds.json changed."""
+    from unlimitedpipe import archive
+    from unlimitedpipe.event import utcnow
+
     if any(f.as_posix() == CATALOG for f in p.files):
         return None
     path = p.root / p.site_dir / CATALOG
@@ -373,6 +385,9 @@ def write_catalog(p: PublishPlan, results: dict[str, int] | None = None) -> Path
     except (OSError, ValueError):
         previous = None
     document = catalog(p, results=results, previous=previous)
+    added = archive.append(p.root / p.site_dir, document["items"], utcnow())
+    if archived is not None:
+        archived.update(added)
     text = json.dumps(document, ensure_ascii=False, indent=1) + "\n"
     if path.exists() and path.read_text(encoding="utf-8") == text:
         return None

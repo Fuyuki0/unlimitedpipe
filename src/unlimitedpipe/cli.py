@@ -512,11 +512,15 @@ def catalog_command(ctx: click.Context, pipelines: tuple[Path, ...], results: Pa
             code, _, path = line.strip().partition(" ")
             if code.lstrip("-").isdigit() and path:
                 codes[Path(path).resolve().relative_to(p.root).as_posix()] = int(code)
-    written = write_catalog(p, codes)
+    archived: dict[str, int] = {}
+    written = write_catalog(p, codes, archived)
     if (ctx.obj or {}).get("quiet"):
         return
     where = p.site_dir / CATALOG
     click.echo(f"Wrote {where}" if written else f"{where} is up to date", err=True)
+    if archived:
+        months = ", ".join(f"{n} in {m}" for m, n in archived.items())
+        click.echo(f"Archived {sum(archived.values())} new item(s): {months}", err=True)
     document = json.loads((p.root / where).read_text(encoding="utf-8"))
     in_actions = os.environ.get("GITHUB_ACTIONS") == "true"
     for feed in document.get("feeds", []):
@@ -524,6 +528,72 @@ def catalog_command(ctx: click.Context, pipelines: tuple[Path, ...], results: Pa
         if state.get("status") in ("failing", "partial"):
             message = f"{feed['name']}: {state['status']} since {state.get('since')}"
             click.echo(f"::warning::{message}" if in_actions else f"warning: {message}", err=True)
+
+
+@cli.command("mirror")
+@click.argument("folder", type=click.Path(file_okay=False, path_type=Path))
+@click.option("--catalog", default=None, help="Catalog to copy (default: the public one).")
+@click.option("--since", default=None, metavar="DATE", help="Only archive months from here on.")
+@click.option("--feeds", is_flag=True, help="Also copy every feed file (RSS and JSON).")
+@click.pass_context
+def mirror_command(
+    ctx: click.Context, folder: Path, catalog: str | None, since: str | None, feeds: bool
+) -> None:
+    """Download a feed catalog into a folder, to search and ask it without the internet.
+
+    Copies feeds.json (the feeds and their latest items), the archive of past items and the
+    index page. Run it again to refresh. Then: `unlimited search WORDS --catalog FOLDER`,
+    `unlimited ask QUESTION --catalog FOLDER`, or `unlimited serve FOLDER`.
+
+    \b
+    Examples:
+      unlimited mirror ~/feeds
+      unlimited mirror ~/feeds --since 2026-08 --feeds
+    """
+    from unlimitedpipe.archive import parse_since
+    from unlimitedpipe.context import Context
+    from unlimitedpipe.offline import mirror
+
+    if since:
+        try:
+            since = parse_since(since)
+        except ValueError as exc:
+            raise UsageError(str(exc)) from None
+
+    async def go() -> dict:
+        run = Context(quiet=bool((ctx.obj or {}).get("quiet")))
+        try:
+            return await mirror(run, catalog, folder, since=since, feeds=feeds)
+        finally:
+            await run.aclose()
+
+    copied = asyncio.run(go())
+    click.echo(
+        f"Copied {copied['files']} file(s) into {folder}: {copied['items']} latest items, "
+        f"{copied['months']} archive month(s).",
+        err=True,
+    )
+    click.echo(
+        f"Try: unlimited search WORDS --catalog {folder}   or: unlimited serve {folder}", err=True
+    )
+
+
+@cli.command("serve")
+@click.argument("folder", type=click.Path(exists=True, file_okay=False, path_type=Path))
+@click.option("--port", default=8765, show_default=True, help="Port to listen on.")
+@click.option("--lan", is_flag=True, help="Also serve other devices on your local network.")
+def serve_command(folder: Path, port: int, lan: bool) -> None:
+    """Serve a downloaded catalog (with its search box) on this machine, or with --lan to
+    phones and computers on the same network. Read-only; Ctrl+C stops it.
+
+    \b
+    Examples:
+      unlimited serve ~/feeds
+      unlimited serve ~/feeds --lan
+    """
+    from unlimitedpipe.offline import serve
+
+    serve(folder, port=port, lan=lan)
 
 
 @cli.command("doctor")
