@@ -73,6 +73,12 @@ class Context:
         return self._cache_dir
 
     @property
+    def transport(self) -> Any:
+        """The HTTP transport for clients that talk to model APIs rather than the public web
+        (None outside tests)."""
+        return self._transport
+
+    @property
     def http(self) -> HttpClient:
         """Shared HTTP client: per-host rate limits, retries, robots.txt, conditional requests."""
         if self._http is None:

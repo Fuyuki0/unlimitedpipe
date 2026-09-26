@@ -181,3 +181,12 @@ def test_ai_agents_can_search_the_catalog(web, tmp_path, monkeypatch):
     result = asyncio.run(server.handle(message))["result"]
     [event] = result["structuredContent"]["events"]
     assert event["data"]["title"] == "M7.0 Loyalty Islands"
+
+
+def test_the_index_page_searches_the_catalog_in_the_browser(repo):
+    from unlimitedpipe.publish import index_page
+
+    page = index_page(repo_plan(repo), "1h")
+    assert '<input id="q" type="search"' in page
+    assert 'fetch("feeds.json")' in page
+    assert "textContent" in page and "innerHTML" not in page  # feed text is never parsed as HTML

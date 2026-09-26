@@ -24,6 +24,7 @@ unlimited web https://example.com
 unlimited web https://example.com | unlimited select title url | unlimited json
 unlimited rss https://hnrss.org/frontpage | unlimited grep AI | unlimited diff --only added
 unlimited search "cyber attack"          # search 50+ live public-record feeds at once
+unlimited ask "what is the weather in Bangkok?"   # answered from the feeds, with sources
 ```
 
 ## What is UnlimitedPipe?
@@ -139,6 +140,7 @@ blogs and news sites, and page text otherwise, with commented hints for narrowin
 | `unlimited bluesky [WORDS...]` | New public Bluesky posts, live, from Bluesky's Jetstream (endless; `pip install "unlimitedpipe[live]"`) |
 | `unlimited sec insider-trades` | Insider purchases and sales as they are filed with the SEC: who, their role, shares, price and total value. Needs a contact email (`--contact` or `SEC_CONTACT`), as the SEC asks. |
 | `unlimited search WORDS...` | Items from every feed of a published catalog that mention all the words, in one request (default catalog: [feeds.daemonfill.dev](https://feeds.daemonfill.dev/)). `--list-feeds` lists its feeds. |
+| `unlimited ask QUESTION` | An `answer` to a question from a feed catalog, explained by a local model (Ollama) or Claude from numbered sources, which are always listed with their links. Optional: see [Ask](#ask). |
 | `unlimited inspect URL...` | An `inspection`: robots.txt, feeds, JSON-LD, products, sitemap, JavaScript, suggested commands. |
 
 Sources also read URLs from stdin, so crawls compose:
@@ -293,6 +295,27 @@ from. Until then, pipe events into any LLM command-line tool:
 unlimited web https://example.com/changelog | jq -r .data.text | llm "What changed?"
 ```
 
+## Ask
+
+`ask` answers a question from the feed catalog. Finding the facts is plain code, the same
+matching as `search`; a model only explains what was found, citing numbered sources that are
+always printed with their links. When nothing in the catalog matches, it says so without asking
+a model.
+
+```text
+$ unlimited ask "what is the weather in Bangkok?"
+The weather in Bangkok is currently 24°C, with 2.1 mm of rain expected in the next 6 hours.
+
+Sources (answered by qwen2.5:0.5b)
+[1] Bangkok: rain, 24°C now  thailand-weather · 2026-09-26
+    https://www.yr.no/en/forecast/daily-table/13.75,100.50
+```
+
+It uses a local model through [Ollama](https://ollama.com) when it is running (free, and
+nothing leaves your machine: `ollama pull qwen2.5:3b`), otherwise Claude when
+`ANTHROPIC_API_KEY` is set. Small models make small mistakes, which is why the sources are
+always there to check. UnlimitedPipe itself never needs a model.
+
 ## For AI agents (MCP)
 
 `unlimited mcp` is a Model Context Protocol server, so Claude, Cursor and other agents can
@@ -362,7 +385,7 @@ documenting and submitting one.
 src/unlimitedpipe/
   event.py  component.py  engine.py  context.py  http.py  config.py  cli.py
   expr.py   watch.py  scaffold.py  publish.py  mcp.py
-  sources/    web, rss, file, github, sec, bluesky, search, inspect
+  sources/    web, rss, file, github, sec, bluesky, search, ask, inspect
   operators/  select, filter, map, grep, dedupe, limit, sort, diff, extract, count, trend
   outputs/    jsonl, json, csv, feed, webhook, sqlite, pretty
 ```
@@ -382,11 +405,13 @@ more.
 - **v0.2 Feed**: `watch`, `new`, `publish` (free hosted feeds), the `github` connector.
 - **v0.3 Live**: `webhook` (Discord, Slack), `sqlite`, the trend engine
   (`extract`, `count`, `trend`), the live `bluesky` source, and the MCP server for AI agents.
-- **v0.4 Search** (current): `search` across a whole feed catalog, `catalog` indexes,
+- **v0.4 Search**: `search` across a whole feed catalog, `catalog` indexes,
   `list_feeds`/`search_feeds` for AI agents, the `sec` source for insider trades, arithmetic
   and `short()` in expressions.
-- **Next**: browser fetching for pages that need JavaScript, optional AI operators (local
-  models first), bot-network filtering for trends, a public registry of feeds.
+- **v0.5 Ask** (current): `ask` answers questions from the catalog with a local model or
+  Claude, always with sources; published index pages get a search box.
+- **Next**: feed health checks, browser fetching for pages that need JavaScript, bot-network
+  filtering for trends, a public registry of feeds.
 
 ## Responsible use
 

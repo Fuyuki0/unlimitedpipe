@@ -3,6 +3,19 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.5.0 - 2026-09-26
+
+"Ask": questions answered from the feeds, with sources.
+
+- `unlimited ask QUESTION`: finds the catalog items that match the question (plain code, the
+  same matching as `search`, keeping only strong matches), then has a model explain them from
+  numbered sources, which are always listed with their links. A local model through Ollama
+  when it is running (the best installed one, or `--model`), otherwise Claude with
+  `ANTHROPIC_API_KEY` (`--provider` to choose). With nothing relevant, no model is asked.
+- Index pages written by `publish` get a search box that searches `feeds.json` in the
+  visitor's browser: no server, no tracking.
+- `search` also matches the name of an item's feed: "insider" finds every insider trade.
+
 ## 0.4.0 - 2026-09-26
 
 "Search": ask a whole feed catalog at once, and insider trades from the SEC.

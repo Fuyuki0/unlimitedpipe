@@ -47,8 +47,11 @@ class Pretty(Output):
         if self._count and not compact:
             self._console.print()
         self._last_type = event.type
+        wrap = event.type == "answer"  # prose to read, not a line per record
         for line in lines:
-            self._console.print(line, overflow="ellipsis", no_wrap=True, crop=True)
+            self._console.print(
+                line, overflow="fold" if wrap else "ellipsis", no_wrap=not wrap, crop=not wrap
+            )
         self._count += 1
 
 
@@ -272,6 +275,28 @@ def _trend(event: Event):
     ]
 
 
+def _answer(event: Event):
+    from rich.text import Text
+
+    d = event.data
+    lines = [Text(str(d.get("answer") or ""))]
+    sources = d.get("sources") or []
+    if sources:
+        lines.append(Text(""))
+        lines.append(_dim("Sources" + (f" (answered by {d['model']})" if d.get("model") else "")))
+        for s in sources:
+            lines.append(
+                Text.assemble(
+                    (f"[{s.get('n')}] ", "bold"),
+                    str(s.get("title") or ""),
+                    (f"  {s.get('feed')} · {(s.get('date') or '')[:10]}", "dim"),
+                )
+            )
+            if s.get("link"):
+                lines.append(_dim(f"    {s['link']}"))
+    return lines
+
+
 def _record(event: Event):
     from rich.text import Text
 
@@ -298,4 +323,5 @@ _RENDERERS: dict[str, Callable[[Event], list[Any]]] = {
     "post": _post,
     "count": _count,
     "trend": _trend,
+    "answer": _answer,
 }

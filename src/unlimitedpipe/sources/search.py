@@ -23,7 +23,7 @@ def catalog_url(base: str | None) -> str:
 
 
 @lru_cache(maxsize=256)
-def _word(word: str) -> re.Pattern[str]:
+def word_pattern(word: str) -> re.Pattern[str]:
     # A word matches at the start of a word ("hack" finds "hacks", not "Thackeray"). Scripts
     # written without spaces, such as Thai or Chinese, match anywhere.
     if word.isascii():
@@ -31,10 +31,11 @@ def _word(word: str) -> re.Pattern[str]:
     return re.compile(re.escape(word), re.IGNORECASE)
 
 
-def matches(item: dict[str, Any], words: list[str]) -> bool:
-    """Every word appears in the title or summary, ignoring case."""
-    text = f"{item.get('title') or ''} {item.get('summary') or ''}"
-    return all(_word(word).search(text) for word in words)
+def matches(item: dict[str, Any], words: list[str], about: str = "") -> bool:
+    """Every word appears in the title or summary, or in the name of the item's feed
+    ("insider" finds every item of insider-trades), ignoring case."""
+    text = f"{item.get('title') or ''} {item.get('summary') or ''} {about}"
+    return all(word_pattern(word).search(text) for word in words)
 
 
 async def load_catalog(ctx: Context, url: str) -> dict[str, Any]:
@@ -111,11 +112,17 @@ class Search(Source):
                     },
                 )
             return
+        # A feed's name counts ("insider" finds insider-trades); its description would match
+        # too much ("hack" in "Hacker News").
+        about = {
+            f.get("name"): str(f.get("name", "")).replace("-", " ")
+            for f in document.get("feeds", [])
+        }
         found = 0
         for item in document.get("items", []):
             if wanted and item.get("feed") not in wanted:
                 continue
-            if not matches(item, self.words):
+            if not matches(item, self.words, about.get(item.get("feed"), "")):
                 continue
             yield Event(
                 source=self.name,
