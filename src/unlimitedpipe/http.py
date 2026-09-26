@@ -429,13 +429,16 @@ class HttpClient:
         self,
         url: str,
         *,
-        json_body: Any,
+        json_body: Any = None,
+        data: dict[str, str] | None = None,
+        auth: tuple[str, str] | None = None,
         headers: dict[str, str] | None = None,
         timeout: float = 20.0,
         retries: int = 2,
         secret_url: bool = True,
     ) -> Response:
-        """POST JSON with the same per-host throttling and retries as ``get``.
+        """POST JSON (or a form, with ``data``) with the same per-host throttling and retries as
+        ``get``. ``auth`` is HTTP Basic credentials, as OAuth token endpoints expect.
 
         With ``secret_url`` (the default: webhook URLs contain credentials), messages show only
         the host.
@@ -447,7 +450,14 @@ class HttpClient:
             await self._throttle(host, self.interval)
             started = time.monotonic()
             try:
-                raw = await self._client.post(url, json=json_body, headers=headers, timeout=timeout)
+                raw = await self._client.post(
+                    url,
+                    json=json_body if data is None else None,
+                    data=data,
+                    headers=headers,
+                    timeout=timeout,
+                    auth=httpx.BasicAuth(*auth) if auth else httpx.USE_CLIENT_DEFAULT,
+                )
             except (httpx.InvalidURL, httpx.UnsupportedProtocol):
                 raise FetchError(f"invalid URL {shown}", url=shown) from None
             except httpx.HTTPError as exc:
@@ -479,7 +489,7 @@ class HttpClient:
                     f"{shown} returned HTTP {response.status}" + (f": {detail}" if detail else ""),
                     url=shown,
                     hint="check that the webhook URL is complete and still active"
-                    if response.status in (401, 403, 404)
+                    if secret_url and response.status in (401, 403, 404)
                     else None,
                 )
             return response

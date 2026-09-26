@@ -526,6 +526,46 @@ def catalog_command(ctx: click.Context, pipelines: tuple[Path, ...], results: Pa
             click.echo(f"::warning::{message}" if in_actions else f"warning: {message}", err=True)
 
 
+@cli.command("doctor")
+@click.option("--catalog", default=None, help="Catalog to check (default: the public one).")
+@click.option("--json", "as_json", is_flag=True, help="Print the checks as JSON, for agents.")
+def doctor_command(catalog: str | None, as_json: bool) -> None:
+    """Check what works on this machine: network, optional extras, local AI and API keys,
+    with the command that fixes each missing piece. Values of keys are never shown.
+
+    \b
+    Examples:
+      unlimited doctor
+      unlimited doctor --json
+    """
+    from dataclasses import asdict
+
+    from unlimitedpipe.doctor import run_checks
+
+    checks = run_checks(catalog)
+    if as_json:
+        click.echo(json.dumps([asdict(c) for c in checks], indent=1))
+        return
+    area = None
+    for check in checks:
+        if check.area != area:
+            area = check.area
+            click.echo(click.style(f"\n{area}", bold=True))
+        mark = (
+            click.style("✓", fg="green")
+            if check.ok
+            else (click.style("·", fg="yellow") if check.optional else click.style("✗", fg="red"))
+        )
+        click.echo(f"  {mark} {check.name:<26} {check.detail}")
+        if not check.ok and check.fix:
+            click.echo(click.style(f"      → {check.fix}", dim=True))
+    broken = [c for c in checks if not c.ok and not c.optional]
+    click.echo()
+    click.echo("Everything needed works." if not broken else f"{len(broken)} problem(s) to fix.")
+    if broken:
+        raise SystemExit(1)
+
+
 @cli.command("mcp")
 @click.argument("pipelines", nargs=-1, type=click.Path(exists=True, dir_okay=False, path_type=Path))
 @click.option("--no-builtin", is_flag=True, help="Serve only the given pipelines.")

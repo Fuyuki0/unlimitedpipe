@@ -3,6 +3,25 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.7.0 - 2026-09-26
+
+"Platforms": social platforms through their official doors, and a skill for AI agents.
+
+- `mastodon`: hashtags, accounts and trending posts from any Mastodon server's open API.
+- `telegram`: posts of public Telegram channels, from their public web preview.
+- `youtube`: a channel's uploads or a search, through the official Data API (free key).
+- `reddit`: subreddit listings and searches through Reddit's official API, signed in as the
+  user's own free app (Reddit's robots.txt disallows crawling; its terms allow API use for
+  non-commercial purposes).
+- `x`: searches and accounts through X's official API, with the user's own bearer token.
+- All of them emit `post` (or `video`) events with the same fields: title, text, author, url,
+  time, tags, links and counts, so pipes treat every platform alike.
+- `unlimited doctor` (and `--json`) checks the network, the catalog, optional extras, local AI
+  and API keys, with the command that fixes each missing piece; key values are never shown.
+- `skills/unlimitedpipe/SKILL.md` teaches AI agents the commands, and
+  `docs/install-for-agents.md` is a one-line install for them. `docs/platforms.md` explains
+  what each platform needs.
+
 ## 0.6.0 - 2026-09-26
 
 "Browser": public pages that need JavaScript.

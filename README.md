@@ -137,6 +137,11 @@ blogs and news sites, and page text otherwise, with commented hints for narrowin
 | `unlimited rss URL...` | One `entry` per item of an RSS, Atom or JSON Feed. Given a page, uses the feed it advertises. |
 | `unlimited file PATH...` | One `record` per JSON item, JSONL line or CSV row. `-` reads stdin. |
 | `unlimited github releases\|repo\|tags\|commits\|issues OWNER/REPO...` | Public GitHub data through the official REST API. Optional `GITHUB_TOKEN` for higher limits. |
+| `unlimited mastodon tag:NAME\|@user\|trending` | Public Mastodon posts through the open API, no key. |
+| `unlimited telegram CHANNEL...` | Posts of public Telegram channels, from their public web preview. |
+| `unlimited youtube videos\|search ...` | Videos through the official YouTube Data API (free key: `YOUTUBE_API_KEY`). |
+| `unlimited reddit r/NAME...` | Posts through Reddit's official API with your own free app (`REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET`). |
+| `unlimited x search\|posts ...` | Posts through X's official API with your own key (`X_BEARER_TOKEN`; reading needs a paid plan). |
 | `unlimited bluesky [WORDS...]` | New public Bluesky posts, live, from Bluesky's Jetstream (endless; `pip install "unlimitedpipe[live]"`) |
 | `unlimited sec insider-trades` | Insider purchases and sales as they are filed with the SEC: who, their role, shares, price and total value. Needs a contact email (`--contact` or `SEC_CONTACT`), as the SEC asks. |
 | `unlimited search WORDS...` | Items from every feed of a published catalog that mention all the words, in one request (default catalog: [feeds.daemonfill.dev](https://feeds.daemonfill.dev/)). `--list-feeds` lists its feeds. |
@@ -316,6 +321,16 @@ nothing leaves your machine: `ollama pull qwen2.5:3b`), otherwise Claude when
 `ANTHROPIC_API_KEY` is set. Small models make small mistakes, which is why the sources are
 always there to check. UnlimitedPipe itself never needs a model.
 
+## Platforms
+
+Every platform is read through the door it offers: open APIs and feeds where they exist, and
+your own key where a platform requires one (YouTube, Reddit, X). Nothing tries to get around
+logins, paywalls or blocks. [docs/platforms.md](https://github.com/Fuyuki0/unlimitedpipe/blob/main/docs/platforms.md)
+has the full table, and how to feed other tools' JSON into UnlimitedPipe's change detection.
+
+`unlimited doctor` shows what works on your machine (network, browser, local AI, keys) and the
+command that fixes each missing piece.
+
 ## For AI agents (MCP)
 
 `unlimited mcp` is a Model Context Protocol server, so Claude, Cursor and other agents can
@@ -325,6 +340,11 @@ read the public web through UnlimitedPipe and cite where every value came from:
 claude mcp add unlimitedpipe -- unlimited mcp                       # Claude Code
 unlimited mcp competitor-watch.yml ai-news.yml                      # your pipelines as tools
 ```
+
+To give an agent UnlimitedPipe as a skill, tell it:
+`Install UnlimitedPipe: https://raw.githubusercontent.com/Fuyuki0/unlimitedpipe/main/docs/install-for-agents.md`.
+It installs the command, runs `unlimited doctor`, and learns the commands from
+[`skills/unlimitedpipe/SKILL.md`](https://github.com/Fuyuki0/unlimitedpipe/blob/main/skills/unlimitedpipe/SKILL.md).
 
 Built-in tools: `search_feeds` and `list_feeds` (the whole public catalog, searched in one
 request: ask "did any company disclose a cyberattack to the SEC this week?"), `fetch_page`
@@ -385,7 +405,8 @@ documenting and submitting one.
 src/unlimitedpipe/
   event.py  component.py  engine.py  context.py  http.py  config.py  cli.py
   expr.py   watch.py  scaffold.py  publish.py  mcp.py
-  sources/    web, rss, file, github, sec, bluesky, search, ask, inspect
+  sources/    web, rss, file, github, sec, bluesky, mastodon, telegram, youtube, reddit, x,
+              search, ask, inspect
   operators/  select, filter, map, grep, dedupe, limit, sort, diff, extract, count, trend
   outputs/    jsonl, json, csv, feed, webhook, sqlite, pretty
 ```
@@ -410,9 +431,11 @@ more.
   and `short()` in expressions.
 - **v0.5 Ask**: `ask` answers questions from the catalog with a local model or Claude,
   always with sources; published index pages get a search box; feed health in the catalog.
-- **v0.6 Browser** (current): `web --browser` renders pages that need JavaScript in a headless
+- **v0.6 Browser**: `web --browser` renders pages that need JavaScript in a headless
   browser under the same rules (robots.txt, pacing, honest User-Agent), with screenshots as
   evidence.
+- **v0.7 Platforms** (current): `mastodon`, `telegram`, `youtube`, `reddit` and `x` through
+  their official doors, `unlimited doctor`, and a skill file for AI agents.
 - **Next**: an archive of past items for search and `ask`, offline copies of a catalog,
   bot-network filtering for trends, a network of catalogs.
 
