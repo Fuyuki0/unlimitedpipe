@@ -1,7 +1,7 @@
 """Publish public-domain records to the Hugging Face dataset unlimitedpipe/public-records.
 
 One year at a time: collect it, write one Parquet file, upload it, delete the local copy
-(so a small disk is enough). Statistics per year go to `stats.json` in the dataset, which the
+(so a small disk is enough). Statistics go to `stats/SOURCE.json` in the dataset, which the
 dataset card is built from. Needs `hf auth login` with write access to the organization.
 
     research/.venv/bin/python research/public/publish.py federal_register 2026 2000
@@ -39,12 +39,17 @@ def read_jsonl_zst(path: Path):
             yield json.loads(line)
 
 
-def stats_of(api: HfApi) -> dict:
-    try:
-        path = api.hf_hub_download(REPO, "stats.json", repo_type="dataset")
-        return json.loads(Path(path).read_text())
-    except Exception:
-        return {}
+def stats_of(api: HfApi, source: str) -> dict:
+    """What a source has published: stats/SOURCE.json, one file per source, so collectors of
+    different sources can run at the same time without overwriting each other."""
+    for path in (f"stats/{source}.json", "stats.json"):  # stats.json: the first runs'
+        try:
+            local = api.hf_hub_download(REPO, path, repo_type="dataset")
+        except Exception:
+            continue
+        stats = json.loads(Path(local).read_text())
+        return {k: v for k, v in stats.items() if k.startswith(f"{source}/")}
+    return {}
 
 
 def federal_register_year(year: int, work: Path, client: httpx.Client) -> tuple[Path, dict]:
@@ -107,7 +112,7 @@ def publish(api: HfApi, stats: dict, key: str, path: Path, counts: dict) -> None
     stats[key] = counts
     api.upload_file(
         path_or_fileobj=json.dumps(stats, indent=1).encode(),
-        path_in_repo="stats.json",
+        path_in_repo=f"stats/{key.split('/')[0]}.json",
         repo_id=REPO,
         repo_type="dataset",
         commit_message=f"stats: {key}",
@@ -120,7 +125,7 @@ def main_sec(first: int, last: int) -> None:
 
     api = HfApi()
     api.create_repo(REPO, repo_type="dataset", private=False, exist_ok=True)
-    stats = stats_of(api)
+    stats = stats_of(api, "sec_10k")
     client = sec_10k.Polite(os.environ["SEC_CONTACT"])
     step = -1 if last < first else 1
     for year in range(first, last + step, step):
@@ -146,7 +151,7 @@ def main(source: str, first: int, last: int) -> None:
         return main_sec(first, last)
     api = HfApi()
     api.create_repo(REPO, repo_type="dataset", private=False, exist_ok=True)
-    stats = stats_of(api)
+    stats = stats_of(api, source)
     step = -1 if last < first else 1
     with httpx.Client(
         headers={"User-Agent": federal_register.AGENT}, follow_redirects=True, timeout=120
@@ -159,24 +164,8 @@ def main(source: str, first: int, last: int) -> None:
             work = Path(tempfile.mkdtemp(prefix="public-records-"))
             try:
                 path, counts = federal_register_year(year, work, client)
-                if not counts["documents"]:
-                    continue
-                api.upload_file(
-                    path_or_fileobj=str(path),
-                    path_in_repo=f"{source}/{year}.parquet",
-                    repo_id=REPO,
-                    repo_type="dataset",
-                    commit_message=f"{source} {year}: {counts['documents']:,} documents",
-                )
-                stats[key] = counts
-                api.upload_file(
-                    path_or_fileobj=json.dumps(stats, indent=1).encode(),
-                    path_in_repo="stats.json",
-                    repo_id=REPO,
-                    repo_type="dataset",
-                    commit_message=f"stats: {key}",
-                )
-                print(json.dumps({"published": key, **counts}), flush=True)
+                if counts["documents"]:
+                    publish(api, stats, key, path, counts)
             finally:
                 shutil.rmtree(work, ignore_errors=True)
 

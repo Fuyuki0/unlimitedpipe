@@ -76,9 +76,12 @@ content beyond dropping near-empty ones.
 
 def main() -> None:
     api = HfApi()
-    stats = json.loads(
-        Path(api.hf_hub_download(REPO, "stats.json", repo_type="dataset")).read_text()
-    )
+    stats = {}
+    files = api.list_repo_files(REPO, repo_type="dataset")
+    for name in ["stats.json"] + sorted(f for f in files if f.startswith("stats/")):
+        if name in files:
+            path = api.hf_hub_download(REPO, name, repo_type="dataset")
+            stats.update(json.loads(Path(path).read_text()))
     parts = collections.defaultdict(lambda: {"documents": 0, "words": 0, "keys": []})
     for key, counts in stats.items():
         part = parts[key.split("/")[0]]
