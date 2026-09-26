@@ -16,9 +16,10 @@ from pathlib import Path
 
 import click
 
+from unlimitedpipe.sources.search import offline_copy
+
 STEPS = ("browser", "ai", "agents", "offline")
 SKILL_TARGET = Path("~/.claude/skills/unlimitedpipe/SKILL.md")
-OFFLINE_DIR = Path("~/unlimited/catalog")
 
 
 def memory_gb() -> float | None:
@@ -239,12 +240,12 @@ class Setup:
         from unlimitedpipe.context import Context
         from unlimitedpipe.offline import mirror
 
-        folder = OFFLINE_DIR.expanduser()
+        folder = offline_copy()  # search and ask fall back to it when offline
         if "offline" in self.skip or not self.ask(
             f"Download the catalog and 3 months of its archive into {folder} (a few MB)?"
         ):
             self.skipped.append("offline")
-            return self.note(f"later: unlimited mirror {folder}")
+            return self.note("later: unlimited mirror")
         since = (datetime.now(UTC) - timedelta(days=90)).strftime("%Y-%m")
 
         async def go() -> dict:
@@ -258,20 +259,20 @@ class Setup:
             copied = asyncio.run(go())
         except Exception as exc:  # a network problem must not end the setup
             self.skipped.append("offline")
-            return self.note(f"could not download it now ({exc}); later: unlimited mirror {folder}")
+            return self.note(f"could not download it now ({exc}); later: unlimited mirror")
         self.done.append("offline")
         self.ok(f"{copied['items']} items and {copied['months']} archive month(s) in {folder}")
 
     def finish(self) -> None:
         self.title(6, "Try it")
-        for line in (
-            "unlimited search flood thailand",
-            'unlimited ask "what are the latest big insider trades?"',
-            "unlimited search --list-feeds",
-            f"unlimited search sanctions --catalog {OFFLINE_DIR}    # offline",
-            "unlimited doctor                                     # check again any time",
+        for command, note in (
+            ("unlimited search flood thailand", ""),
+            ('unlimited ask "what are the latest big insider trades?"', ""),
+            ("unlimited search --list-feeds", ""),
+            ("unlimited search sanctions --catalog offline", "your offline copy"),
+            ("unlimited doctor", "check again any time"),
         ):
-            self.echo(f"  {line}")
+            self.echo(f"  {command:<46}  # {note}" if note else f"  {command}")
         summary = f"Set up: {', '.join(self.done) or 'nothing new'}"
         if self.skipped:
             summary += f". Skipped: {', '.join(self.skipped)} (run unlimited setup again any time)"

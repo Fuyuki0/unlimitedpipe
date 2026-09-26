@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 from typing import Any, Literal
@@ -25,6 +26,18 @@ def parse_field_spec(spec: str) -> tuple[str, str, str | None]:
     if match:
         selector, attribute = match.group(1).strip(), match.group(2)
     return name.strip(), selector, attribute
+
+
+def _looks_like_json(content: bytes) -> bool:
+    """JSON served with another content type (NASA's EONET says application/rss+xml)."""
+    start = content.lstrip()[:1]
+    if start not in (b"{", b"["):
+        return False
+    try:
+        json.loads(content)
+    except ValueError:
+        return False
+    return True
 
 
 class Web(Source):
@@ -80,7 +93,8 @@ class Web(Source):
         metavar="DIR",
     )
     records: str | None = opt(
-        "For JSON responses: path to the list of records, e.g. `data.items`",
+        "For JSON responses: path to the records, e.g. `data.items` (a list, or an object "
+        "keyed by id: each entry becomes a record with its `key`)",
         default=None,
         metavar="PATH",
     )
@@ -153,7 +167,7 @@ class Web(Source):
             if shot := self._screenshots.get(url):
                 meta["screenshot"] = shot
 
-        if "json" in response.content_type:
+        if "json" in response.content_type or _looks_like_json(response.content):
             value = response.json()
             if self.records:
                 from unlimitedpipe.fields import MISSING, get_path, split_path
@@ -161,6 +175,13 @@ class Web(Source):
                 value = get_path(value, split_path(self.records))
                 if value is MISSING:
                     raise FetchError(f"{url}: the JSON has no field {self.records!r}", url=url)
+                if isinstance(value, dict):
+                    # An object keyed by id ({"coingecko:bitcoin": {...}}): one record per
+                    # entry, its key kept as `key`.
+                    value = [
+                        {"key": k, **v} if isinstance(v, dict) else {"key": k, "value": v}
+                        for k, v in value.items()
+                    ]
             return self._json_records(url, value, meta)
         if response.content_type and not any(
             t in response.content_type for t in ("html", "xml", "text/plain")

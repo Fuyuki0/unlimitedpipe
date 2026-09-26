@@ -47,7 +47,7 @@ class Pretty(Output):
         if self._count and not compact:
             self._console.print()
         self._last_type = event.type
-        wrap = event.type == "answer"  # prose to read, not a line per record
+        wrap = event.type in ("answer", "entry", "document", "feed", "link")  # to read in full
         for line in lines:
             self._console.print(
                 line, overflow="fold" if wrap else "ellipsis", no_wrap=not wrap, crop=not wrap
@@ -71,7 +71,11 @@ def _document(event: Event):
         facts.append(f"{m['elapsed_ms']} ms")
     if m.get("not_modified"):
         facts.append("not modified")
+    if m.get("rendered"):
+        facts.append("rendered in a browser")
     lines.append(_dim("  ·  ".join(str(f) for f in facts if f)))
+    if m.get("screenshot"):
+        lines.append(_dim(f"screenshot: {m['screenshot']}"))
     if d.get("description"):
         lines.append(Text(_clip(d["description"], 200)))
     for heading in (d.get("headings") or [])[:6]:
@@ -114,15 +118,42 @@ def _entry(event: Event):
 
     d = event.data
     date = (d.get("published_at") or event.timestamp or "")[:10]
+    feed = d.get("feed")  # a feed's details, or a catalog feed's name
+    feed = feed.get("title") if isinstance(feed, dict) else feed
     lines = [
         Text.assemble(
-            (date + "  " if date else "", "dim"), (d.get("title") or "(untitled)", "bold")
+            (date + "  " if date else "", "dim"),
+            (d.get("title") or "(untitled)", "bold"),
+            (f"  [{feed}]" if feed else "", "cyan"),
         )
     ]
-    feed = (d.get("feed") or {}).get("title")
-    lines.append(_dim("  ·  ".join(str(x) for x in (d.get("link"), feed) if x)))
+    if d.get("link"):
+        lines.append(_dim(str(d["link"])))
     if d.get("summary"):
         lines.append(Text(_clip(d["summary"], 200)))
+    return lines
+
+
+def _feed(event: Event):
+    from rich.text import Text
+
+    d = event.data
+    health = d["health"] if isinstance(d.get("health"), dict) else {}
+    status = health.get("status")
+    style = {"ok": "green", "partial": "yellow", "failing": "red"}.get(str(status), "dim")
+    latest = str(health.get("latest") or "")[:10]
+    lines = [
+        Text.assemble(
+            (d.get("title") or "(feed)", "bold"),
+            ("  " + status if status else "", style),
+            ("  latest " + latest if latest else "  no items yet" if status else "", "dim"),
+        )
+    ]
+    if d.get("summary"):
+        lines.append(Text(_clip(d["summary"], 200)))
+    files = d.get("files") or []
+    if files:
+        lines.append(_dim(str(files[0])))
     return lines
 
 
@@ -138,9 +169,7 @@ def _link(event: Event):
     from rich.text import Text
 
     d = event.data
-    return [
-        Text.assemble((_clip(d.get("text") or "", 60), "bold"), "  ", (d.get("url") or "", "cyan"))
-    ]
+    return [Text(_clip(d.get("text") or "", 200), style="bold"), Text(d.get("url") or "", "cyan")]
 
 
 def _text_diff(old: str, new: str):
@@ -190,6 +219,7 @@ def _change(event: Event):
             f"{key} {_clip(value, 40)}"
             for key, value in item.items()
             if key not in ("title", "name", "label", "link", "url", "summary", "text", "id")
+            and not key.endswith("_at")  # when it was published says little here
             and isinstance(value, (str, int, float))
             and value != ""
             and value is not False
@@ -230,13 +260,18 @@ def _inspection(event: Event):
 
 
 def _post(event: Event):
+    from datetime import UTC, datetime
+
     from rich.text import Text
 
     d = event.data
-    stamp = (event.timestamp or "")[11:19]
+    stamp = event.timestamp or ""
+    today = datetime.now(UTC).strftime("%Y-%m-%d")
+    # A live stream shows the time; older posts (a channel's last ten) need the day too.
+    stamp = stamp[11:19] if stamp.startswith(today) else stamp[:16].replace("T", " ")
     lines = [Text.assemble((stamp + "  ", "dim"), _clip(d.get("text") or "", 150))]
     extras = [" ".join(d.get("tags") or []), d.get("url") or ""]
-    lines.append(_dim("          " + "  ·  ".join(x for x in extras if x)))
+    lines.append(_dim(" " * (len(stamp) + 2) + "  ·  ".join(x for x in extras if x)))
     return lines
 
 
@@ -280,6 +315,14 @@ def _answer(event: Event):
 
     d = event.data
     lines = [Text(str(d.get("answer") or ""))]
+    if d.get("unsupported"):
+        lines.append(
+            Text(
+                f"Check: {', '.join(map(str, d['unsupported']))} "
+                "appear in none of the sources; the model may have made them up.",
+                style="bold yellow",
+            )
+        )
     sources = d.get("sources") or []
     if sources:
         lines.append(Text(""))
@@ -302,6 +345,7 @@ def _record(event: Event):
 
     flat = flatten(event.data)
     lines = [Text(event.label, style="bold")] if event.label != event.id else []
+    flat = {k: v for k, v in flat.items() if v != event.label}  # shown once, as the heading
     for key, value in list(flat.items())[:12]:
         lines.append(Text.assemble((f"{key}: ", "dim"), _clip(value, 110)))
     if len(flat) > 12:
@@ -315,6 +359,7 @@ _RENDERERS: dict[str, Callable[[Event], list[Any]]] = {
     "document": _document,
     "product": _product,
     "entry": _entry,
+    "feed": _feed,
     "element": _element,
     "link": _link,
     "change": _change,

@@ -32,9 +32,9 @@ unlimitedpipe`, then `unlimited setup`.
 unlimited web https://example.com
 unlimited web https://example.com | unlimited select title url | unlimited json
 unlimited rss https://hnrss.org/frontpage | unlimited grep AI | unlimited diff --only added
-unlimited search "cyber attack"          # search 50+ live public-record feeds at once
+unlimited search "cyber attack"          # search 75+ live public-record feeds at once
 unlimited ask "what is the weather in Bangkok?"   # answered from the feeds, with sources
-unlimited mirror ~/feeds && unlimited search flood --catalog ~/feeds   # works offline
+unlimited mirror && unlimited search flood --catalog offline   # works offline
 ```
 
 ## What is UnlimitedPipe?
@@ -154,6 +154,7 @@ blogs and news sites, and page text otherwise, with commented hints for narrowin
 | `unlimited x search\|posts ...` | Posts through X's official API with your own key (`X_BEARER_TOKEN`; reading needs a paid plan). |
 | `unlimited bluesky [WORDS...]` | New public Bluesky posts, live, from Bluesky's Jetstream (endless; `pip install "unlimitedpipe[live]"`) |
 | `unlimited sec insider-trades` | Insider purchases and sales as they are filed with the SEC: who, their role, shares, price and total value. Needs a contact email (`--contact` or `SEC_CONTACT`), as the SEC asks. |
+| `unlimited sec activist-stakes` | New Schedule 13D filings: which investor disclosed 5% or more of which company. |
 | `unlimited search WORDS...` | Items from every feed of a published catalog that mention all the words, in one request (default catalog: [feeds.daemonfill.dev](https://feeds.daemonfill.dev/)). `--list-feeds` lists its feeds. |
 | `unlimited ask QUESTION` | An `answer` to a question from a feed catalog, explained by a local model (Ollama) or Claude from numbered sources, which are always listed with their links. Optional: see [Ask](#ask). |
 | `unlimited inspect URL...` | An `inspection`: robots.txt, feeds, JSON-LD, products, sitemap, JavaScript, suggested commands. |
@@ -271,7 +272,7 @@ unlimited publish feeds/*.yml --every 1h
 # Index: https://feeds.daemonfill.dev/
 ```
 
-Live example: [the feed catalog](https://github.com/Fuyuki0/unlimitedpipe-feeds), 26 feeds published this way from one
+Live example: [the feed catalog](https://github.com/Fuyuki0/unlimitedpipe-feeds), 75+ feeds published this way from one
 workflow. A feed whose source is down keeps its last good state while the others update. Each
 JSON Feed carries full events, so another pipeline can read it with `unlimited rss` and keep
 the provenance chain. Details, cron and manual setups:
@@ -341,15 +342,18 @@ unlimited search sanctions --since 2026-08
 unlimited ask "how did the Ebola outbreak develop?" --since 2026-07
 ```
 
-A catalog also works without the internet. `mirror` downloads it into a folder, including the
-search index, the archive and the index page with its search box; `serve` shares that folder
-with other devices on the same network (a school, a newsroom, a disaster area):
+A catalog also works without the internet. `mirror` downloads it, including the search index,
+the archive and the index page with its search box, into your offline copy (or a folder you
+name). `search` and `ask` switch to that copy by themselves when the internet is down, and say
+how old it is. `serve` shares it with other devices on the same network (a school, a newsroom,
+a disaster area):
 
 ```bash
-unlimited mirror ~/feeds --since 2026-08            # run it again to refresh
-unlimited search flood --catalog ~/feeds            # offline
-unlimited ask "what happened in Bangkok?" --catalog ~/feeds   # offline, with a local model
-unlimited serve ~/feeds --lan                       # phones on the same Wi-Fi get the search page
+unlimited mirror --since 2026-08                    # run it again to refresh
+unlimited search flood --catalog offline            # the offline copy, on purpose
+unlimited ask "what happened in Bangkok?" --catalog offline   # with a local model
+unlimited serve --lan                               # phones on the same Wi-Fi get the search page
+unlimited mirror ~/feeds && unlimited serve ~/feeds # or any folder
 ```
 
 ## Platforms
@@ -447,7 +451,7 @@ src/unlimitedpipe/
 Runnable pipelines in [examples/](https://github.com/Fuyuki0/unlimitedpipe/tree/main/examples): website to JSON, an RSS news filter published as
 a feed, GitHub release watching, price monitoring with Discord alerts, competitor pricing
 watch, multi-source research into CSV, Bluesky trends, and a complete connector package. The
-[feed catalog](https://github.com/Fuyuki0/unlimitedpipe-feeds/tree/main/feeds) has 26
+[feed catalog](https://github.com/Fuyuki0/unlimitedpipe-feeds/tree/main/feeds) has 75+
 more.
 
 ## Roadmap

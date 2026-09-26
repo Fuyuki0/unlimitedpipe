@@ -329,6 +329,14 @@ def short_number(value: Any) -> str | None:
     return f"{number:.2f}".rstrip("0").rstrip(".")
 
 
+def _commas(value: Any, digits: Any = 0) -> str | None:
+    """A number with thousands separators: commas(84079.69, 2) -> "84,079.69"."""
+    number, places = _as_number(value), _as_number(digits)
+    if number is None or places is None:
+        return None
+    return f"{number:,.{max(int(places), 0)}f}"
+
+
 def _arith(op: str, left: Any, right: Any) -> float | int | None:
     ln, rn = _as_number(left), _as_number(right)
     if ln is None or rn is None:
@@ -355,15 +363,17 @@ _FUNCTIONS: dict[str, Callable[..., Any]] = {
     "date": _date,
     "lower": lambda v: v.lower() if isinstance(v, str) else v,
     "upper": lambda v: v.upper() if isinstance(v, str) else v,
+    "title": lambda v: v.title() if isinstance(v, str) else v,
     "trim": lambda v: v.strip() if isinstance(v, str) else v,
     "len": lambda v: len(v) if isinstance(v, (str, list, dict)) else 0,
     "number": _number,
     "round": _round,
     "abs": lambda v: abs(n) if (n := _as_number(v)) is not None else None,
     "short": short_number,
+    "commas": _commas,
     "exists": lambda v: v is not MISSING,
 }
-_ARITY = {"replace": (3,), "round": (1, 2)}
+_ARITY = {"replace": (3,), "round": (1, 2), "commas": (1, 2)}
 
 
 def _evaluate(node: Node, event: Event) -> Any:

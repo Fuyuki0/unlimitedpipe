@@ -150,6 +150,19 @@ def test_json_responses_become_records(web, ctx):
     web.add(f"{SITE}/api", json.dumps([{"id": 1}, {"id": 2}]), content_type="application/json")
     events = run_source(Web(url=[f"{SITE}/api"]), ctx)
     assert [e.data for e in events] == [{"id": 1}, {"id": 2}]
+    # JSON sent with another content type (NASA's EONET says application/rss+xml).
+    body = json.dumps({"events": [{"id": "EONET_1"}]})
+    web.add(f"{SITE}/eonet", body, content_type="application/rss+xml")
+    [event] = run_source(Web(url=[f"{SITE}/eonet"], records="events"), ctx)
+    assert event.data == {"id": "EONET_1"}
+    # An object keyed by id, as DefiLlama and Kraken answer.
+    body = json.dumps({"coins": {"coingecko:bitcoin": {"price": 1.5}, "coingecko:x": 2}})
+    web.add(f"{SITE}/prices", body, content_type="application/json")
+    events = run_source(Web(url=[f"{SITE}/prices"], records="coins"), ctx)
+    assert [e.data for e in events] == [
+        {"key": "coingecko:bitcoin", "price": 1.5},
+        {"key": "coingecko:x", "value": 2},
+    ]
 
 
 def test_robots_and_errors_do_not_stop_other_urls(web, make_ctx):

@@ -43,6 +43,24 @@ def test_append_adds_each_item_once_into_its_month(tmp_path):
     assert month_of({"date": "garbage"}, "2026-10-01T00:00:00Z") == "2026-10"
 
 
+def test_items_sharing_one_page_are_all_kept(tmp_path):
+    # A list of hacks links every item to the same page; the same story from two sources
+    # differs only in case.
+    hacks = [
+        {"feed": "hacks", "title": t, "link": "https://h/list", "date": "2026-09-24T00:00:00Z"}
+        for t in ("Bitget: $387M lost", "Duelbits: $7M lost", "BITGET:  $387M LOST")
+    ]
+    assert append(tmp_path, hacks, "2026-09-26T00:00:00Z") == {"2026-09": 2}
+
+
+def test_archives_keyed_by_link_alone_are_rekeyed_not_duplicated(tmp_path):
+    folder = tmp_path / "archive"
+    folder.mkdir()
+    old = {**ITEMS[0], "key": "0123456789abcdef", "seen": "2026-09-25T00:00:00Z"}
+    (folder / "2026-09.jsonl").write_text(json.dumps(old) + "\n")
+    assert append(tmp_path, ITEMS[:1], "2026-09-26T00:00:00Z") == {}
+
+
 def test_parse_since():
     assert parse_since(" 2026-08 ") == "2026-08" and parse_since("2026-08-15") == "2026-08-15"
     with pytest.raises(ValueError, match="like 2026-08"):

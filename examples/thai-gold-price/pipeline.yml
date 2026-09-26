@@ -1,0 +1,36 @@
+# Thai gold prices as announced by the Gold Traders Association (สมาคมค้าทองคำ), for yourself.
+# Its terms allow personal, non-commercial use only: run this for your own alerts, and do not
+# republish the prices. The page fills them in with JavaScript, so it needs the browser:
+#   pip install "unlimitedpipe[browser]" && playwright install chromium
+name: thai-gold-price
+description: "Thai gold prices from each announcement of the Gold Traders Association (96.5% gold, baht per baht-weight), for personal use."
+
+sources:
+  - type: web
+    url: https://www.goldtraders.or.th/
+    browser: true
+    timeout: 60
+
+operators:
+  - type: map
+    assign:
+      - 'when=replace(text, "(?s)^.*?ประจำวันที่ (\\d\\d/\\d\\d/\\d{4} เวลา \\d\\d:\\d\\d \\(ครั้งที่ \\d+\\)).*$", "\\1")'
+      - 'bar_buy=replace(text, "(?s)^.*?ทองคำแท่ง\\s*96\\.5%\\s*รับซื้อ\\s*([\\d,.]+).*$", "\\1")'
+      - 'bar_sell=replace(text, "(?s)^.*?ทองคำแท่ง\\s*96\\.5%\\s*รับซื้อ\\s*[\\d,.]+\\s*ขายออก\\s*([\\d,.]+).*$", "\\1")'
+      - 'jewelry_sell=replace(text, "(?s)^.*?ทองรูปพรรณ\\s*96\\.5%\\s*ฐานภาษี\\s*[\\d,.]+\\s*ขายออก\\s*([\\d,.]+).*$", "\\1")'
+      - 'change=replace(text, "(?s)^.*?เทียบกับประกาศก่อนหน้า\\s*([-+]?[\\d,.]+).*$", "\\1")'
+  - {type: filter, expr: 'when matches "^\\d\\d/\\d\\d/\\d{4} "'}   # the page changed: nothing to report
+  - type: map
+    assign:
+      - 'title="ราคาทอง " + when + ": ทองแท่งขาย " + bar_sell + " รับซื้อ " + bar_buy + " บาท (" + change + ")"'
+      - 'summary="Thai gold, 96.5%, per baht-weight: bar gold sells at " + bar_sell + " and is bought at " + bar_buy + " baht; jewelry sells at " + jewelry_sell + " baht. Change since the previous announcement: " + change + ". Source: Gold Traders Association."'
+      - 'link="https://www.goldtraders.or.th/"'
+  - {type: select, fields: [title, summary, link, when, bar_sell, bar_buy, jewelry_sell, change]}
+  - {type: diff, key: when, only: [added], emit_initial: true}
+
+outputs:
+  - type: feed           # subscribe to this file in any feed reader
+    path: thai-gold-price.xml
+    title: "ราคาทองคำ (สมาคมค้าทองคำ)"
+    link: "https://www.goldtraders.or.th/"
+  - type: pretty

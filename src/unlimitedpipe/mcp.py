@@ -68,6 +68,7 @@ class Tool:
     schema: dict[str, Any]
     run: Callable[[dict[str, Any], Context], Awaitable[list[Event]]]
     public_only: bool = True  # built-in tools read only the public web; your pipelines are trusted
+    when_empty: str | None = None  # a hint for the agent when nothing is found
 
 
 def _string(description: str) -> dict[str, Any]:
@@ -121,21 +122,33 @@ def builtin_tools() -> list[Tool]:
     async def list_feeds(args: dict[str, Any], ctx: Context) -> list[Event]:
         from unlimitedpipe.sources.search import Search
 
-        return await _run_source(Search(list_feeds=True), ctx, 500)
+        events = await _run_source(Search(list_feeds=True), ctx, 500)
+        for event in events:  # a name and what it covers is all an agent needs to choose
+            health = event.data.pop("health", None) or {}
+            event.data.pop("files", None)
+            if health.get("status") and health["status"] != "ok":
+                event.data["health"] = health["status"]
+        return events
 
     return [
         Tool(
             "search_feeds",
             "Search the latest items of every feed in the public UnlimitedPipe catalog at once "
-            "(50+ feeds refreshed hourly: SEC company events and IPO filings, US sanctions, "
-            "lobbying, new rules, central banks, crypto hacks and exchange listings, security "
-            "advisories and data breaches, disasters, disease outbreaks, world and country "
-            "news). Every word must appear. Answers in one request; each result links to its "
-            f"source. Use list_feeds to see what each feed covers. {UNTRUSTED}",
+            "(75+ feeds refreshed hourly: SEC company events, IPO filings, insider trades, "
+            "activist stakes and lawsuits, US sanctions, lobbying, new rules, justice cases, "
+            "central banks, crypto prices, big moves, hacks and exchange listings, security "
+            "advisories and data breaches, disasters, natural events, solar storms, disease "
+            "outbreaks, FDA news, science, travel warnings, World Bank tenders, UN and world "
+            "news by region and country). Every word must appear. Answers in one request; "
+            f"each result links to its source. Use list_feeds to see what each feed covers. "
+            f"{UNTRUSTED}",
             {
                 "type": "object",
                 "properties": {
-                    "query": _string("Words to look for, e.g. 'Thailand flood'"),
+                    "query": _string(
+                        "Words to look for, e.g. 'Thailand flood'; leave out with `feed` for "
+                        "that feed's latest items"
+                    ),
                     "feed": _string("Optional feed name to search only, from list_feeds"),
                     "since": _string(
                         "Optional: also search the archive back to this month or day, "
@@ -143,14 +156,15 @@ def builtin_tools() -> list[Tool]:
                     ),
                     "limit": {"type": "integer", "description": "Results (default 20)"},
                 },
-                "required": ["query"],
             },
             search_feeds,
+            when_empty="Nothing matched. Try fewer or other words (every word must appear), "
+            "a feed from list_feeds, or `since` (e.g. 2026-08) to search the archive too.",
         ),
         Tool(
             "list_feeds",
-            "List the feeds of the public UnlimitedPipe catalog: name, what each follows, and "
-            "its RSS and JSON URLs (read one with read_feed).",
+            "List the feeds of the public UnlimitedPipe catalog: each one's name and what it "
+            "follows. Get a feed's latest items with search_feeds and its name as `feed`.",
             {"type": "object", "properties": {}},
             list_feeds,
         ),
@@ -316,10 +330,10 @@ class Server:
         payload: dict[str, Any] = {"events": results}
         if errors:
             payload["errors"] = errors
+        if not results and tool.when_empty:
+            payload["note"] = tool.when_empty
         result: dict[str, Any] = {
-            "content": [
-                {"type": "text", "text": json.dumps(payload, ensure_ascii=False, indent=1)}
-            ],
+            "content": [{"type": "text", "text": json.dumps(payload, ensure_ascii=False)}],
             "isError": False,
         }
         if self.protocol >= "2025-06-18":

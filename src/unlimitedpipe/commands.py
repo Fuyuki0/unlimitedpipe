@@ -94,19 +94,38 @@ def build_command(
 ) -> click.Command:
     """A click command for a component. ``execute`` runs it; None builds a parse-only command."""
 
+    params = [_click_param(p) for p in cls.params()]
+    # Every source command can stop early, like `| unlimited limit N`; sources with their own
+    # `limit` (an API page size) keep it.
+    add_limit = (
+        execute is not None
+        and kind_of(cls) == "source"
+        and all(p.name != "limit" for p in cls.params())
+    )
+    if add_limit:
+        params.append(
+            click.Option(
+                ["--limit"],
+                type=click.IntRange(min=1),
+                default=None,
+                help="Stop after this many events",
+            )
+        )
+
     @click.pass_context
     def callback(click_ctx: click.Context, **values: Any) -> None:
+        limit = values.pop("limit", None) if add_limit else None
         try:
             component = component_from_values(cls, values)
         except (ValueError, TypeError) as exc:
             raise click.UsageError(str(exc), ctx=click_ctx) from None
         if execute is not None:
-            execute(component, click_ctx.obj or {})
+            execute(component, {**(click_ctx.obj or {}), "limit": limit})
 
     command = click.Command(
         cls.name,
         callback=callback,
-        params=[_click_param(p) for p in cls.params()],
+        params=params,
         help=_help_text(cls),
         short_help=cls.help_summary,
         no_args_is_help=False,

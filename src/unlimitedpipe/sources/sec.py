@@ -28,9 +28,22 @@ ACTIONS = {
 }
 _ENTITY = re.compile(
     r"\b(LLC|L\.?P\.?|INC|CORP|CO|LTD|FUND|TRUST|CAPITAL|PARTNERS|HOLDINGS|GROUP|BANK|PLC|"
-    r"MANAGEMENT|ADVISORS|INVESTMENTS|VENTURES|FOUNDATION|N\.?V\.?|S\.?A\.?|AG|GMBH)\b",
+    r"MANAGEMENT|ADVISORS|INVESTMENTS|VENTURES|FOUNDATION|N\.?V\.?|S\.?A\.?|AG|GMBH|"
+    r"S\.?A\.?B\.?|S\.?P\.?A\.?|B\.?V\.?|SE|LIMITED|CORPORATION|COMPANY|INCORPORATED)\b",
     re.IGNORECASE,
 )
+
+
+_WORDS = frozenset({"INC", "CO", "LTD", "THE", "AND", "OF", "FOR", "NEW"})
+
+
+def _entity_word(word: str) -> str:
+    """A word of a company's name: initials and legal forms stay as written (LLC, LP, II,
+    AJB), other capitals become a name (BERKSHIRE -> Berkshire, INC. -> Inc.)."""
+    bare = word.strip(".,&")
+    if any(c.islower() for c in word) or (len(bare) <= 3 and bare.isupper() and bare not in _WORDS):
+        return word
+    return word.title()
 
 
 def person_name(name: str) -> str:
@@ -38,7 +51,7 @@ def person_name(name: str) -> str:
     Companies and funds keep their order."""
     words = name.replace(",", " ").split()
     if len(words) < 2 or _ENTITY.search(name):
-        return " ".join(w if any(c.islower() for c in w) else w.title() for w in words)
+        return " ".join(_entity_word(w) for w in words)
     last, *given = words
     return " ".join(w.title() if not (len(w) <= 2 and w.isupper()) else w for w in [*given, last])
 
@@ -145,8 +158,55 @@ def headline(trade: dict[str, Any]) -> str:
     return text
 
 
+_STAKE = re.compile(r"^SCHEDULE 13D(/A)? - (.*?) \((\d+)\) \((Subject|Filed by)\)$")
+
+
+def stakes(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Schedule 13D filings from EDGAR's list of current filings. The list names each filing
+    once per party, the company (Subject) and each investor (Filed by), so entries are joined
+    by accession number into one stake: who disclosed 5% or more of which company."""
+    joined: dict[str, dict[str, Any]] = {}
+    for entry in entries:
+        match = _STAKE.match(" ".join((entry.get("title") or "").split()))
+        link = entry.get("link") or ""
+        if not match or not link.endswith("-index.htm"):
+            continue
+        accession = link.rsplit("/", 1)[-1].removesuffix("-index.htm")
+        stake = joined.setdefault(
+            accession,
+            {
+                "company": None,
+                "investors": [],
+                "amendment": bool(match.group(1)),
+                "filed_at": entry.get("updated"),
+                "link": link,
+                "accession": accession,
+            },
+        )
+        name = re.sub(r"\s*/[A-Z]{2,}/\s*$", "", match.group(2)).strip()
+        if match.group(4) == "Subject":
+            stake["company"] = " ".join(_entity_word(w) for w in name.split())
+            stake["link"] = link  # the company's copy of the filing
+        elif name not in stake["investors"]:
+            stake["investors"].append(person_name(name))
+    found = []
+    for stake in joined.values():
+        if not stake["company"]:
+            continue
+        who = " and ".join(stake["investors"]) or "An investor"
+        if stake["amendment"]:
+            title = f"{stake['company']}: {who} updated a stake of 5% or more (Schedule 13D/A)"
+        else:
+            title = f"{stake['company']}: {who} disclosed a stake of 5% or more (Schedule 13D)"
+        found.append({"title": title, **stake})
+    return found
+
+
 class Sec(Source):
     """Public filings from the SEC's EDGAR system, as they are filed.
+
+    `activist-stakes` lists the latest Schedule 13D filings: an investor that owns 5% or more
+    of a company and may seek to influence it, with 13D/A when a stake changes.
 
     `insider-trades` reads the latest Form 4 filings and turns each into readable trades:
     who (and their role) bought or sold how many shares of which company, at what price and
@@ -163,9 +223,10 @@ class Sec(Source):
         "unlimited sec insider-trades --contact you@example.com",
         "unlimited sec insider-trades --min-value 1000000 | unlimited feed insider.xml",
         "unlimited sec insider-trades --code P    # purchases only",
+        "unlimited sec activist-stakes              # who took 5%+ of which company",
     )
 
-    resource: Literal["insider-trades"] = arg("What to read")
+    resource: Literal["insider-trades", "activist-stakes"] = arg("What to read")
     contact: str | None = opt(
         "Contact email the SEC asks for (default: $SEC_CONTACT)", default=None, secret=True
     )
@@ -198,6 +259,10 @@ class Sec(Source):
             )
         # The SEC turns away User-Agents that carry a URL, so this one is name and email only.
         agent = f"UnlimitedPipe/{__version__} {contact}"
+        if self.resource == "activist-stakes":
+            async for event in self._stakes(ctx, agent):
+                yield event
+            return
         try:
             filings = await self._latest(ctx, agent)
         except FetchError as exc:
@@ -236,6 +301,36 @@ class Sec(Source):
                     data={"title": headline(trade), **trade, "accession": accession},
                     metadata={"method": "edgar-form4"},
                 )
+
+    async def _stakes(self, ctx: Context, agent: str):
+        import feedparser
+
+        params = {
+            "action": "getcurrent",
+            "type": "SCHEDULE 13D",
+            "owner": "include",
+            "count": "100",
+            "output": "atom",
+        }
+        try:
+            response = await ctx.http.get(
+                LATEST, params=params, user_agent=agent, timeout=self.timeout, cache=False
+            )
+        except FetchError as exc:
+            if (error := ctx.fail(exc, source=self.name, url=LATEST)) is not None:
+                yield error
+            return
+        entries = [dict(e) for e in feedparser.parse(response.content).entries]
+        for stake in stakes(entries)[: self.limit]:
+            yield Event(
+                source=self.name,
+                type="stake",
+                source_url=stake["link"],
+                key=stake["accession"],
+                timestamp=stake["filed_at"],
+                data=stake,
+                metadata={"method": "edgar-schedule-13d"},
+            )
 
     async def _latest(self, ctx: Context, agent: str) -> list[tuple[str, str | None]]:
         """Index pages of the newest Form 4 filings, newest first, each once."""

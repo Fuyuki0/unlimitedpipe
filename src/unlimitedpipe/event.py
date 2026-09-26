@@ -43,8 +43,8 @@ def iso(value: datetime | str | None) -> str | None:
 
 def parse_time(value: Any) -> datetime | None:
     """A point in time from ISO 8601 or RFC 2822 text, or a Unix time in seconds,
-    milliseconds (as JavaScript and the USGS API send it) or microseconds. Naive times are
-    taken as UTC; anything else is None."""
+    milliseconds (as JavaScript and the USGS API send it) or microseconds, in UTC. Naive
+    times are taken as UTC; anything else is None."""
     if isinstance(value, str):
         text = value.strip()
         try:
@@ -57,7 +57,8 @@ def parse_time(value: Any) -> datetime | None:
                     parsed = parsedate_to_datetime(text)
                 except (TypeError, ValueError, IndexError):
                     return None
-            return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
+            # Always UTC, so callers can format it with a "Z" (-04:00 is not dropped).
+            return parsed.astimezone(UTC) if parsed.tzinfo else parsed.replace(tzinfo=UTC)
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return None
     seconds = float(value)

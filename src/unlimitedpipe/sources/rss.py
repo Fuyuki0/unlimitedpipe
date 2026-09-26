@@ -15,12 +15,19 @@ from unlimitedpipe.errors import FetchError
 from unlimitedpipe.event import Event, is_envelope
 from unlimitedpipe.sources import input_urls
 
+# Map data in feeds, dropped when feedparser cannot read it.
+_GEO = re.compile(rb"<(georss:where|gml:[A-Za-z]+)\b.*?</\1>", re.S)
+# Links and spans are glued to their text (`#<span>tag</span>` is "#tag"); bold and the like
+# often act as headings with no space after them ("<b>Background</b>Post-acute").
+_INLINE_TAG = re.compile(r"</?(a|span)(\s[^>]*)?>", re.I)
+
 
 def strip_html(value: Any) -> str:
     if not isinstance(value, str):
         return ""
     text = re.sub(r"<(script|style)[^>]*>.*?</\1>", " ", value, flags=re.S | re.I)
     text = re.sub(r"<br\s*/?>|</p>", "\n", text, flags=re.I)
+    text = _INLINE_TAG.sub("", text)  # `#<span>tag</span>` is "#tag", not "# tag"
     text = htmllib.unescape(re.sub(r"<[^>]+>", " ", text))
     lines = (" ".join(line.split()) for line in text.splitlines())
     return "\n".join(line for line in lines if line)
@@ -34,6 +41,20 @@ def _iso(parsed: Any) -> str | None:
         return datetime(*parsed[:6], tzinfo=UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     except (TypeError, ValueError):
         return None
+
+
+def _web_link(entry: Any) -> str | None:
+    """The entry's page. feedparser can report an Atom ``urn:`` id as the link when an entry
+    lists its id before its links; prefer a web link, the alternate one first."""
+    link = entry.get("link")
+    if isinstance(link, str) and link.startswith(("http://", "https://")):
+        return link
+    links = [item for item in entry.get("links") or [] if isinstance(item, dict)]
+    web = [item for item in links if str(item.get("href", "")).startswith(("http://", "https://"))]
+    for item in sorted(web, key=lambda item: item.get("rel", "alternate") != "alternate"):
+        if item.get("rel", "alternate") != "enclosure":
+            return item["href"]
+    return link
 
 
 def _is_json_feed(content: bytes, content_type: str) -> dict[str, Any] | None:
@@ -99,13 +120,18 @@ class Rss(Source):
 
         import feedparser
 
-        parsed = feedparser.parse(
-            response.content,
-            response_headers={
-                "content-type": response.headers.get("content-type", ""),
-                "content-location": response.final_url,
-            },
-        )
+        headers = {
+            "content-type": response.headers.get("content-type", ""),
+            "content-location": response.final_url,
+        }
+        try:
+            parsed = feedparser.parse(response.content, response_headers=headers)
+        except Exception:  # feedparser can fail on map data it misreads (a GML srsName URL)
+            content = _GEO.sub(b"", response.content)
+            try:
+                parsed = feedparser.parse(content, response_headers=headers)
+            except Exception as exc:
+                raise FetchError(f"{url} could not be read as a feed ({exc})", url=url) from None
         if not parsed.entries and not parsed.get("version"):
             reason = parsed.get("bozo_exception") or "no items found"
             if not discovered and "html" in response.content_type:
@@ -133,7 +159,7 @@ class Rss(Source):
     def _entry_event(
         self, url: str, entry: Any, feed_info: dict[str, Any], meta: dict[str, Any]
     ) -> Event:
-        link = entry.get("link")
+        link = _web_link(entry)
         published = _iso(entry.get("published_parsed")) or _iso(entry.get("updated_parsed"))
         data: dict[str, Any] = {
             "title": " ".join((entry.get("title") or "").split()) or None,

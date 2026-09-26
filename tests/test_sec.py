@@ -91,7 +91,7 @@ FORM4 = b"""<SEC-DOCUMENT>
         ("HUANG JEN HSUN", "Jen Hsun Huang"),
         ("SMITH FREDERICK G", "Frederick G Smith"),
         ("Berkshire Hathaway Inc", "Berkshire Hathaway Inc"),
-        ("AJB CAPITAL, LLC", "Ajb Capital Llc"),
+        ("AJB CAPITAL, LLC", "AJB Capital LLC"),
         ("MUSK", "Musk"),
     ],
 )
@@ -151,3 +151,33 @@ def test_the_sec_needs_a_contact_email(make_ctx, monkeypatch):
         run_source(Sec(resource="insider-trades"), make_ctx())
     with pytest.raises(ValueError, match="unknown transaction code"):
         Sec(resource="insider-trades", code=["Z"])
+
+
+def test_stakes_join_the_company_and_its_investors():
+    from unlimitedpipe.sources.sec import stakes
+
+    folder = "https://www.sec.gov/Archives/edgar/data"
+    entries = [
+        {
+            "title": "SCHEDULE 13D - ORBIMED ADVISORS LLC (0001055951) (Filed by)",
+            "link": f"{folder}/1055951/000094787126000898/0000947871-26-000898-index.htm",
+            "updated": "2026-09-25T17:11:02-04:00",
+        },
+        {
+            "title": "SCHEDULE 13D - Electra Therapeutics, Inc. (0002088082) (Subject)",
+            "link": f"{folder}/2088082/000094787126000898/0000947871-26-000898-index.htm",
+            "updated": "2026-09-25T17:11:02-04:00",
+        },
+        {
+            "title": "SCHEDULE 13D/A - JEWETT CAMERON TRADING CO LTD (0000885307) (Subject)",
+            "link": f"{folder}/885307/000153658826000035/0001536588-26-000035-index.htm",
+        },
+        {"title": "4 - Someone (0000000001) (Reporting)", "link": f"{folder}/1/2/3-index.htm"},
+    ]
+    new, amended = stakes(entries)
+    assert new["title"] == (
+        "Electra Therapeutics, Inc.: Orbimed Advisors LLC disclosed a stake of 5% or more "
+        "(Schedule 13D)"
+    )
+    assert new["link"].startswith(f"{folder}/2088082/") and not new["amendment"]
+    assert amended["title"].startswith("Jewett Cameron Trading Co Ltd: An investor updated")

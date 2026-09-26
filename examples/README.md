@@ -13,6 +13,7 @@ next to the pipeline file.
 | [multi-source-research](multi-source-research) | One topic across several sources into a CSV |
 | [discord-price-alerts](discord-price-alerts) | Price and stock changes as Discord messages |
 | [bluesky-trends](bluesky-trends) | Hashtags rising on Bluesky, live |
+| [thai-gold-price](thai-gold-price) | Thai gold price announcements, from a page that needs JavaScript (personal use) |
 | [plugin-hackernews](plugin-hackernews) | A complete connector package to copy |
 
 Change detection keeps its state in your user data directory. Set

@@ -37,6 +37,40 @@ def test_atom_entries(web, ctx):
     assert release.data["content"] == "Breaking changes"
 
 
+def test_an_atom_id_listed_before_the_links_is_not_the_link(web, ctx):
+    # The US Tsunami Warning Centers' feeds put <id>urn:uuid:...</id> before <link>.
+    url = "https://tsunami.example/PHEB.xml"
+    web.add(
+        url,
+        """<feed xmlns="http://www.w3.org/2005/Atom"><title>t</title><entry>
+        <title>LOYALTY ISLANDS</title><updated>2026-09-25T21:32:45Z</updated>
+        <id>urn:uuid:5577a45b</id>
+        <link rel="related" href="https://tsunami.example/1/PHEBCAP.xml"/>
+        <link rel="alternate" href="https://tsunami.example/1/WEGM42.txt"/>
+        </entry></feed>""",
+        content_type="application/atom+xml",
+    )
+    [entry] = run_source(Rss(url=[url]), ctx)
+    assert entry.data["link"] == "https://tsunami.example/1/WEGM42.txt"
+    assert entry.key == "urn:uuid:5577a45b"
+
+
+def test_map_data_feedparser_cannot_read_is_dropped_not_fatal(web, ctx):
+    # NASA's EONET puts a GML srsName URL where feedparser expects "EPSG:4326".
+    url = "https://eonet.example/rss"
+    web.add(
+        url,
+        """<rss version="2.0" xmlns:georss="http://www.georss.org/georss"
+        xmlns:gml="http://www.opengis.net/gml"><channel><title>t</title><item>
+        <title>Tropical Storm Gonzalo</title><link>https://eonet.example/1</link>
+        <georss:where><gml:Point srsName="http://www.opengis.net/def/crs/EPSG/0/4326">
+        <gml:pos>13.5 -45.2</gml:pos></gml:Point></georss:where></item></channel></rss>""",
+        content_type="application/rss+xml",
+    )
+    [entry] = run_source(Rss(url=[url]), ctx)
+    assert entry.data["title"] == "Tropical Storm Gonzalo"
+
+
 def test_feed_discovery_from_a_page(web, ctx):
     web.add("https://acme.example/pricing", fixture("article.html"))
     web.add(BLOG, fixture("feed.rss"), content_type="application/rss+xml")

@@ -72,6 +72,9 @@ EVENT = Event(
         ("round(price / 7, 2) == 12.71", True),
         ("abs(0 - stock) == 3", True),
         ('short(1400000000) == "1.4B"', True),
+        ('commas(84079.6929, 2) == "84,079.69"', True),
+        ('commas("1234567") == "1,234,567"', True),
+        ('title("the open network") == "The Open Network"', True),
         ('short(7000000) == "7M"', True),
         ('short(-250000) == "-250K"', True),
         ('short(950) == "950"', True),
@@ -92,7 +95,7 @@ def test_parse_error_points_at_the_problem():
 
 
 def test_unknown_function_lists_known_ones():
-    with pytest.raises(ExpressionError, match="known: abs, date, exists"):
+    with pytest.raises(ExpressionError, match="known: abs, commas, date, exists"):
         compile_expression("shout(name)")
 
 

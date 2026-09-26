@@ -51,6 +51,8 @@ A field on its own is true when it is present and not empty, zero or false.
 | `round(x)`, `round(x, digits)` | A number rounded; `round(price * 1.07, 2)` |
 | `abs(x)` | A number without its sign |
 | `short(x)` | A number the way people say it: `1400000000` becomes `"1.4B"`, `250000` becomes `"250K"` |
+| `commas(x)`, `commas(x, digits)` | A number with thousands separators: `commas(84079.69, 2)` is `"84,079.69"` |
+| `title(s)` | Capital first letters: `title("the open network")` is `"The Open Network"` |
 | `date(x)` | ISO 8601 UTC time from ISO 8601 or RFC 2822 text, or a Unix time in seconds or milliseconds (`published_at=date(properties.time)`) |
 
 `+` joins text and adds numbers: `"https://nvd.nist.gov/vuln/detail/" + cveID`.

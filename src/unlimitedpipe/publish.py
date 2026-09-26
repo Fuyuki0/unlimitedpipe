@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import html
 import json
+import os
 import re
 import subprocess
 from dataclasses import dataclass
@@ -153,6 +154,14 @@ def plan(items: list[tuple[Path, Pipeline]], every: float, name: str | None = No
             "outputs must be in a folder of their own inside the repository",
             hint="write them under a folder such as public/: path: public/feed.xml",
         )
+    for path, _ in items:
+        if site_dir in path.resolve().parents:
+            relative = os.path.relpath(root / "public", path.resolve().parent)
+            raise UsageError(
+                f"{path} is inside {site_dir.relative_to(root)}/, the folder that would be "
+                "published, so the pipelines would be published with their outputs",
+                hint=f"write the outputs to a folder of their own: path: {relative}/feed.xml",
+            )
     published = [
         Published(
             path=path.resolve().relative_to(root),
@@ -307,10 +316,12 @@ def catalog(
     request. Paths are relative to the site, so the catalog works under any domain. With the
     exit codes of a run (`results`, by pipeline path), each feed also carries its health.
     """
+    from unlimitedpipe import archive
     from unlimitedpipe.event import utcnow
 
     site = p.root / p.site_dir
     now = now or utcnow()
+    seen: set[str] = set()
     before = {f.get("name"): f.get("health") for f in (previous or {}).get("feeds", [])}
     feeds, items = [], []
     for item in p.pipelines:
@@ -340,15 +351,16 @@ def catalog(
                 summary = entry.get("summary") or entry.get("content_text") or ""
                 if summary == entry.get("title"):
                     summary = ""
-                items.append(
-                    {
-                        "feed": item.name,
-                        "title": entry.get("title"),
-                        "summary": summary[:summary_chars] or None,
-                        "link": entry.get("url"),
-                        "date": entry.get("date_published"),
-                    }
-                )
+                listed = {
+                    "feed": item.name,
+                    "title": entry.get("title"),
+                    "summary": summary[:summary_chars] or None,
+                    "link": entry.get("url"),
+                    "date": entry.get("date_published"),
+                }
+                if (key := archive.item_key(listed)) not in seen:  # one story, two sources
+                    seen.add(key)
+                    items.append(listed)
     items.sort(key=lambda i: i["date"] or "", reverse=True)
     return {
         "schema": CATALOG_SCHEMA,

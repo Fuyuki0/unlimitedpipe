@@ -11,6 +11,7 @@ import pytest
 from tests.conftest import run_source
 from unlimitedpipe import Context
 from unlimitedpipe.config import load_pipeline
+from unlimitedpipe.errors import UsageError
 from unlimitedpipe.mcp import Server, builtin_tools
 from unlimitedpipe.publish import CATALOG_SCHEMA, catalog, plan, workflow, write_catalog
 from unlimitedpipe.sources.search import Search, catalog_url, matches
@@ -91,6 +92,22 @@ def test_catalog_lists_feeds_and_their_latest_items_newest_first(repo):
     assert document["items"][0]["feed"] == "quakes"
 
 
+def test_the_same_story_from_two_sources_is_listed_once(repo):
+    story = {"url": "https://bbc.example/snow", "date_published": "2026-09-25T22:12:48Z"}
+    (repo / "public" / "recalls.json").write_text(
+        json.dumps(
+            json_feed(
+                {**story, "id": "from-science", "title": "The treasured 'eternal snow'"},
+                {**story, "id": "from-world", "title": "The Treasured 'Eternal Snow'"},
+            )
+        )
+    )
+    document = catalog(repo_plan(repo))
+    assert [i["title"] for i in document["items"] if i["feed"] == "recalls"] == [
+        "The treasured 'eternal snow'"
+    ]
+
+
 def test_write_catalog_only_rewrites_on_change(repo):
     p = repo_plan(repo)
     assert write_catalog(p) == repo / "public" / "feeds.json"
@@ -130,6 +147,39 @@ def test_search_finds_items_across_feeds(web, make_ctx):
         make_ctx(),
     )
     assert len(both) == 1
+
+
+def test_without_the_internet_search_uses_the_offline_copy(web, make_ctx, tmp_path, monkeypatch):
+    monkeypatch.setenv("UNLIMITEDPIPE_DATA_DIR", str(tmp_path))
+    monkeypatch.delenv("UNLIMITEDPIPE_CATALOG", raising=False)
+    # The default catalog is not served: it cannot be reached.
+    ctx = make_ctx(errors_as_events=True)
+    [error] = run_source(Search(words=["hack"]), ctx)
+    assert error.type == "error"
+    copy = tmp_path / "catalog"
+    copy.mkdir(parents=True)
+    serve_catalog(web)
+    document = json.loads(web.pages["https://feeds.example/feeds.json"][1])
+    (copy / "feeds.json").write_text(json.dumps(document))
+    results = run_source(Search(words=["hack"]), make_ctx())
+    assert [e.data["title"] for e in results] == ["Hacks by AI agents"]
+    on_purpose = run_source(Search(words=["hack"], catalog="offline"), make_ctx())
+    assert len(on_purpose) == 1
+    # A catalog chosen on purpose never falls back to something else.
+    ctx = make_ctx(errors_as_events=True)
+    [error] = run_source(Search(words=["hack"], catalog="https://other.example/"), ctx)
+    assert error.type == "error"
+
+
+def test_unknown_feeds_and_empty_results_are_explained(web, make_ctx, capsys):
+    serve_catalog(web)
+    with pytest.raises(UsageError, match="no feed named 'quake'") as error:
+        run_source(Search(feed=["quake"], catalog="https://feeds.example/"), make_ctx())
+    assert error.value.hint == "did you mean 'quakes'?"
+    ctx = make_ctx()
+    ctx.quiet = False
+    assert run_source(Search(words=["volcano"], catalog="https://feeds.example/"), ctx) == []
+    assert "Nothing matches 'volcano'. Every word must appear" in capsys.readouterr().err
 
 
 def test_search_lists_feeds_with_absolute_urls(web, make_ctx):

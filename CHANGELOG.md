@@ -3,6 +3,67 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.9.1 - 2026-09-26
+
+"Checked": fixes from using everything as a new user would, checked against the live
+catalog, and what the catalog needed to grow from 54 feeds to 77.
+
+- `unlimited sec activist-stakes`: new Schedule 13D filings, an investor owning 5% or more
+  of a company, with the company and its investors joined into one readable line.
+- `web --records PATH` also takes a JSON object keyed by id (DefiLlama's and Kraken's
+  prices): each entry becomes a record with its `key`. JSON served under another content type
+  (NASA's EONET says `application/rss+xml`) is read as JSON.
+- Expressions: `commas(x, digits)` (`84,079.69`) and `title(s)`.
+- Dates with an offset are converted to UTC: a feed wrote 17:11-04:00 as 17:11Z, four hours
+  off, for every source that gives local times.
+- `rss` survives map data feedparser cannot read (a GML `srsName` URL made it throw), and
+  company names from EDGAR keep their initials (`AJB Capital LLC`, not `Ajb Capital Llc`).
+- A personal example for Thai gold prices (`examples/thai-gold-price`), from a page that needs
+  JavaScript; its terms allow personal use only, so it is not in the public catalog.
+- `setup --skip` takes steps with commas too (`--skip browser,ai`).
+
+- Search results no longer crash in a terminal: the readable output expected a feed's details
+  where a catalog gives its name. Headlines wrap instead of losing their end (the dollar value
+  of an insider trade), and `search --list-feeds` shows each feed's health.
+- The archive kept only one item of a feed whose items all link to the same page (30 crypto
+  hacks became 1; volcano reports and typhoon warnings too). Items are now keyed by feed, link
+  and title; archives written before are read with the new keys, so nothing is duplicated and
+  the missing items come back on the next run. A story that two sources list twice is listed
+  once in the catalog.
+- `rss` links are web pages: an Atom entry whose id comes before its links (the US Tsunami
+  Warning Centers) linked to `urn:uuid:...`.
+- `ask` answers only what the catalog covers. Items covering more of the question come first;
+  "today" or "this week" leaves out older items; a question only half matched ("bitcoin price",
+  when the catalog has Bitcoin Core releases) lists the closest items without asking a model;
+  and numbers in an answer that appear in none of the sources are flagged.
+- Thai questions and searches are split into words ("ราคาทองวันนี้" is ราคา + ทอง), and Thai
+  news words also match their English equivalents, so a Thai question finds English sources.
+  English words match their other forms: "hacks" finds "hacked", "buys" finds "bought".
+- Without the internet, `search` and `ask` use the offline copy `unlimited setup` saved, and
+  say how old it is.
+- Every source command takes `--limit N`; `search --feed NAME` without words lists a feed's
+  latest items.
+- MCP: `list_feeds` returns names and descriptions only (a third of the size), results are
+  compact JSON, and an empty search tells the agent what to try next.
+- `publish` refuses to publish the folder the pipelines are in. `new` writes a description, a
+  feed link to the watched site, and a commented `browser: true` for pages that need JavaScript.
+- Readable output: posts older than today show their date, pages rendered in a browser say so
+  and show the screenshot path, links show in full, and Mastodon hashtags read `#Thailand`,
+  not `# Thailand`.
+- A search that finds nothing says so and what to try, instead of printing nothing; a feed
+  name that does not exist is an error with a suggestion (`insider-trade`: did you mean
+  `insider-trades`?).
+- `ask` caps a local model's answer length: a small model repeating itself could run for
+  minutes on a CPU. Models under 3B parameters are asked for two sentences, as they make
+  things up once they ramble.
+- `ask` weighs rare words above common ones ("bitcoin" over "price"), ignores filler ("I think
+  it is called"), and names what the catalog lacks when it declines ("Nothing in the catalog
+  is about market, set100"). A made-up percentage is flagged even when a source is numbered
+  [10], and numbers inside names (the 100 in SET100) are not taken for facts.
+- The offline copy lives in the user's data folder (it was `~/unlimited/catalog`, which could
+  land inside a cloned repository). `mirror` and `serve` use it when no folder is given, and
+  `--catalog offline` searches it on purpose.
+
 ## 0.9.0 - 2026-09-26
 
 "Setup": one command.

@@ -22,8 +22,11 @@ _DATE = re.compile(r"^\d{4}-(0[1-9]|1[0-2])(-\d{2})?")
 
 
 def item_key(item: dict[str, Any]) -> str:
-    """The identity of an item across runs: its feed and its link (or title)."""
-    basis = f"{item.get('feed')}\n{item.get('link') or item.get('title') or ''}"
+    """The identity of an item across runs: its feed, link and title. Both, because some feeds
+    link every item to the same page (a list of hacks, a weekly volcano report), and the same
+    story can arrive twice from two sources with a title that differs only in case."""
+    title = " ".join(str(item.get("title") or "").split()).casefold()
+    basis = f"{item.get('feed')}\n{item.get('link') or ''}\n{title}"
     return hashlib.sha256(basis.encode()).hexdigest()[:16]
 
 
@@ -38,9 +41,11 @@ def _known(path: Path) -> set[str]:
         with path.open(encoding="utf-8") as lines:
             for line in lines:
                 try:
-                    keys.add(json.loads(line)["key"])
-                except (ValueError, KeyError, TypeError):
+                    entry = json.loads(line)
+                except ValueError:
                     continue
+                if isinstance(entry, dict):
+                    keys.add(item_key(entry))  # not the stored key: older ones were link-only
     except OSError:
         pass
     return keys

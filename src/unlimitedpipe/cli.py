@@ -101,7 +101,14 @@ def _execute(component: Component, options: dict[str, Any]) -> None:
             hint=f"unlimited web https://example.com | unlimited {component.name} ...",
         )
     if kind == "source":
-        sources, operators, outputs = [component], [], [default_output()]
+        from unlimitedpipe.operators.limit import Limit
+
+        limit = options.get("limit")
+        sources, operators, outputs = (
+            [component],
+            [Limit(count=limit)] if limit else [],
+            [default_output()],
+        )
     elif kind == "operator":
         sources, operators, outputs = [_StdinSource()], [component], [default_output()]
     else:
@@ -531,28 +538,33 @@ def catalog_command(ctx: click.Context, pipelines: tuple[Path, ...], results: Pa
 
 
 @cli.command("mirror")
-@click.argument("folder", type=click.Path(file_okay=False, path_type=Path))
+@click.argument("folder", required=False, type=click.Path(file_okay=False, path_type=Path))
 @click.option("--catalog", default=None, help="Catalog to copy (default: the public one).")
 @click.option("--since", default=None, metavar="DATE", help="Only archive months from here on.")
 @click.option("--feeds", is_flag=True, help="Also copy every feed file (RSS and JSON).")
 @click.pass_context
 def mirror_command(
-    ctx: click.Context, folder: Path, catalog: str | None, since: str | None, feeds: bool
+    ctx: click.Context, folder: Path | None, catalog: str | None, since: str | None, feeds: bool
 ) -> None:
-    """Download a feed catalog into a folder, to search and ask it without the internet.
+    """Download a feed catalog, to search and ask it without the internet.
 
     Copies feeds.json (the feeds and their latest items), the archive of past items and the
-    index page. Run it again to refresh. Then: `unlimited search WORDS --catalog FOLDER`,
-    `unlimited ask QUESTION --catalog FOLDER`, or `unlimited serve FOLDER`.
+    index page into FOLDER, or by default into your offline copy, which `search` and `ask`
+    use by themselves when the internet is down (`--catalog offline` uses it on purpose).
+    Run it again to refresh.
 
     \b
     Examples:
-      unlimited mirror ~/feeds
+      unlimited mirror                              # your offline copy
       unlimited mirror ~/feeds --since 2026-08 --feeds
     """
     from unlimitedpipe.archive import parse_since
     from unlimitedpipe.context import Context
     from unlimitedpipe.offline import mirror
+    from unlimitedpipe.sources.search import offline_copy
+
+    named = folder is not None
+    folder = folder or offline_copy()
 
     if since:
         try:
@@ -573,36 +585,41 @@ def mirror_command(
         f"{copied['months']} archive month(s).",
         err=True,
     )
+    where = folder if named else "offline"
     click.echo(
-        f"Try: unlimited search WORDS --catalog {folder}   or: unlimited serve {folder}", err=True
+        f"Try: unlimited search WORDS --catalog {where}   or: unlimited serve"
+        + (f" {folder}" if named else ""),
+        err=True,
     )
 
 
 @cli.command("serve")
-@click.argument("folder", type=click.Path(exists=True, file_okay=False, path_type=Path))
+@click.argument("folder", required=False, type=click.Path(file_okay=False, path_type=Path))
 @click.option("--port", default=8765, show_default=True, help="Port to listen on.")
 @click.option("--lan", is_flag=True, help="Also serve other devices on your local network.")
-def serve_command(folder: Path, port: int, lan: bool) -> None:
+def serve_command(folder: Path | None, port: int, lan: bool) -> None:
     """Serve a downloaded catalog (with its search box) on this machine, or with --lan to
-    phones and computers on the same network. Read-only; Ctrl+C stops it.
+    phones and computers on the same network: FOLDER, or by default your offline copy.
+    Read-only; Ctrl+C stops it.
 
     \b
     Examples:
-      unlimited serve ~/feeds
+      unlimited serve
       unlimited serve ~/feeds --lan
     """
     from unlimitedpipe.offline import serve
+    from unlimitedpipe.sources.search import offline_copy
 
-    serve(folder, port=port, lan=lan)
+    serve(folder or offline_copy(), port=port, lan=lan)
 
 
 @cli.command("setup")
 @click.option("-y", "--yes", is_flag=True, help="Accept every step without asking.")
 @click.option(
     "--skip",
-    type=click.Choice(["browser", "ai", "agents", "offline"]),
     multiple=True,
-    help="Leave out a step (repeatable).",
+    metavar="STEP",
+    help="Leave out steps: browser, ai, agents, offline (repeatable, or with commas).",
 )
 @click.option("--catalog", default=None, help="Catalog to use (default: the public one).")
 def setup_command(yes: bool, skip: tuple[str, ...], catalog: str | None) -> None:
@@ -614,10 +631,14 @@ def setup_command(yes: bool, skip: tuple[str, ...], catalog: str | None) -> None
     Examples:
       unlimited setup
       unlimited setup --yes --skip ai
+      unlimited setup --yes --skip browser,ai
     """
-    from unlimitedpipe.onboard import Setup
+    from unlimitedpipe.onboard import STEPS, Setup
 
-    Setup(yes=yes, skip=set(skip), catalog=catalog)()
+    steps = {step.strip() for value in skip for step in value.split(",") if step.strip()}
+    if unknown := sorted(steps - set(STEPS)):
+        raise UsageError(f"unknown step {unknown[0]!r}", hint=f"the steps are {', '.join(STEPS)}")
+    Setup(yes=yes, skip=steps, catalog=catalog)()
 
 
 @cli.command("doctor")

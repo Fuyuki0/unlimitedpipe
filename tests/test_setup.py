@@ -35,6 +35,7 @@ def home(tmp_path, monkeypatch):
     home = tmp_path / "home"
     home.mkdir()
     monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("UNLIMITEDPIPE_DATA_DIR", str(tmp_path / "data"))
     monkeypatch.setenv("UNLIMITEDPIPE_STATE_DIR", str(tmp_path / "state"))
     monkeypatch.setenv("UNLIMITEDPIPE_CACHE_DIR", str(tmp_path / "cache"))
     monkeypatch.setenv("OLLAMA_HOST", "http://127.0.0.1:9")
@@ -72,7 +73,7 @@ def test_without_a_terminal_it_only_checks(home, tmp_path, monkeypatch):
     monkeypatch.setenv("PATH", "/usr/bin:/bin")  # no claude
     out = lines({"yes": False, "skip": set(), "catalog": catalog(tmp_path), "interactive": False})
     assert "only checking" in out[0]
-    assert not (home / "unlimited").exists()
+    assert not (tmp_path / "data").exists()
     assert (
         out[-1]
         .strip()
@@ -98,7 +99,7 @@ def test_yes_sets_up_claude_code_and_an_offline_copy(home, tmp_path, monkeypatch
     assert calls[1] == f"mcp add --scope user unlimitedpipe -- {this_command()} mcp"
     assert Path(this_command()).parent == Path(sys.executable).parent  # the running copy
     assert (home / ".claude/skills/unlimitedpipe/SKILL.md").read_text() == skill_text()
-    copy = home / "unlimited" / "catalog"
+    copy = tmp_path / "data" / "catalog"
     assert (copy / "feeds.json").is_file() and (copy / "archive" / "2026-09.jsonl").is_file()
     assert out[-1].strip().startswith("Set up: agents, offline. Skipped: browser, ai")
     again = lines({"yes": True, "skip": {"browser", "ai", "offline"}, "catalog": catalog_path})
@@ -121,3 +122,19 @@ def test_the_browser_step_installs_playwright_and_chromium(home, tmp_path, monke
     assert ["pip", "install", "playwright>=1.45"] in commands
     assert [sys.executable, "-m", "playwright", "install", "chromium"] in commands
     assert setup.done == ["browser"]
+
+
+def test_skip_takes_steps_with_commas(home, monkeypatch):
+    from click.testing import CliRunner
+
+    import unlimitedpipe.onboard as onboard
+    from unlimitedpipe.cli import cli
+
+    seen = []
+    monkeypatch.setattr(onboard.Setup, "__call__", lambda self: seen.append(self.skip))
+    result = CliRunner().invoke(
+        cli, ["setup", "--yes", "--skip", "browser,ai", "--skip", "offline"]
+    )
+    assert result.exit_code == 0 and seen == [{"browser", "ai", "offline"}]
+    result = CliRunner().invoke(cli, ["setup", "--skip", "browsers"])
+    assert result.exit_code != 0 and "unknown step 'browsers'" in str(result.exception)

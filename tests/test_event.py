@@ -94,3 +94,12 @@ def test_flatten_uses_dotted_keys_and_json_lists():
 )
 def test_parse_time(value, expected):
     assert iso(parse_time(value)) == expected
+
+
+def test_parse_time_converts_offsets_to_utc():
+    from unlimitedpipe.event import parse_time
+
+    when = parse_time("2026-09-25T17:11:02-04:00")
+    assert when is not None and when.strftime("%Y-%m-%dT%H:%M:%SZ") == "2026-09-25T21:11:02Z"
+    rfc = parse_time("Fri, 25 Sep 2026 10:23:10 +0700")
+    assert rfc is not None and rfc.strftime("%H:%M") == "03:23"

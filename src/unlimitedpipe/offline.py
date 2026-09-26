@@ -74,7 +74,7 @@ def serve(folder: Path, *, port: int, lan: bool) -> None:
 
     if not (folder / "feeds.json").is_file():
         raise UsageError(
-            f"{folder} has no feeds.json", hint="download a catalog first: unlimited mirror DIR"
+            f"{folder} has no feeds.json", hint="download a catalog first: unlimited mirror"
         )
 
     class Handler(http.server.SimpleHTTPRequestHandler):

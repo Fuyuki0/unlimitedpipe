@@ -6,7 +6,7 @@ import pytest
 from tests.conftest import run_source
 from unlimitedpipe.errors import UsageError
 from unlimitedpipe.publish import CATALOG_SCHEMA
-from unlimitedpipe.sources.ask import Ask, rank, terms
+from unlimitedpipe.sources.ask import Ask, days_asked, needed, rank, terms, unsupported_numbers
 
 CATALOG = {
     "schema": CATALOG_SCHEMA,
@@ -43,10 +43,84 @@ def test_terms_keep_the_words_worth_searching():
     assert terms("Any big insider buys?") == ["insider", "buys"]
 
 
+def links(items):
+    return [i["link"] for i in items[0]]
+
+
 def test_rank_prefers_strong_matches_and_leaves_out_weak_ones():
-    assert [i["link"] for i in rank(CATALOG, ["weather", "bangkok"], 10)] == ["https://w/1"]
-    assert [i["link"] for i in rank(CATALOG, ["insider"], 10)] == ["https://s/1"]  # via the feed
-    assert rank(CATALOG, ["volcano"], 10) == []
+    assert links(rank(CATALOG, ["weather", "bangkok"], 10)) == ["https://w/1"]
+    assert links(rank(CATALOG, ["insider"], 10)) == ["https://s/1"]  # via the feed
+    assert rank(CATALOG, ["volcano"], 10) == ([], set())
+
+
+def test_rank_puts_items_covering_more_words_first():
+    catalog = {
+        "feeds": [{"name": "crypto-hacks"}, {"name": "crypto-news"}],
+        "items": [
+            {"feed": "crypto-news", "title": "Crypto rebounds", "link": "n", "date": "2026-09-26"},
+            {
+                "feed": "crypto-hacks",
+                "title": "Bitget: $387M lost",
+                "link": "h",
+                "date": "2026-09-24",
+            },
+        ],
+    }
+    items, covered = rank(catalog, ["crypto", "hacks"], 10)
+    assert links((items, covered)) == ["h"] and covered == {"crypto", "hacks"}
+    assert links(rank(catalog, ["crypto"], 10, since="2026-09-25")) == ["n"]
+
+
+def test_time_words_and_how_much_must_match():
+    assert days_asked("any big insider trades this week?") == 8
+    assert days_asked("น้ำท่วมวันนี้") == 2 and days_asked("who won?") is None
+    assert [needed(["a"] * n) for n in (1, 2, 3, 4, 5)] == [1, 2, 2, 3, 3]
+    assert terms("any crypto hacks this week?") == ["crypto", "hacks"]
+
+
+def test_a_question_half_about_something_else_is_not_answered(web, make_ctx):
+    # "how will the flood affect the SET100?": flood news, but nothing on the stock market.
+    catalog = {
+        "schema": CATALOG_SCHEMA,
+        "feeds": [{"name": "thailand-news"}],
+        "items": [
+            {"feed": "thailand-news", "title": "Bangkok floods close schools", "link": "a"},
+            {"feed": "thailand-news", "title": "Flood warning in Thailand", "link": "b"},
+        ],
+    }
+    web.add(URL, json.dumps(catalog), content_type="application/json")
+    question = "how can the flood in thailand effect the market set100 I think it is called"
+    [answer] = run_source(Ask(question=question.split(), catalog=URL), make_ctx())
+    assert answer.data["model"] is None
+    assert "is about effect, market, set100, so no model was asked" in answer.data["answer"]
+
+
+def test_rare_words_count_more_than_common_ones():
+    catalog = {
+        "feeds": [],
+        "items": [
+            {"feed": "news", "title": f"Prices rise for item {n}", "link": f"p{n}"}
+            for n in range(5)
+        ]
+        + [{"feed": "crypto", "title": "Bitcoin gets shielded privacy", "link": "btc"}],
+    }
+    assert links(rank(catalog, ["bitcoin", "price"], 10))[0] == "btc"
+
+
+def test_numbers_the_sources_do_not_have_are_flagged():
+    sources = "[1] Bitcoin Core 31.1 released 2026-07-08; 24.0°C, 5,200 homes"
+    answer = "Bitcoin costs $4,131.77 [1]; 5200 homes and 24°C; release 31.1 in 2026."
+    assert unsupported_numbers(answer, sources) == ["4,131.77"]
+    # A made-up percentage is not excused by a source numbered [10] or humidity 93%.
+    sources = "[10] Bangkok: rain, humidity 93% - 10.0 mm of rain"
+    assert unsupported_numbers("SET100 fell 10% [10]; humidity 93%", sources) == ["10%"]
+
+
+def test_a_half_match_is_not_given_to_a_model(catalog, make_ctx):
+    [answer] = run_source(Ask(question=["bangkok", "price?"], catalog=URL), make_ctx())
+    assert answer.data["model"] is None
+    assert answer.data["answer"].startswith("Nothing in the catalog is about price, so no model")
+    assert [s["link"] for s in answer.data["sources"]] == ["https://w/1"]
 
 
 @pytest.fixture

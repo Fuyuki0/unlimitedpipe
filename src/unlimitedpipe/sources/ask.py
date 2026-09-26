@@ -7,19 +7,22 @@ the sources are always shown with their links. When nothing matches, no model is
 
 from __future__ import annotations
 
+import math
 import os
 import re
-from datetime import UTC, datetime
+from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 
 import httpx
 
+from unlimitedpipe import thai
 from unlimitedpipe.component import Source, arg, opt
 from unlimitedpipe.context import Context
 from unlimitedpipe.errors import FetchError, UsageError
 from unlimitedpipe.event import Event
 from unlimitedpipe.operators.extract import STOPWORDS
-from unlimitedpipe.sources.search import catalog_url, items_since, load_catalog, word_pattern
+from unlimitedpipe.sources.search import items_since, open_catalog, word_pattern
 
 OLLAMA = "http://127.0.0.1:11434"
 ANTHROPIC = "https://api.anthropic.com/v1/messages"
@@ -38,7 +41,16 @@ PREFERRED = (
 )
 QUESTION_WORDS = frozenset(
     "what whats which who whom whose when where why how is are was were do does did any anything "  # noqa: SIM905
-    "tell show give me today now latest new news happening happened going there should can".split()
+    "tell show give me today now latest new news happening happened going there should can "
+    "tonight yesterday week weeks month months recent recently past currently right "
+    "think thought call called know want please guess maybe really like mean".split()
+)
+# Words that ask about a time, and how many days back they reach.
+TIME_WORDS = (
+    (re.compile(r"\b(today|tonight|now|currently)\b|วันนี้|ตอนนี้|ขณะนี้"), 2),
+    (re.compile(r"\byesterday\b|เมื่อวาน"), 3),
+    (re.compile(r"\bweek\b|สัปดาห์|อาทิตย์"), 8),
+    (re.compile(r"\bmonth\b|เดือน"), 32),
 )
 
 PROMPT = """You answer questions using only the numbered sources below, which were collected \
@@ -56,7 +68,8 @@ Question: {question}"""
 
 def terms(question: str) -> list[str]:
     """The words of a question worth searching for."""
-    words = re.findall(r"[^\W_][\w'-]*", question.casefold())
+    text = thai.THAI_RUN.sub(" ", question.casefold())
+    words = re.findall(r"[^\W_][\w'-]*", text) + thai.words_in(question)
     return [
         w
         for w in dict.fromkeys(words)
@@ -64,30 +77,77 @@ def terms(question: str) -> list[str]:
     ]
 
 
-def rank(document: dict[str, Any], words: list[str], limit: int) -> list[dict[str, Any]]:
-    """The catalog items that best match the words: more matching words first, then newer.
-    A feed whose name or description matches lifts all its items a little, and items scoring
-    under half the best match are left out."""
+def days_asked(question: str) -> int | None:
+    """How far back a question looks: "this week" is 8 days, "today" 2; None when it does not
+    say. The longest period mentioned wins."""
+    text = question.casefold()
+    found = [days for pattern, days in TIME_WORDS if pattern.search(text)]
+    return max(found) if found else None
+
+
+def needed(words: list[str]) -> int:
+    """How many of a question's words an item must cover to answer it: all of one or two,
+    most of more."""
+    return len(words) if len(words) <= 2 else -(-len(words) * 3 // 5)
+
+
+def rank(
+    document: dict[str, Any], words: list[str], limit: int, *, since: str | None = None
+) -> tuple[list[dict[str, Any]], set[str]]:
+    """The catalog items that best answer the words, and which words they cover.
+
+    Items covering more of the words come first, then stronger matches (a title counts more
+    than a summary), then newer ones; only items covering as many words as the best are kept,
+    as loosely related items confuse a model. A feed's name counts as part of each item
+    ("insider trades" finds the insider-trades feed), its description only a little. Items
+    older than ``since`` (an ISO date) are left out.
+    """
     feeds = {
-        f.get("name"): f"{f.get('name', '').replace('-', ' ')} {f.get('description') or ''}"
+        f.get("name"): (str(f.get("name", "")).replace("-", " "), f.get("description") or "")
         for f in document.get("feeds", [])
     }
+    items = [
+        item
+        for item in document.get("items", [])
+        if not (since and item.get("date") and str(item["date"]) < since)
+    ]
+    # Rare words say more than common ones: "bitcoin" picks items out, "price" hardly does.
+    texts = [text_of(item, feeds.get(item.get("feed"), ("", ""))[0]) for item in items]
+    rarity = {
+        word: 1
+        + math.log((len(texts) + 1) / (1 + sum(1 for t in texts if word_pattern(word).search(t))))
+        for word in words
+    }
     scored = []
-    for item in document.get("items", []):
+    for item in items:
+        date = str(item.get("date") or "")
         title, summary = item.get("title") or "", item.get("summary") or ""
-        about = feeds.get(item.get("feed"), "")
-        score = 0.0
+        name, about = feeds.get(item.get("feed"), ("", ""))
+        covered, score = set(), 0.0
         for word in words:
             pattern = word_pattern(word)
-            score += 2 if pattern.search(title) else 1 if pattern.search(summary) else 0
-        # The feed being about the question counts once, however many words it matches.
-        score += 1 if any(word_pattern(w).search(about) for w in words) else 0
-        if score:
-            scored.append((score, item.get("date") or "", item))
-    scored.sort(key=lambda s: (s[0], s[1]), reverse=True)
-    # Keep what matches nearly as well as the best: loosely related items only confuse a model.
-    best = scored[0][0] if scored else 0
-    return [item for score, _, item in scored[:limit] if score >= best / 2]
+            # A feed's name is as telling as a title: the feed exists for that topic.
+            weight = (
+                2 if pattern.search(title + " " + name) else 1 if pattern.search(summary) else 0
+            )
+            if weight:
+                covered.add(word)
+                score += weight * rarity[word]
+        if covered and any(word_pattern(w).search(about) for w in words):
+            score += 0.5
+        if covered:
+            scored.append((len(covered), score, date, item, covered))
+    if not scored:
+        return [], set()
+    scored.sort(key=lambda s: (s[0], s[1], s[2]), reverse=True)
+    best_coverage, best_score = scored[0][0], scored[0][1]
+    kept = [s for s in scored if s[0] == best_coverage and s[1] >= best_score / 2]
+    return [s[3] for s in kept[:limit]], scored[0][4]
+
+
+def text_of(item: dict[str, Any], feed_name: str = "") -> str:
+    """What a question's words are matched against: title, summary and the feed's name."""
+    return f"{item.get('title') or ''} {item.get('summary') or ''} {feed_name}"
 
 
 def source_lines(items: list[dict[str, Any]], summary_chars: int = 300) -> str:
@@ -100,6 +160,36 @@ def source_lines(items: list[dict[str, Any]], summary_chars: int = 300) -> str:
             text += f" - {' '.join(summary.split())}"
         lines.append(f"[{n}] ({item.get('feed')}, {date}) {text}")
     return "\n".join(lines)
+
+
+_NUMBER = re.compile(r"(?<!\w)\d[\d,]*(?:\.\d+)?")  # not the 100 in SET100
+
+
+_PERCENT = re.compile(r"(?<!\w)(\d[\d,]*(?:\.\d+)?)\s*(?:%|percent\b|per cent\b)", re.IGNORECASE)
+
+
+def unsupported_numbers(answer: str, sources: str) -> list[str]:
+    """Numbers in an answer that appear nowhere in its sources: the likeliest place for a
+    model to have made something up. A percentage must be a percentage in the sources too.
+    Source markers such as [10] are not facts, and one-digit numbers are skipped."""
+    answer, sources = (re.sub(r"\[\d+\]", " ", text) for text in (answer, sources))
+
+    def plain(number: str) -> str:
+        return number.replace(",", "").rstrip(".")
+
+    known = {plain(n) for n in _NUMBER.findall(sources)}
+    known |= {n.split(".")[0] for n in known}  # 24°C written as 24.0 in a source
+    percents = {plain(n) for n in _PERCENT.findall(sources)}
+    percents |= {n.split(".")[0] for n in percents}
+    seen = []
+    for number in _PERCENT.findall(answer):
+        if plain(number) not in percents and f"{number}%" not in seen:
+            seen.append(f"{number}%")
+    answer = _PERCENT.sub(" ", answer)
+    for number in _NUMBER.findall(answer):
+        if len(plain(number)) > 1 and plain(number) not in known and number not in seen:
+            seen.append(number)
+    return seen
 
 
 async def _ollama_models(client: httpx.AsyncClient, host: str) -> list[str] | None:
@@ -157,16 +247,26 @@ class Ask(Source):
 
     async def collect(self, ctx: Context):
         question = " ".join(self.question).strip()
-        url = catalog_url(self.catalog)
         try:
-            document = await load_catalog(ctx, url)
+            url, document = await open_catalog(ctx, self.catalog)
         except FetchError as exc:
-            if (error := ctx.fail(exc, source=self.name, url=url)) is not None:
+            if (error := ctx.fail(exc, source=self.name, url=exc.url)) is not None:
                 yield error
             return
         if self.since:
             document = {**document, "items": await items_since(ctx, url, document, self.since)}
-        items = rank(document, terms(question), self.sources)
+        words = terms(question)
+        days = days_asked(question)
+        after = (
+            (datetime.now(UTC) - timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%SZ")
+            if days
+            else None
+        )
+        items, covered = rank(document, words, self.sources, since=after)
+        weak = bool(items) and len(covered) < needed(words)
+        names = {f.get("name"): str(f.get("name", "")) for f in document.get("feeds", [])}
+        texts = [text_of(i, names.get(i.get("feed"), "").replace("-", " ")) for i in items]
+        missing = [w for w in words if not any(word_pattern(w).search(t) for t in texts)]
         found = [
             {
                 "n": n,
@@ -177,16 +277,39 @@ class Ask(Source):
             }
             for n, i in enumerate(items, 1)
         ]
+        period = f" from the last {days} days" if days else ""
+        check: list[str] = []
         if not items:
-            answer, model = "Nothing in the catalog matches this question.", None
-        else:
-            prompt = PROMPT.format(
-                today=datetime.now(UTC).strftime("%A %d %B %Y"),
-                sources=source_lines(items),
-                question=question,
-                sentences=5,
+            answer = (
+                f"Nothing in the catalog{period} matches this question. Try other words, "
+                "--since 2026-01 to use the archive too, or see what the feeds cover: "
+                "unlimited search --list-feeds"
             )
-            answer, model = await self._answer(ctx, prompt)
+            model = None
+        elif weak:
+            # Answering from half a match is how small models make things up.
+            about = (
+                f"is about {', '.join(missing)}"
+                if missing
+                else f"is about {' and '.join(words)} together"
+            )
+            answer = (
+                f"Nothing in the catalog{period} {about}, so no model was asked: it would "
+                "have to guess. The closest items are below."
+            )
+            model = None
+        else:
+
+            def prompt_for(sentences: int) -> str:
+                return PROMPT.format(
+                    today=datetime.now(UTC).strftime("%A %d %B %Y"),
+                    sources=source_lines(items),
+                    question=question,
+                    sentences=sentences,
+                )
+
+            answer, model, prompt = await self._answer(ctx, prompt_for)
+            check = unsupported_numbers(answer, prompt)
         yield Event(
             source=self.name,
             type="answer",
@@ -196,10 +319,12 @@ class Ask(Source):
                 "answer": answer,
                 "model": model,
                 "sources": found,
+                **({"unsupported": check} if check else {}),
             },
         )
 
-    async def _answer(self, ctx: Context, prompt: str) -> tuple[str, str]:
+    async def _answer(self, ctx: Context, prompt_for: Callable[[int], str]) -> tuple[str, str, str]:
+        """The answer, the model that gave it, and the prompt it was given."""
         host = os.environ.get("OLLAMA_HOST", OLLAMA)
         if not host.startswith("http"):
             host = f"http://{host}"
@@ -217,6 +342,10 @@ class Ask(Source):
                     raise UsageError(
                         f"the model {model!r} is not installed", hint=f"ollama pull {model}"
                     )
+                # Models under 3B parameters make things up once they ramble: keep them short.
+                size = re.search(r"(\d+(?:\.\d+)?)b\b", model.lower())
+                small = size is not None and float(size.group(1)) < 3
+                prompt = prompt_for(2 if small else 5)
                 ctx.notice(f"ask: {len(prompt)} characters of sources to {model} (local)")
                 try:
                     response = await client.post(
@@ -225,13 +354,15 @@ class Ask(Source):
                             "model": model,
                             "prompt": prompt,
                             "stream": False,
-                            "options": {"temperature": 0.2},
+                            # A cap on the answer's length: small models can repeat
+                            # themselves until their context is full, minutes on a CPU.
+                            "options": {"temperature": 0.2, "num_predict": 150 if small else 400},
                         },
                     )
                     response.raise_for_status()
                 except httpx.HTTPError as exc:
                     raise FetchError(f"Ollama could not answer: {exc}", url=host) from None
-                return response.json().get("response", "").strip(), model
+                return response.json().get("response", "").strip(), model, prompt
             if not key:
                 raise UsageError(
                     "no model to answer with",
@@ -239,6 +370,7 @@ class Ask(Source):
                     "or set ANTHROPIC_API_KEY",
                 )
             model = self.model or ANTHROPIC_MODEL
+            prompt = prompt_for(5)
             ctx.notice(f"ask: {len(prompt)} characters of sources to {model} (Anthropic)")
             response = await client.post(
                 ANTHROPIC,
@@ -256,4 +388,5 @@ class Ask(Source):
                     url=ANTHROPIC,
                 )
             blocks = response.json().get("content", [])
-            return "".join(b.get("text", "") for b in blocks if b.get("type") == "text"), model
+            text = "".join(b.get("text", "") for b in blocks if b.get("type") == "text")
+            return text, model, prompt
