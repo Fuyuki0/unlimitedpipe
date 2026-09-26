@@ -54,12 +54,13 @@ TH_LOOKUP = (
 )
 EN_LISTING = ("Any {topic} this week?", "What are the latest {topic}?", "Show me recent {topic}.")
 TH_LISTING = ("มี {topic} อะไรบ้างสัปดาห์นี้", "{topic} ล่าสุดมีอะไรบ้าง")
-OUTLET = re.compile(r"^[^:]{2,40}: (?=\S)")
 
 
 def headline(title: str) -> str:
-    """The headline without an outlet prefix ("BBC Africa: ..."), which is metadata."""
-    return OUTLET.sub("", title).strip().rstrip(".")
+    """The title as the source wrote it. (Cutting what comes before a colon, meant for outlet
+    names such as "BBC Africa:", also cut subjects such as "Bitcoin (BTC) price:" in build 1,
+    and the model learned to drop them.)"""
+    return title.strip().rstrip(".")
 
 
 def first_sentence(text: str, words: int = 30) -> str:

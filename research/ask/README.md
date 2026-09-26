@@ -39,4 +39,33 @@ It mostly leaves out the `[n]` citations the prompt asks for (25 answers), even 
 the right items, and answers anyway when the sources do not cover the question (15). In Thai
 it often repeats itself and slips into Chinese words.
 
-Trained model: to come.
+**Build 1, trained** (LoRA r=16 on Qwen2.5 0.5B Instruct, one pass over 7,016 examples, 24
+minutes on Kaggle's free T4; test loss 1.013 to 0.012). Graded on Kaggle, both models the
+same way (greedy, 150 new tokens, 16-bit) on 132 test questions:
+
+| Kind | Original | Trained |
+| --- | --- | --- |
+| lookup (en / th) | 1/30, 0/30 | 27/30, 26/30 |
+| listing (en / th) | 0/6, 0/6 | 5/6, 5/6 |
+| refusal (en / th) | 2/30, 2/30 | 30/30, 30/30 |
+| **all** | **5/132 (4%)** | **123/132 (93%)** |
+
+The test questions come from the same templates as the training ones, so real questions are
+the honest check. On nine, asked the way people ask them, the trained model cited its sources
+every time and invented nothing, where the original said "no new activist stakes" when there
+were three, mixed up two crypto hacks, gave a Thai answer dated 2564 BE (2021) for 2026, and
+rambled about the Bangkok flood. But build 1 had a bug: its templates cut what came before a
+colon, meant for outlet names ("BBC Africa: ..."), which also cut subjects ("Bitcoin (BTC)
+price: $84,056.11" became "$84,056.11"), and the model learned to drop them. Build 2 keeps
+titles whole.
+
+**Build 2** (titles kept whole, 7,606 examples, 30 minutes on the T4, test loss 0.952 to
+0.010): **124/132 (94%)** against the original's 5/132, on the same grader. On the real
+questions the subjects are back ("Bitcoin (BTC) price: $84,056.11 (2026-09-26) [1]"; the
+Bitget hack by name; the companies of activist stakes), every answer cites its sources, and
+Thai questions get clean Thai answers.
+
+It is installed on the author's machine as `unlimitedpipe-ask:0.5b` (8-bit GGUF, 531 MB), and
+`ask` now prefers it over small general models when it is there. Its style is extractive: it
+answers with the sources' own headlines, which is what makes it reliable, and also what keeps
+it from explaining (a 3B+ general model explains better, but cites and declines worse).
