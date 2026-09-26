@@ -26,4 +26,17 @@ trained model are private; the code and the scores are public.
 
 ## Results
 
-Baseline, `qwen2.5:0.5b` as `ask` uses it today: see below once scored. Trained model: to come.
+**Baseline: `qwen2.5:0.5b` as `ask` uses it today passes 11 of 52 test questions (21%)**, up
+to 10 per kind and language, 8.6 s per answer on a 2-core CPU:
+
+| Kind | English | Thai |
+| --- | --- | --- |
+| lookup | 2/10 | 0/10 |
+| listing | 4/6 | 0/6 |
+| refusal | 1/10 | 4/10 |
+
+It mostly leaves out the `[n]` citations the prompt asks for (25 answers), even when it names
+the right items, and answers anyway when the sources do not cover the question (15). In Thai
+it often repeats itself and slips into Chinese words.
+
+Trained model: to come.

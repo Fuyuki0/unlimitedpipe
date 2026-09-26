@@ -1,3 +1,6 @@
 # Research only: not needed to use UnlimitedPipe.
 numpy>=2.0
 scikit-learn>=1.5
+zstandard>=0.22
+pyarrow>=15
+huggingface_hub>=0.30

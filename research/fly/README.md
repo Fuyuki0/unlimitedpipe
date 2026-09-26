@@ -76,3 +76,50 @@ can the circuit learn new ones without retraining, where ordinary models forget?
 (is a new item unlike anything this month?). Liang et al. (ICLR 2021, "Can a Fruit Fly Learn
 Word Embeddings?") trained word meanings with the same circuit; that needs a larger public
 corpus than the catalog.
+
+# Many small flies and one main network
+
+**Question.** A brain is many specialised circuits, and only a few work at a time: that is
+how 86 billion neurons run on about 20 watts. So: many small fly circuits, each for its own
+kind of item, with a main network that sends each item to one of them. Is that accurate,
+cheap in energy, and able to keep learning?
+
+**Setup.** The same 41 feeds and split as above. The main network (the router) sorts items
+into 8 groups by similarity; each group gets its own small fly (2,000 cells) or its own
+ordinary model. Energy counts the arithmetic per item with 45 nm chip figures (Horowitz,
+ISSCC 2014): 4.6 pJ for a 32-bit float multiply-add, 0.23 pJ for an 8-bit one, 0.03 pJ for the
+8-bit addition a fly's on-or-off connection needs. `research/fly/modules.py` runs it.
+
+| Model | Accuracy | Energy per item (arithmetic) |
+| --- | --- | --- |
+| One ordinary model | 87.6% | 18.9 nJ |
+| One big fly (10,000 cells) | 87.3% | 4.2 nJ |
+| Main network + 8 small flies | 83.8% | 4.2 nJ |
+| Main network + 8 ordinary models | 84.8% | 22.5 nJ |
+| **One ordinary model on 8-bit numbers** | **87.3%** | **0.9 nJ** |
+
+**Keep learning:** 30 feeds first, then 11 new feeds, without seeing the old items again.
+
+| Model | Old feeds | New feeds |
+| --- | --- | --- |
+| One ordinary model, before the new feeds | 84.9% | - |
+| **One ordinary model, after** | **8.4%** | 98.9% |
+| Main network + fly modules | 81.8% | 83.5% |
+| Main network + ordinary modules | 82.0% | 84.7% |
+
+## What it means
+
+- **The architecture works; the fly part does not add to it.** One ordinary model forgets
+  almost everything it knew when it learns something new without the old data ("catastrophic
+  forgetting"); a main network with separate modules keeps it, whether the modules are flies
+  or ordinary models. New knowledge goes into new modules, and old modules are left alone.
+- **Energy: 8-bit arithmetic beats the fly.** The fly's saving comes from needing additions
+  only, but an ordinary model on 8-bit numbers, as phones already run models, costs less again
+  (0.9 against 4.2 nJ) at the same accuracy.
+- The energy figures count arithmetic only. On real chips, moving weights from memory costs
+  more than the arithmetic, which favours small models and, in principle, the fly's one-bit
+  connections: the part worth measuring on real hardware (or a neuromorphic chip, which runs
+  sparse spiking circuits like the fly's natively).
+- The modular idea is how large language models already save energy ("mixture of experts":
+  only a few expert blocks run for each word). A main network with small specialists is a
+  sound direction; the specialists need not copy a fly.
