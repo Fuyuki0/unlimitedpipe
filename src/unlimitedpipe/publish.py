@@ -51,6 +51,7 @@ class PublishPlan:
     cron: str
     site_url: str | None  # https://owner.github.io/repo/ when the remote is on GitHub
     secrets: list[str]  # ${NAME} references, passed from repository secrets
+    install: str = f"unlimitedpipe=={__version__}"  # what the workflow installs with pip
 
     @property
     def files(self) -> list[Path]:
@@ -213,7 +214,7 @@ jobs:
       - uses: {ACTIONS["setup-python"]}
         with:
           python-version: "3.12"
-      - run: pip install "unlimitedpipe=={__version__}"
+      - run: pip install "{p.install}"
       - name: Run the pipelines
         env:
           UNLIMITEDPIPE_STATE_DIR: {STATE_DIR}
@@ -225,6 +226,7 @@ jobs:
             unlimited run "$pipeline"
             code=$?
             set -e
+            echo "$code $pipeline" >> "$RUNNER_TEMP/unlimitedpipe-results"
             if [ "$code" -eq 0 ]; then
               ok=$((ok + 1))
             elif [ "$code" -eq 1 ]; then
@@ -236,7 +238,9 @@ jobs:
           done
           [ "$ok" -gt 0 ]  # fail only when nothing could run
       - name: Index the feeds for search
-        run: unlimited catalog {pipelines} || echo "::warning::could not update {site}/{CATALOG}"
+        run: >-
+          unlimited catalog --results "$RUNNER_TEMP/unlimitedpipe-results" {pipelines}
+          || echo "::warning::could not update {site}/{CATALOG}"
       - name: Save outputs and state
         run: |
           git config user.name "github-actions[bot]"
@@ -266,22 +270,55 @@ jobs:
 """
 
 
-def catalog(p: PublishPlan, per_feed: int = 30, summary_chars: int = 300) -> dict:
+STATUS = {0: "ok", 1: "partial"}  # any other exit code: failing
+
+
+def health(code: int | None, previous: dict | None, latest: str | None, now: str) -> dict | None:
+    """A feed's health after a run: ok, partial (some sources failed) or failing, since when,
+    and its newest item. The time only moves when the status changes, so a healthy catalog is
+    not rewritten by every run."""
+    if code is None:  # not run here (a local `unlimited catalog`): keep what was known
+        return {**previous, "latest": latest} if previous else None
+    status = STATUS.get(code, "failing")
+    since = previous.get("since") if previous and previous.get("status") == status else now
+    return {"status": status, "since": since, "latest": latest}
+
+
+def catalog(
+    p: PublishPlan,
+    per_feed: int = 30,
+    summary_chars: int = 300,
+    *,
+    results: dict[str, int] | None = None,
+    previous: dict | None = None,
+    now: str | None = None,
+) -> dict:
     """The feeds of a publish plan and their latest items, as one small document.
 
     Items come from the JSON Feed files the pipelines wrote, so searching every feed takes one
-    request. Paths are relative to the site, so the catalog works under any domain.
+    request. Paths are relative to the site, so the catalog works under any domain. With the
+    exit codes of a run (`results`, by pipeline path), each feed also carries its health.
     """
+    from unlimitedpipe.event import utcnow
+
     site = p.root / p.site_dir
+    now = now or utcnow()
+    before = {f.get("name"): f.get("health") for f in (previous or {}).get("feeds", [])}
     feeds, items = [], []
     for item in p.pipelines:
-        feeds.append(
-            {
-                "name": item.name,
-                "description": item.description,
-                "files": [f.as_posix() for f in item.files],
-            }
-        )
+        latest = None
+        for file in item.files:
+            if file.suffix == ".json":
+                latest = _newest(site / file) or latest
+        entry = {
+            "name": item.name,
+            "description": item.description,
+            "files": [f.as_posix() for f in item.files],
+        }
+        code = (results or {}).get(item.path.as_posix())
+        if (state := health(code, before.get(item.name), latest, now)) is not None:
+            entry["health"] = state
+        feeds.append(entry)
         for file in item.files:
             if file.suffix != ".json":
                 continue
@@ -308,13 +345,27 @@ def catalog(p: PublishPlan, per_feed: int = 30, summary_chars: int = 300) -> dic
     return {"schema": CATALOG_SCHEMA, "title": p.name, "feeds": feeds, "items": items}
 
 
-def write_catalog(p: PublishPlan) -> Path | None:
+def _newest(path: Path) -> str | None:
+    try:
+        document = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    dates = [i.get("date_published") for i in document.get("items", []) if isinstance(i, dict)]
+    return max((d for d in dates if isinstance(d, str)), default=None)
+
+
+def write_catalog(p: PublishPlan, results: dict[str, int] | None = None) -> Path | None:
     """Write feeds.json into the site folder unless a pipeline writes a file of that name.
     Returns the path when the file changed."""
     if any(f.as_posix() == CATALOG for f in p.files):
         return None
     path = p.root / p.site_dir / CATALOG
-    text = json.dumps(catalog(p), ensure_ascii=False, indent=1) + "\n"
+    try:
+        previous = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        previous = None
+    document = catalog(p, results=results, previous=previous)
+    text = json.dumps(document, ensure_ascii=False, indent=1) + "\n"
     if path.exists() and path.read_text(encoding="utf-8") == text:
         return None
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -357,6 +408,20 @@ SEARCH_SCRIPT = r"""    <script>
           list.append(li);
         }
       }
+      // Say which feeds are failing, and how fresh each one is.
+      load().then(() => {
+        for (const f of catalog.feeds) {
+          const section = document.getElementById("feed-" + f.name), h = f.health;
+          if (!section || !h) continue;
+          const note = document.createElement("p");
+          note.className = h.status === "ok" ? "muted" : "warn";
+          const latest = h.latest ? "latest item " + h.latest.slice(0, 10) : "no items yet";
+          note.textContent = h.status === "ok" ? latest
+            : (h.status === "partial" ? "⚠ some sources failing" : "⚠ failing")
+              + " since " + h.since.slice(0, 16).replace("T", " ") + " UTC · " + latest;
+          section.append(note);
+        }
+      }).catch(() => {});
       q.addEventListener("input", () => load().then(show).catch(() => {
         status.textContent = "Search starts working after the next run writes feeds.json.";
       }));
@@ -377,7 +442,8 @@ def index_page(p: PublishPlan, every: str) -> str:
         )
         about = f"<p>{html.escape(item.description)}</p>" if item.description else ""
         sections.append(
-            f"    <section>\n      <h2>{html.escape(item.name)}</h2>\n"
+            f'    <section id="feed-{html.escape(item.name)}">\n'
+            f"      <h2>{html.escape(item.name)}</h2>\n"
             f"      {about}\n      <p>{links}</p>\n    </section>"
         )
     title = html.escape(p.name)
@@ -402,6 +468,7 @@ def index_page(p: PublishPlan, every: str) -> str:
       #results {{ list-style: none; padding: 0; }}
       #results li {{ margin: .6rem 0; }}
       #results small, .muted {{ color: #666; }}
+      .warn {{ color: #a33; }}
     </style>
   </head>
   <body>

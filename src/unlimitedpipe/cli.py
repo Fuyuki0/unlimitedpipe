@@ -7,6 +7,7 @@ plugins get a CLI for free. Commands are built lazily: a pipe stage only imports
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import os
 import signal
@@ -384,9 +385,21 @@ def _load_for_publishing(pipelines: tuple[Path, ...]):
     "--name", default=None, help="Workflow name (default: the pipeline's name, or feeds)."
 )
 @click.option("--force", is_flag=True, help="Overwrite an existing workflow.")
+@click.option(
+    "--install",
+    default=None,
+    metavar="SPEC",
+    help="What the workflow installs with pip (default: this version from PyPI), "
+    "e.g. git+https://github.com/Fuyuki0/unlimitedpipe@v0.5.0",
+)
 @click.pass_context
 def publish_command(
-    ctx: click.Context, pipelines: tuple[Path, ...], every: str, name: str | None, force: bool
+    ctx: click.Context,
+    pipelines: tuple[Path, ...],
+    every: str,
+    name: str | None,
+    force: bool,
+    install: str | None,
 ) -> None:
     """Host pipelines' outputs for free: GitHub Actions runs them, GitHub Pages serves them.
 
@@ -413,6 +426,10 @@ def publish_command(
     items = _load_for_publishing(pipelines)
     seconds = parse_duration(every)
     p = plan(items, seconds, name)
+    if install:
+        if '"' in install or "\n" in install:
+            raise UsageError("--install must be a pip requirement or URL without quotes")
+        p.install = install
     workflow_path = p.root / p.workflow
     if workflow_path.exists() and not force:
         raise UsageError(f"{p.workflow} already exists", hint="pass --force to replace it")
@@ -467,8 +484,14 @@ def publish_command(
     required=True,
     type=click.Path(exists=True, dir_okay=False, path_type=Path),
 )
+@click.option(
+    "--results",
+    type=click.Path(dir_okay=False, path_type=Path),
+    default=None,
+    help="Exit codes of a run, one 'CODE PIPELINE' per line, to record each feed's health.",
+)
 @click.pass_context
-def catalog_command(ctx: click.Context, pipelines: tuple[Path, ...]) -> None:
+def catalog_command(ctx: click.Context, pipelines: tuple[Path, ...], results: Path | None) -> None:
     """Index published feeds for search: write feeds.json next to them.
 
     Lists every pipeline's feeds with its description, plus the latest items of all its JSON
@@ -482,10 +505,25 @@ def catalog_command(ctx: click.Context, pipelines: tuple[Path, ...]) -> None:
     from unlimitedpipe.publish import CATALOG, plan, write_catalog
 
     p = plan(_load_for_publishing(pipelines), 3600)
-    written = write_catalog(p)
-    if not (ctx.obj or {}).get("quiet"):
-        where = p.site_dir / CATALOG
-        click.echo(f"Wrote {where}" if written else f"{where} is up to date", err=True)
+    codes: dict[str, int] | None = None
+    if results is not None and results.exists():
+        codes = {}
+        for line in results.read_text(encoding="utf-8").splitlines():
+            code, _, path = line.strip().partition(" ")
+            if code.lstrip("-").isdigit() and path:
+                codes[Path(path).resolve().relative_to(p.root).as_posix()] = int(code)
+    written = write_catalog(p, codes)
+    if (ctx.obj or {}).get("quiet"):
+        return
+    where = p.site_dir / CATALOG
+    click.echo(f"Wrote {where}" if written else f"{where} is up to date", err=True)
+    document = json.loads((p.root / where).read_text(encoding="utf-8"))
+    in_actions = os.environ.get("GITHUB_ACTIONS") == "true"
+    for feed in document.get("feeds", []):
+        state = feed.get("health") or {}
+        if state.get("status") in ("failing", "partial"):
+            message = f"{feed['name']}: {state['status']} since {state.get('since')}"
+            click.echo(f"::warning::{message}" if in_actions else f"warning: {message}", err=True)
 
 
 @cli.command("mcp")

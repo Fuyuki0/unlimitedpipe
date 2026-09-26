@@ -3,6 +3,15 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.5.1 - 2026-09-26
+
+- Feed health: published workflows record each pipeline's result, and `unlimited catalog
+  --results FILE` stores every feed's status in `feeds.json` (ok, partial or failing, since
+  when, and its newest item). The status time only moves when the status changes. The index
+  page marks failing feeds, and GitHub Actions shows a warning for each.
+- `publish --install SPEC` sets what the workflow installs with pip, such as a Git tag
+  (`git+https://github.com/Fuyuki0/unlimitedpipe@v0.5.1`) instead of the release on PyPI.
+
 ## 0.5.0 - 2026-09-26
 
 "Ask": questions answered from the feeds, with sources.

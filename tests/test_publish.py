@@ -205,4 +205,4 @@ def test_catalog_publishes_several_pipelines_with_one_workflow(repo):
     run = yaml.safe_load(workflow(p))["jobs"]["run"]["steps"][3]["run"]
     assert 'for pipeline in "feeds/prices.yml" "feeds/news.yml"' in run
     page = index_page(p, "1h")
-    assert page.count("<section>") == 2 and "<p>Headlines</p>" in page
+    assert page.count("<section id=") == 2 and "<p>Headlines</p>" in page

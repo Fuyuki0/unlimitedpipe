@@ -1,6 +1,8 @@
 import asyncio
 import json
+import os
 import subprocess
+import sys
 from pathlib import Path
 
 import httpx
@@ -190,3 +192,44 @@ def test_the_index_page_searches_the_catalog_in_the_browser(repo):
     assert '<input id="q" type="search"' in page
     assert 'fetch("feeds.json")' in page
     assert "textContent" in page and "innerHTML" not in page  # feed text is never parsed as HTML
+
+
+def test_feed_health_follows_runs_and_only_moves_on_change(repo):
+    p = repo_plan(repo)
+    first = catalog(p, results={"feeds/quakes.yml": 0, "feeds/recalls.yml": 2}, now="T1")
+    quakes, recalls = first["feeds"]
+    assert quakes["health"] == {"status": "ok", "since": "T1", "latest": "2026-09-25T21:44:05Z"}
+    assert recalls["health"] == {"status": "failing", "since": "T1", "latest": None}
+    second = catalog(
+        p, results={"feeds/quakes.yml": 0, "feeds/recalls.yml": 1}, previous=first, now="T2"
+    )
+    assert second["feeds"][0]["health"]["since"] == "T1"  # still ok: unchanged
+    assert second["feeds"][1]["health"] == {"status": "partial", "since": "T2", "latest": None}
+    local = catalog(p, previous=second, now="T3")  # no results: keep what was known
+    assert local["feeds"][1]["health"]["status"] == "partial"
+
+
+def test_catalog_command_reads_a_runs_results(repo):
+    results = repo / "results.txt"
+    results.write_text(f"0 {repo}/feeds/quakes.yml\n2 {repo}/feeds/recalls.yml\n")
+    command = [sys.executable, "-m", "unlimitedpipe", "catalog", "--results", str(results)]
+    run = subprocess.run(
+        [*command, "feeds/quakes.yml", "feeds/recalls.yml"],
+        cwd=repo,
+        capture_output=True,
+        text=True,
+        env={**os.environ, "GITHUB_ACTIONS": "true"},
+    )
+    assert run.returncode == 0, run.stderr
+    assert "::warning::recalls: failing since" in run.stderr
+    document = json.loads((repo / "public" / "feeds.json").read_text())
+    assert [f["health"]["status"] for f in document["feeds"]] == ["ok", "failing"]
+
+
+def test_workflow_records_results_and_installs_what_it_is_told(repo):
+    p = repo_plan(repo)
+    p.install = "git+https://github.com/Fuyuki0/unlimitedpipe@v0.5.0"
+    text = workflow(p)
+    assert 'echo "$code $pipeline" >> "$RUNNER_TEMP/unlimitedpipe-results"' in text
+    assert 'unlimited catalog --results "$RUNNER_TEMP/unlimitedpipe-results"' in text
+    assert 'pip install "git+https://github.com/Fuyuki0/unlimitedpipe@v0.5.0"' in text
