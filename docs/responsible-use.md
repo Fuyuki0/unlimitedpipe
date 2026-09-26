@@ -29,6 +29,10 @@ controls. Connectors that do are not accepted.
 ## What the defaults do
 
 - **robots.txt** is honored for web pages as described in RFC 9309, including `Crawl-delay`.
+- **Rendering in a browser** (`web --browser`) is for public pages that fill in their content
+  with JavaScript, not for getting past anything: it checks robots.txt, keeps the same pacing
+  per site, sends the same User-Agent, and skips images, fonts and media. It does not solve
+  CAPTCHAs, log in, or hide that it is automated.
   `--ignore-robots` exists for sites you own or have permission to fetch.
 - **One request per second per host**, shared by every source in a run.
 - **Conditional requests** (`ETag`, `If-Modified-Since`) so an unchanged page costs the site

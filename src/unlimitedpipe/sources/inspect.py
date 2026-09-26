@@ -159,7 +159,8 @@ class Inspect(Source):
             suggestions.append(f"unlimited rss {feeds[0]}")
         if js_required:
             suggestions.append(
-                "This page needs JavaScript. Browser support is planned; look for an API or feed."
+                f"unlimited web {url} --browser   # render it first "
+                '(pip install "unlimitedpipe[browser]" && playwright install chromium)'
             )
         elif not method:
             suggestions.append(f"unlimited web {url}")

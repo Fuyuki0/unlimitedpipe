@@ -52,6 +52,7 @@ class PublishPlan:
     site_url: str | None  # https://owner.github.io/repo/ when the remote is on GitHub
     secrets: list[str]  # ${NAME} references, passed from repository secrets
     install: str = f"unlimitedpipe=={__version__}"  # what the workflow installs with pip
+    browser: bool = False  # a pipeline renders pages with --browser: install Chromium too
 
     @property
     def files(self) -> list[Path]:
@@ -176,10 +177,17 @@ def plan(items: list[tuple[Path, Pipeline]], every: float, name: str | None = No
         cron=cron_for(every, name),
         site_url=pages_url(root),
         secrets=list(secrets),
+        browser=any(getattr(s, "browser", False) is True for _, pl in items for s in pl.sources),
     )
 
 
 def workflow(p: PublishPlan) -> str:
+    browser_setup = (
+        '\n      - run: pip install "playwright>=1.45" && python -m playwright install --with-deps '
+        "chromium"
+        if p.browser
+        else ""
+    )
     secrets = "".join(f"\n          {secret}: ${{{{ secrets.{secret} }}}}" for secret in p.secrets)
     pipelines = " ".join(f'"{item.path.as_posix()}"' for item in p.pipelines)
     site = p.site_dir.as_posix()
@@ -214,7 +222,7 @@ jobs:
       - uses: {ACTIONS["setup-python"]}
         with:
           python-version: "3.12"
-      - run: pip install "{p.install}"
+      - run: pip install "{p.install}"{browser_setup}
       - name: Run the pipelines
         env:
           UNLIMITEDPIPE_STATE_DIR: {STATE_DIR}

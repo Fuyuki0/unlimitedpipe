@@ -69,6 +69,16 @@ class Web(Source):
         "Skip robots.txt (only with the site owner's permission)", default=False
     )
     cache: bool = opt("Revalidate unchanged pages with ETag/Last-Modified", default=True)
+    browser: bool = opt(
+        "Render pages in a headless browser first, for pages that need JavaScript "
+        '(pip install "unlimitedpipe[browser]")',
+        default=False,
+    )
+    screenshot: str | None = opt(
+        "With --browser: save a full-page screenshot of each page into this folder, as evidence",
+        default=None,
+        metavar="DIR",
+    )
     records: str | None = opt(
         "For JSON responses: path to the list of records, e.g. `data.items`",
         default=None,
@@ -76,6 +86,8 @@ class Web(Source):
     )
 
     def __post_init__(self) -> None:
+        if self.screenshot and not self.browser:
+            raise ValueError("--screenshot needs --browser")
         self._fields = [parse_field_spec(spec) for spec in self.field]
         names = [name for name, _, _ in self._fields]
         duplicates = sorted({name for name in names if names.count(name) > 1})
@@ -87,6 +99,7 @@ class Web(Source):
             raise ValueError("use either --selector or --field, not both")
         if self.timeout <= 0:
             raise ValueError("--timeout must be positive")
+        self._screenshots: dict[str, str | None] = {}
 
     async def collect(self, ctx: Context):
         async for url in input_urls(self.url, ctx, command="web"):
@@ -101,6 +114,18 @@ class Web(Source):
                 yield event
 
     async def _get(self, url: str, ctx: Context):
+        if self.browser:
+            from pathlib import Path
+
+            response, shot = await ctx.browser.render(
+                url,
+                user_agent=self.user_agent,
+                robots=not self.ignore_robots,
+                timeout=max(self.timeout, 30.0),
+                screenshot=Path(self.screenshot) if self.screenshot else None,
+            )
+            self._screenshots[url] = str(shot) if shot else None
+            return response
         return await ctx.http.get(
             url,
             timeout=self.timeout,
@@ -123,6 +148,10 @@ class Web(Source):
             "elapsed_ms": response.elapsed_ms,
             "not_modified": response.from_cache,
         }
+        if self.browser:
+            meta["rendered"] = True
+            if shot := self._screenshots.get(url):
+                meta["screenshot"] = shot
 
         if "json" in response.content_type:
             value = response.json()

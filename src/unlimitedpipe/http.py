@@ -230,6 +230,33 @@ class HttpClient:
                 await asyncio.sleep(wait)
             self._next_slot[host] = max(now, self._next_slot.get(host, 0.0)) + interval
 
+    async def check_robots(
+        self, url: str, *, user_agent: str | None = None, interval: float | None = None
+    ) -> float:
+        """Raise RobotsDisallowed unless robots.txt allows the URL; return the interval to keep
+        between requests to its host (at least the site's Crawl-delay)."""
+        interval = self.interval if interval is None else interval
+        agent_token = (user_agent or USER_AGENT).split("/")[0].split()[0].lower()
+        rules = await self.robots(url, user_agent=user_agent)
+        parts = urlsplit(url)
+        path = (parts.path or "/") + (f"?{parts.query}" if parts.query else "")
+        if not rules.allowed(agent_token, path):
+            reason = rules.deny_reason or "robots.txt does not allow this path"
+            raise RobotsDisallowed(
+                f"not fetching {url}: {reason}",
+                url=url,
+                hint="UnlimitedPipe respects robots.txt by default. Use --ignore-robots only "
+                "if the site owner allows it.",
+            )
+        delay = rules.crawl_delay(agent_token)
+        return max(interval, min(delay, MAX_CRAWL_DELAY)) if delay else interval
+
+    async def pace(self, url: str, interval: float | None = None) -> None:
+        """Wait for this host's next request slot (shared with every other request)."""
+        await self._throttle(
+            urlsplit(url).netloc.lower(), self.interval if interval is None else interval
+        )
+
     async def robots(self, url: str, *, user_agent: str | None = None) -> RobotsRules:
         parts = urlsplit(url)
         origin = f"{parts.scheme}://{parts.netloc}"
@@ -317,24 +344,10 @@ class HttpClient:
         if user_agent:
             request_headers["User-Agent"] = user_agent
         interval = self.interval if interval is None else interval
-        agent_token = (user_agent or USER_AGENT).split("/")[0].split()[0].lower()
         host = urlsplit(url).netloc.lower()
 
         if robots:
-            rules = await self.robots(url, user_agent=user_agent)
-            parts = urlsplit(url)
-            path = (parts.path or "/") + (f"?{parts.query}" if parts.query else "")
-            if not rules.allowed(agent_token, path):
-                reason = rules.deny_reason or "robots.txt does not allow this path"
-                raise RobotsDisallowed(
-                    f"not fetching {url}: {reason}",
-                    url=url,
-                    hint="UnlimitedPipe respects robots.txt by default. Use --ignore-robots only "
-                    "if the site owner allows it.",
-                )
-            delay = rules.crawl_delay(agent_token)
-            if delay:
-                interval = max(interval, min(delay, MAX_CRAWL_DELAY))
+            interval = await self.check_robots(url, user_agent=user_agent, interval=interval)
 
         cached = self._load_cached(url) if cache else None
         if cached:

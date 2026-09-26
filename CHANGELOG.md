@@ -3,6 +3,20 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.6.0 - 2026-09-26
+
+"Browser": public pages that need JavaScript.
+
+- `web --browser` renders pages in a headless Chromium (Playwright) before reading them, for
+  public pages that fill in their content with JavaScript. It follows the same rules as every
+  fetch: robots.txt and Crawl-delay, one pace per site shared with plain requests, the same
+  User-Agent. Images, fonts and media are not downloaded. Optional:
+  `pip install "unlimitedpipe[browser]" && playwright install chromium`.
+- `web --browser --screenshot DIR` saves a full-page screenshot of each page, as evidence of
+  what it showed; events record the file in `metadata.screenshot`.
+- `publish` installs Chromium in the workflow when a pipeline renders pages.
+- `inspect` suggests `--browser` for pages that only show their content with JavaScript.
+
 ## 0.5.1 - 2026-09-26
 
 - Feed health: published workflows record each pipeline's result, and `unlimited catalog

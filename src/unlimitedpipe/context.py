@@ -14,6 +14,7 @@ from unlimitedpipe.errors import UnlimitedError
 from unlimitedpipe.event import Event
 
 if TYPE_CHECKING:
+    from unlimitedpipe.browser import Browser
     from unlimitedpipe.http import HttpClient
 
 log = logging.getLogger("unlimitedpipe")
@@ -48,6 +49,7 @@ class Context:
         cache_dir: Path | None = None,
         host_interval: float | None = None,
         public_only: bool = False,
+        browser: Any = None,
     ) -> None:
         self.errors_as_events = errors_as_events
         self.quiet = quiet
@@ -57,6 +59,7 @@ class Context:
         self._state_dir = state_dir
         self._cache_dir = cache_dir
         self._http: HttpClient | None = None
+        self._browser = browser
         self._host_interval = host_interval
         self.public_only = public_only
 
@@ -93,6 +96,15 @@ class Context:
             )
         return self._http
 
+    @property
+    def browser(self) -> Browser:
+        """A headless browser for pages that need JavaScript, started on first use."""
+        if self._browser is None:
+            from unlimitedpipe.browser import Browser
+
+            self._browser = Browser(self.http)
+        return self._browser
+
     def notice(self, message: str) -> None:
         """A short human message on stderr. Never mixed into the event stream."""
         if not self.quiet:
@@ -126,6 +138,9 @@ class Context:
         return None
 
     async def aclose(self) -> None:
+        if self._browser is not None:
+            await self._browser.aclose()
+            self._browser = None
         if self._http is not None:
             await self._http.aclose()
             self._http = None

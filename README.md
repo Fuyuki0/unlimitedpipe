@@ -133,7 +133,7 @@ blogs and news sites, and page text otherwise, with commented hints for narrowin
 
 | Command | Emits |
 | --- | --- |
-| `unlimited web URL...` | A `document` per page (title, description, headings, text, feeds). Pages with product data become one `product` per variant. `--selector CSS` emits `element`s, `--field NAME=CSS` builds `record`s, `--emit links` emits `link`s. |
+| `unlimited web URL...` | A `document` per page (title, description, headings, text, feeds). Pages with product data become one `product` per variant. `--selector CSS` emits `element`s, `--field NAME=CSS` builds `record`s, `--emit links` emits `link`s. `--browser` renders pages that need JavaScript first (optional extra), `--screenshot DIR` keeps a picture of each page as evidence. |
 | `unlimited rss URL...` | One `entry` per item of an RSS, Atom or JSON Feed. Given a page, uses the feed it advertises. |
 | `unlimited file PATH...` | One `record` per JSON item, JSONL line or CSV row. `-` reads stdin. |
 | `unlimited github releases\|repo\|tags\|commits\|issues OWNER/REPO...` | Public GitHub data through the official REST API. Optional `GITHUB_TOKEN` for higher limits. |
@@ -408,10 +408,13 @@ more.
 - **v0.4 Search**: `search` across a whole feed catalog, `catalog` indexes,
   `list_feeds`/`search_feeds` for AI agents, the `sec` source for insider trades, arithmetic
   and `short()` in expressions.
-- **v0.5 Ask** (current): `ask` answers questions from the catalog with a local model or
-  Claude, always with sources; published index pages get a search box.
-- **Next**: feed health checks, browser fetching for pages that need JavaScript, bot-network
-  filtering for trends, a public registry of feeds.
+- **v0.5 Ask**: `ask` answers questions from the catalog with a local model or Claude,
+  always with sources; published index pages get a search box; feed health in the catalog.
+- **v0.6 Browser** (current): `web --browser` renders pages that need JavaScript in a headless
+  browser under the same rules (robots.txt, pacing, honest User-Agent), with screenshots as
+  evidence.
+- **Next**: an archive of past items for search and `ask`, offline copies of a catalog,
+  bot-network filtering for trends, a network of catalogs.
 
 ## Responsible use
 
