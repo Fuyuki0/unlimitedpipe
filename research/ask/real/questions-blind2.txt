@@ -1,0 +1,67 @@
+# Blind set 2 (2026-09-27): written before build 6's data, never used to build or tune it.
+latest earthquake in chile
+any volcano erupting in japan?
+flooding in vietnam
+wildfire news
+hurricane death toll
+typhoon damage in the philippines
+tsunami after the loyalty islands quake?
+solar storm tonight northern lights
+cholera outbreak
+bird flu cases
+measles outbreak
+recalled baby formula
+insulin recall
+bitcoin etf news
+ethereum upgrade date
+solana price
+xrp lawsuit
+crypto exchange bankrupt
+stablecoin law passed?
+tesla stock price
+apple earnings date
+nvidia chip export ban
+amazon layoffs
+openai ceo
+anthropic funding round
+google antitrust ruling
+microsoft outage today
+github down?
+cloudflare outage
+new iphone release date
+python 3.15 release date
+linux kernel release
+sec charges fraud
+insider buying at tesla
+biggest ipo this month
+bank failure
+interest rate hike
+inflation report
+mortgage rates this week
+oil price today
+# More (same rules), added so enough questions reach a model.
+federal reserve statement
+bank of japan decision
+ecb rate
+new home sales august
+gdp second estimate
+jobless claims
+sp 500 close
+nikkei today
+10 year treasury yield
+crude oil price
+new sec enforcement cases
+activist investor stake
+cyber attack disclosed to sec
+data breach millions of accounts
+exploited microsoft vulnerability
+chrome zero day
+ai model release
+vllm release notes
+rust security advisory
+nasa artemis
+spacex launch this week
+starship flight
+ebola uganda
+earthquake indonesia magnitude
+bangkok rain today

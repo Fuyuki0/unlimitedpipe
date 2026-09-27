@@ -201,8 +201,10 @@ for label, source in MODELS.items():
     params = sum(p.numel() for p in model.parameters())
     scores[label] = {"parameters": params, "source": source}
     for set_name, examples in sets.items():
-        # "|sets=decide" after a source: only the sets whose name has that word.
-        if "|sets=" in source and source.split("|sets=")[1].split("|")[0] not in set_name:
+        # "|sets=real blind,real" after a source: only those sets, by exact name.
+        if "|sets=" in source and set_name not in source.split("|sets=")[1].split("|")[0].split(
+            ","
+        ):
             continue
         if "|sets=" not in source and "decide" in set_name:
             continue  # decision prompts are for decision models

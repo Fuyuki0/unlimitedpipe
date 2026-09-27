@@ -62,6 +62,14 @@ case "${1:-}" in
     push unlimitedpipe-ask-decide-train "unlimitedpipe ask decide train" "$here/train.py" \
       "\"$user/unlimitedpipe-ask-decide\"" ""
     ;;
+  decide6)
+    upload unlimitedpipe-ask-decide6 "unlimitedpipe ask decide6" \
+      "$here/../data-decide6/train.jsonl" "$here/../data-decide6/test.jsonl"
+    ;;
+  train-decide6)
+    push unlimitedpipe-ask-decide6-train "unlimitedpipe ask decide6 train" "$here/train.py" \
+      "\"$user/unlimitedpipe-ask-decide6\"" ""
+    ;;
   train4)
     push unlimitedpipe-ask-v4-train "unlimitedpipe ask v4 train" "$here/train.py" \
       "\"$user/unlimitedpipe-ask-sft-public-v4\"" ""

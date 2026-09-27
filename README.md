@@ -45,9 +45,9 @@ unlimited mirror && unlimited search flood --catalog offline    # works without 
   are in an express lane scheduled every 15 minutes, the rest refresh about every 3 hours. Each
   feed is a YAML file of about 15 lines; [fork them](https://github.com/Fuyuki0/unlimitedpipe-feeds).
 - **Answers that cite.** `ask` finds the facts with plain search, then a small local model
-  trained for the job answers from them: on 115 questions typed the way people type, 97% of
-  its answers pass, against 82% for Qwen3.5 4B, a model eight times its size; it is ahead of
-  all 12 other open models up to 5B we tried.
+  trained for the job answers from them: on 40 blind questions typed the way people type, 87%
+  of its answers pass, level with Qwen3.5 2B (four times its size) and ahead of the 3 to 4B
+  models we tried.
 - **Open.** What it publishes is an [open protocol](docs/protocol.md) any tool can read or
   write, and its public-domain corpus of US government records is
   [on Hugging Face](https://huggingface.co/datasets/unlimitedpipe/public-records) (2.85 billion
@@ -387,14 +387,16 @@ questions typed the way people type ("microsoft news", "whats new with bitget"),
 | --- | --- | --- | --- |
 | **unlimitedpipe/decide-0.5b** (decides; the code writes) | **0.5B** | **111 (97%)** | **35 (87%)** |
 | unlimitedpipe/ask-0.5b (writes its answers) | 0.5B | 112 (97%) | 35 (87%) |
-| Qwen3.5 4B | 4.2B | 95 (82%) | |
-| Phi-4 mini | 3.8B | 76 (66%) | |
-| Qwen3.5 2B | 1.9B | 74 (64%) | |
-| Llama 3.2 3B | 3.2B | 66 (57%) | |
+| Qwen3.5 2B | 1.9B | 74 (64%) | 35 (87%) |
+| Phi-4 mini | 3.8B | 76 (66%) | 34 (85%) |
+| Qwen3.5 4B | 4.2B | 95 (82%) | 31 (77%) |
+| Llama 3.2 3B | 3.2B | 66 (57%) | 25 (62%) |
 
-The 115 are not blind: they showed where earlier builds fell short. The 40 blind questions
-were written after both 0.5B models were trained. Its weak spot: saying "the sources do not
-answer this" when they are about something related.
+Read the blind column first. The 115 showed where earlier builds fell short, and the models
+were made to fix that, so they flatter them; the 40 blind questions were written after both
+0.5B models were trained. On those, the 0.5B model ties with Qwen3.5 2B, a model four times its
+size, and is ahead of the 3 to 4B models. Its weak spot: saying "the sources do not answer
+this" when they are about something related.
 
 ```bash
 ollama pull hf.co/unlimitedpipe/decide-0.5b-GGUF     # or let unlimited setup do it
@@ -565,8 +567,8 @@ news](docs/posts/fruit-fly-on-the-news.md).
 - **v0.9 Setup**: a one-line installer and `unlimited setup`, which sets up the
   browser, a local AI model, Claude Code's tools and skill, and an offline catalog.
 - **v0.10 Open** (current): the Feed Catalog Protocol with `unlimited validate`, a 0.5B model
-  trained for `ask` on public data (97% on questions typed the way people type, against 82%
-  for Qwen3.5 4B), and the public dataset unlimitedpipe/public-records.
+  trained for `ask` on public data (87% on blind questions typed the way people type, level
+  with Qwen3.5 2B), and the public dataset unlimitedpipe/public-records.
 - **Next**: searching the archive from the web page,
   bot-network filtering for trends, a network of catalogs.
 

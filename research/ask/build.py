@@ -448,6 +448,26 @@ class Builder:
                 )
         return made
 
+    def asked_more(self, item: dict, lang: str) -> dict | None:
+        """A question about the item's topic asking for something no source says ("a b
+        death toll", "a b forecast"): the sources are on the topic, and still do not answer."""
+        words = self.keywords(item, 2)
+        if not words:
+            return None
+        wanted = self.rng.choice(ASKED_FOR)
+        template = self.rng.choice(ASKED_MORE[lang])
+        question = template.format(a=words[0], b=words[1], c=wanted)
+        if self.rng.random() < 0.5:
+            question = question.casefold()
+        today = self.after(item)
+        sources = self.ask(question, today)
+        if not sources:
+            return None
+        text = " ".join(f"{s['title']} {s.get('summary') or ''}" for s in sources)
+        if word_pattern(wanted).search(text):
+            return None  # a source may say it after all
+        return self.example("refusal", lang, "casual", question, sources, "", [], today)
+
     def refusal(self, item: dict, lang: str) -> dict | None:
         """A three-word question whose rarest word no source has: `ask` still passes it to
         the model (two of three words match), which must say what is missing."""
@@ -492,6 +512,25 @@ class Builder:
         self.rng.shuffle(good)
         return good[:count]
 
+
+# What people ask about a topic that its sources may not say: a question about the topic plus
+# one of these gets "not covered" unless a source has the word.
+ASKED_FOR = (  # noqa: SIM905
+    "tomorrow forecast prediction refund arrests lawsuit bankruptcy merger ceo salary winner "
+    "ban fine casualties damage compensation boycott strike tariff election scandal "
+    "resignation acquisition dividend earnings ranking rumor leak price cost reason"
+).split()
+ASKED_MORE = {
+    "en": (
+        "{a} {b} {c}",
+        "{a} {b} {c}?",
+        "what is the {c} for {a} {b}?",
+        "any {c} for {a} {b}?",
+        "is there a {c} in {a} {b}?",
+        "{c} of {a} {b}",
+    ),
+    "th": ("{a} {b} {c} เป็นไงบ้าง", "มี {c} ของ {a} {b} ไหม"),
+}
 
 _DRUG = re.compile(
     r"\b(drug|tablets?|capsules?|injection|pharma\w*|dose|dosage|mg|vials?|syringes?|"
@@ -616,6 +655,7 @@ def build_world(builder: Builder, items: list[dict], days: list[datetime], per_d
             builder.lookup(item, builder.lang()),
             builder.refusal(item, "en"),
             builder.refusal(item, "th") if rng.random() < THAI_SHARE else None,
+            builder.asked_more(item, builder.lang()) if builder.decide else None,
         )
         for made in made_here:
             if made:

@@ -197,3 +197,22 @@ make yet.
 Published as [unlimitedpipe/decide-0.5b-GGUF](https://huggingface.co/unlimitedpipe/decide-0.5b-GGUF)
 with [unlimitedpipe/decide-sft-public](https://huggingface.co/datasets/unlimitedpipe/decide-sft-public);
 `unlimited setup` installs it.
+
+## The blind question sets
+
+`real/blind.jsonl` (40) was written after build 4, and `real/blind2.jsonl` (42) before build
+6's data; neither was used to build or tune any model. On the first, every model graded the
+same way (other models on Kaggle, 16-bit; ours through Ollama, 8-bit):
+
+| Model | Blind (40) |
+| --- | --- |
+| ask-0.5b build 4, decide-0.5b build 5 | 35 (87%) |
+| Qwen3.5 2B | 35 (87%) |
+| Phi-4 mini | 34 (85%) |
+| Qwen3.5 4B | 31 (77%) |
+| Llama 3.2 3B | 25 (62%) |
+
+The leads on the earlier sets (95% against Qwen3.5 4B's 80%) were mostly from questions that
+shaped our models; on blind questions the 0.5B model ties with a 2B one and is ahead of the 3
+to 4B ones. On the second blind set, build 5 passes 30 of 42 (71%), and only 4 of the 12
+questions the sources do not answer.

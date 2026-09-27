@@ -50,7 +50,7 @@ def written(example: dict, reply: str) -> str:
 
 if __name__ == "__main__":
     root = Path(sys.argv[1])
-    for name in ("test", "extra", "blind"):
+    for name in ("test", "extra", "blind", "blind2"):
         path = root / f"{name}.jsonl"
         if not path.exists():
             continue
