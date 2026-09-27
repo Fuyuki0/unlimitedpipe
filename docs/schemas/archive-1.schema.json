@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Fuyuki0/unlimitedpipe/blob/main/docs/schemas/archive-1.schema.json",
+  "title": "Feed catalog archive index (archive/index.json), version 1",
+  "type": "object",
+  "required": ["schema", "months"],
+  "properties": {
+    "schema": {"const": "unlimitedpipe.archive/1"},
+    "months": {
+      "type": "array",
+      "description": "Newest first",
+      "items": {
+        "type": "object",
+        "required": ["month", "file"],
+        "properties": {
+          "month": {"type": "string", "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"},
+          "file": {"type": "string"},
+          "items": {"type": "integer", "minimum": 0}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "line": {
+      "description": "One line of a month file: a catalog item plus its key and when it was first listed",
+      "allOf": [{"$ref": "catalog-1.schema.json#/$defs/item"}],
+      "type": "object",
+      "required": ["key", "seen"],
+      "properties": {
+        "key": {"type": "string", "pattern": "^[0-9a-f]{16}$"},
+        "seen": {"type": "string", "format": "date-time"}
+      }
+    }
+  }
+}

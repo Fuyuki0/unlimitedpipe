@@ -278,6 +278,22 @@ JSON Feed carries full events, so another pipeline can read it with `unlimited r
 the provenance chain. Details, cron and manual setups:
 [docs/pipelines.md](https://github.com/Fuyuki0/unlimitedpipe/blob/main/docs/pipelines.md).
 
+## The Feed Catalog Protocol
+
+What `publish` writes is an open format, not an UnlimitedPipe secret: a `feeds.json` that
+lists a site's feeds and their latest items, feed files any reader understands, and a monthly
+archive, all static files with a source link for every item. Any tool can write a catalog,
+and every catalog can be searched, mirrored and asked the same way. The format is specified in
+[docs/protocol.md](docs/protocol.md), with JSON Schemas in [docs/schemas](docs/schemas):
+
+```bash
+unlimited validate https://feeds.daemonfill.dev/     # check any catalog against the protocol
+unlimited validate ./public --deep                   # and every feed file and archive month
+```
+
+Proposed next: discovery (`/.well-known/feed-catalog.json`), catalogs that list each other
+as peers, and signed archives, so a copy can prove it is the original.
+
 ## Change detection
 
 `diff` stores a small state file per watch and compares each item with the previous run:
@@ -319,18 +335,39 @@ always printed with their links. When nothing in the catalog matches, it says so
 a model.
 
 ```text
-$ unlimited ask "what is the weather in Bangkok?"
-The weather in Bangkok is currently 24°C, with 2.1 mm of rain expected in the next 6 hours.
+$ unlimited ask "any big insider buys this week?"
+Yes: DoubleLine Yield Opportunities Fund (DLY): Jeffrey J. Sherman (Vice President) bought
+10,000 shares at $13.03 ($130.3K) [1]; CEMEX SAB DE CV (CX): Lozano Rogelio Zambrano
+(director) bought 400,800 shares at $17.28 ($6.9M) [2].
 
-Sources (answered by qwen2.5:0.5b)
-[1] Bangkok: rain, 24°C now  thailand-weather · 2026-09-26
-    https://www.yr.no/en/forecast/daily-table/13.75,100.50
+Sources (answered by hf.co/unlimitedpipe/ask-0.5b-GGUF:latest)
+[1] DoubleLine Yield Opportunities Fund (DLY): Jeffrey J. Sherman (Vice President) bought...
+    https://www.sec.gov/Archives/edgar/data/1788399/000090445426000490/0000904454-26-000490-index.htm
+[2] CEMEX SAB DE CV (CX): Lozano Rogelio Zambrano (director) bought 400,800 shares...
 ```
 
 It uses a local model through [Ollama](https://ollama.com) when it is running (free, and
-nothing leaves your machine: `ollama pull qwen2.5:3b`), otherwise Claude when
-`ANTHROPIC_API_KEY` is set. Small models make small mistakes, which is why the sources are
-always there to check. UnlimitedPipe itself never needs a model.
+nothing leaves your machine), otherwise Claude when `ANTHROPIC_API_KEY` is set. UnlimitedPipe
+itself never needs a model.
+
+The model `unlimited setup` installs is
+[unlimitedpipe/ask-0.5b](https://huggingface.co/unlimitedpipe/ask-0.5b-GGUF), a 0.5B model
+(531 MB) trained for this one job: cite the source it uses, invent nothing, and say plainly
+when the sources do not cover the question, in English and Thai. It was trained on public data
+only, and graded on news it had never seen:
+
+| Model | Answers that pass (news it never saw) |
+| --- | --- |
+| Qwen2.5 0.5B, the general model it started from | 5 of 92 (5%) |
+| **unlimitedpipe/ask-0.5b** | **80 of 92 (87%)** |
+
+```bash
+ollama pull hf.co/unlimitedpipe/ask-0.5b-GGUF     # or let unlimited setup do it
+```
+
+It answers with its sources' own words, which is what keeps it honest; a larger general model
+(`ollama pull qwen2.5:3b`) explains more and cites less. How it was built and graded:
+[research/ask](research/ask).
 
 ## History and offline
 
@@ -454,6 +491,22 @@ watch, multi-source research into CSV, Bluesky trends, and a complete connector 
 [feed catalog](https://github.com/Fuyuki0/unlimitedpipe-feeds/tree/main/feeds) has 75+
 more.
 
+## Research
+
+[`research/`](research) holds experiments on UnlimitedPipe's data, with their results written
+up, good or bad:
+
+- [A small model trained for `ask`](research/ask): a 0.5B model fine-tuned to answer from
+  numbered sources, with citations, and to say plainly when the sources do not cover a
+  question.
+- [A fruit-fly brain circuit on news](research/fly): the fly's mushroom body did no better
+  than plain compression; a main network with separate modules kept old knowledge when
+  learning new feeds, where one model forgot it.
+- [Public records](research/public): collectors for the dataset
+  [unlimitedpipe/public-records](https://huggingface.co/datasets/unlimitedpipe/public-records),
+  public-domain US government text (the Federal Register, SEC annual reports) with provenance
+  for every document.
+
 ## Roadmap
 
 - **v0.1 Pipe**: engine, CLI, `web` with product detection, `rss`, `file`, `inspect`, eight
@@ -473,8 +526,11 @@ more.
   their official doors, `unlimited doctor`, and a skill file for AI agents.
 - **v0.8 History**: a monthly archive of every catalog item, `--since` for
   `search`, `ask` and the MCP tool, local catalogs, `mirror` and `serve` for offline use.
-- **v0.9 Setup** (current): a one-line installer and `unlimited setup`, which sets up the
+- **v0.9 Setup**: a one-line installer and `unlimited setup`, which sets up the
   browser, a local AI model, Claude Code's tools and skill, and an offline catalog.
+- **v0.10 Open** (current): the Feed Catalog Protocol with `unlimited validate`, a 0.5B model
+  trained for `ask` on public data (87% on news it never saw, against 5% for its base), and
+  the public dataset unlimitedpipe/public-records.
 - **Next**: searching the archive from the web page,
   bot-network filtering for trends, a network of catalogs.
 

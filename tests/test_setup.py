@@ -138,3 +138,37 @@ def test_skip_takes_steps_with_commas(home, monkeypatch):
     assert result.exit_code == 0 and seen == [{"browser", "ai", "offline"}]
     result = CliRunner().invoke(cli, ["setup", "--skip", "browsers"])
     assert result.exit_code != 0 and "unknown step 'browsers'" in str(result.exception)
+
+
+def test_the_ai_step_pulls_the_ask_model(home, tmp_path, monkeypatch):
+    import httpx
+
+    import unlimitedpipe.onboard as onboard
+
+    class Tags:
+        def json(self):
+            return {"models": [{"name": "qwen2.5:0.5b"}]}
+
+    monkeypatch.setattr(httpx, "get", lambda *a, **k: Tags())
+    commands = []
+
+    def run(command, **kwargs):
+        commands.append(command)
+        return subprocess.CompletedProcess(command, 0, "", "")
+
+    setup = Setup(yes=True, skip=set(), catalog=catalog(tmp_path), echo=lambda _: None, run=run)
+    setup.ai()
+    assert commands == [["ollama", "pull", onboard.ASK_MODEL]] and setup.done == ["ai"]
+    monkeypatch.setattr(
+        httpx,
+        "get",
+        lambda *a, **k: type(
+            "T", (), {"json": lambda self: {"models": [{"name": f"{onboard.ASK_MODEL}:latest"}]}}
+        )(),
+    )
+    (tmp_path / "b").mkdir()
+    again = Setup(
+        yes=True, skip=set(), catalog=catalog(tmp_path / "b"), echo=lambda _: None, run=run
+    )
+    again.ai()
+    assert len(commands) == 1  # already there: nothing to pull

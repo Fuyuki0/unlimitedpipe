@@ -69,3 +69,20 @@ It is installed on the author's machine as `unlimitedpipe-ask:0.5b` (8-bit GGUF,
 `ask` now prefers it over small general models when it is there. Its style is extractive: it
 answers with the sources' own headlines, which is what makes it reliable, and also what keeps
 it from explaining (a 3B+ general model explains better, but cites and declines worse).
+
+**The public model** (the same recipe on public data only: works of the US federal government
+and UnlimitedPipe's own sentences from open data, no news; 6,974 examples), graded with the
+two others on both test sets:
+
+| Model | News it never saw (92) | Public data (84) |
+| --- | --- | --- |
+| Qwen2.5 0.5B Instruct | 5 (5%) | 5 (6%) |
+| Trained on news (private) | 84 (91%) | 81 (96%) |
+| **Trained on public data** | **80 (87%)** | **82 (98%)** |
+
+The model trained without a single news item nearly matches the one trained on news, on news:
+it learned the skill (cite the right source, decline what is not covered), not the topics. Its
+misses are incomplete lists (one cited item where two or three were there), not inventions.
+It is published as [unlimitedpipe/ask-0.5b-GGUF](https://huggingface.co/unlimitedpipe/ask-0.5b-GGUF)
+with its data, [unlimitedpipe/ask-sft-public](https://huggingface.co/datasets/unlimitedpipe/ask-sft-public),
+and `unlimited setup` installs it.

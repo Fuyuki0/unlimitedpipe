@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Fuyuki0/unlimitedpipe/blob/main/docs/schemas/catalog-1.schema.json",
+  "title": "Feed catalog (feeds.json), version 1",
+  "type": "object",
+  "required": ["schema", "feeds", "items"],
+  "properties": {
+    "schema": {"const": "unlimitedpipe.catalog/1"},
+    "title": {"type": "string"},
+    "archive": {"type": "string", "description": "Path of the archive index, relative to feeds.json"},
+    "feeds": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "files"],
+        "properties": {
+          "name": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$"},
+          "description": {"type": ["string", "null"]},
+          "files": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+          "health": {
+            "type": "object",
+            "required": ["status"],
+            "properties": {
+              "status": {"enum": ["ok", "partial", "failing"]},
+              "since": {"type": ["string", "null"], "format": "date-time"},
+              "latest": {"type": ["string", "null"], "format": "date-time"}
+            }
+          }
+        }
+      }
+    },
+    "items": {"type": "array", "items": {"$ref": "#/$defs/item"}}
+  },
+  "$defs": {
+    "item": {
+      "type": "object",
+      "required": ["feed", "title"],
+      "properties": {
+        "feed": {"type": "string"},
+        "title": {"type": "string", "minLength": 1},
+        "summary": {"type": ["string", "null"]},
+        "link": {"type": ["string", "null"], "pattern": "^https?://"},
+        "date": {"type": ["string", "null"], "format": "date-time"}
+      }
+    }
+  }
+}

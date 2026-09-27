@@ -29,6 +29,12 @@ def memory_gb() -> float | None:
         return None
 
 
+# The model trained for `ask` on public data (research/ask): 0.5B parameters, about 530 MB,
+# so it fits any machine that runs Ollama, and it cites and declines far better than general
+# models of its size.
+ASK_MODEL = "hf.co/unlimitedpipe/ask-0.5b-GGUF"
+
+
 def model_for(memory: float | None) -> str:
     """The best small model that fits the machine: it has to run next to everything else."""
     if memory is None or memory < 4:
@@ -186,20 +192,20 @@ class Setup:
                 self.skipped.append("ai")
                 return self.note("the Ollama installer failed; see https://ollama.com/download")
             models = []
-        if model in models or f"{model}:latest" in models:
-            return self.ok(f"{model} is ready (fits {memory_gb() or 0:.0f} GB of memory)")
-        if models and "ai" in self.skip:
-            return self.ok(f"Ollama has {', '.join(models)}")
-        size = {"qwen2.5:0.5b": "0.4", "qwen2.5:1.5b": "1", "qwen2.5:3b": "2", "qwen2.5:7b": "4.7"}
+        if ASK_MODEL in models or f"{ASK_MODEL}:latest" in models:
+            return self.ok("the ask model is ready (it answers from sources, with citations)")
         if "ai" in self.skip or not self.ask(
-            f"Download {model} (about {size.get(model, '?')} GB), the best fit for this machine?"
+            "Download the ask model (about 0.5 GB), trained to answer from sources with citations?"
         ):
             self.skipped.append("ai")
-            return self.note(f"later: ollama pull {model}")
-        if self.sh(["ollama", "pull", model]):
+            return self.note(f"later: ollama pull {ASK_MODEL}")
+        if self.sh(["ollama", "pull", ASK_MODEL]):
             self.done.append("ai")
-            return self.ok('ask ready: unlimited ask "what is happening in Bangkok?"')
-        self.note(f"the download failed; try: ollama pull {model}")
+            self.ok('ask ready: unlimited ask "what is happening in Bangkok?"')
+            if (memory_gb() or 0) >= 8:
+                self.note(f"for longer explanations a general model fits too: ollama pull {model}")
+            return None
+        self.note(f"the download failed; try: ollama pull {ASK_MODEL}")
 
     def agents(self) -> None:
         self.title(4, "AI agents (Claude Code)")

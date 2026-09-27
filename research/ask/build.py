@@ -217,9 +217,101 @@ class Builder:
         ]
 
 
-def main(catalog: str, out: str) -> None:
+# Feeds whose items may be republished, for a model that can be public: works of the US
+# federal government (public domain), and sentences UnlimitedPipe writes itself from open data
+# (prices, moves, weather, breaches). News outlets, the WHO (non-commercial), GDACS and
+# non-US central banks are left out.
+PUBLIC_FEEDS = {
+    "insider-trades",
+    "sec-company-events",
+    "sec-ipo-filings",
+    "sec-cyber-incidents",
+    "sec-press-releases",
+    "sec-enforcement",
+    "activist-stakes",
+    "us-new-rules",
+    "sanctions-actions",
+    "lobbying-big-spenders",
+    "earthquakes",
+    "tsunami-alerts",
+    "hurricanes",
+    "typhoons",
+    "space-weather",
+    "natural-events",
+    "exploited-vulnerabilities",
+    "food-drug-recalls",
+    "fda-news",
+    "us-justice",
+    "nasa-image",
+    "crypto-prices",
+    "crypto-big-moves",
+    "stablecoin-supply",
+    "crypto-hacks",
+    "exchange-listings",
+    "thailand-weather",
+    "data-breaches",
+}
+# Mixed feeds: only their US-government items.
+PUBLIC_LINKS = {
+    "central-banks": "federalreserve.gov",
+    "world-leaders": "whitehouse.gov",
+    "travel-advisories": "travel.state.gov",
+}
+
+
+def public_only(items: list[dict]) -> list[dict]:
+    return [
+        i
+        for i in items
+        if i["feed"] in PUBLIC_FEEDS or PUBLIC_LINKS.get(i["feed"], "\0") in (i.get("link") or "")
+    ]
+
+
+def federal_register_items(folder: str, limit: int, seed: int = 0) -> list[dict]:
+    """Federal Register documents (public domain) as catalog-like items: title, the opening of
+    their SUMMARY, link and date. A sample of `limit` documents."""
+    import io
+
+    import zstandard
+
+    documents = []
+    for path in sorted(Path(folder).glob("federal-register-*.jsonl.zst")):
+        with path.open("rb") as raw:
+            for line in io.TextIOWrapper(
+                zstandard.ZstdDecompressor().stream_reader(raw), encoding="utf-8"
+            ):
+                d = json.loads(line)
+                summary = re.search(r"SUMMARY:\n(.+)", d["text"])
+                if d["title"] and summary:
+                    documents.append(
+                        {
+                            "feed": "federal-register",
+                            "title": f"{d['agency'].title()}: {d['title']}"
+                            if d["agency"]
+                            else d["title"],
+                            "summary": summary.group(1)[:300],
+                            "link": d["url"],
+                            "date": d["date"] + "T00:00:00Z",
+                        }
+                    )
+    random.Random(seed).shuffle(documents)
+    return documents[:limit]
+
+
+def main(catalog: str, out: str, public: bool = False, fr_folder: str | None = None) -> None:
     items = corpus.load(catalog)
     feeds = json.loads((Path(catalog) / "feeds.json").read_text(encoding="utf-8"))["feeds"]
+    if public:
+        items = public_only(items)
+        if fr_folder:
+            items += federal_register_items(fr_folder, 3000)
+            feeds = feeds + [
+                {
+                    "name": "federal-register",
+                    "description": "Federal Register rules, notices and presidential documents",
+                }
+            ]
+        print(f"public items: {len(items)}")
     rng = random.Random(0)
     order = items[:]
     rng.shuffle(order)
@@ -249,7 +341,18 @@ def main(catalog: str, out: str) -> None:
 
 
 if __name__ == "__main__":
+    # build.py CATALOG OUT [--public FEDERAL_REGISTER_FOLDER]
+    args = sys.argv[1:]
+    public = "--public" in args
+    fr = (
+        args[args.index("--public") + 1]
+        if public and len(args) > args.index("--public") + 1
+        else None
+    )
+    rest = [a for a in args if a not in ("--public", fr)]
     main(
-        sys.argv[1] if len(sys.argv) > 1 else "research/data",
-        sys.argv[2] if len(sys.argv) > 2 else "research/ask/data",
+        rest[0] if rest else "research/data",
+        rest[1] if len(rest) > 1 else "research/ask/data",
+        public=public,
+        fr_folder=fr,
     )

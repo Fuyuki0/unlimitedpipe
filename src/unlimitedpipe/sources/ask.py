@@ -37,6 +37,7 @@ PREFERRED = (
     # Trained for ask with research/ask: cites and declines far better than a general 0.5B
     # (94% against 4% on its test set), so it goes before the small general models.
     "unlimitedpipe-ask:0.5b",
+    "hf.co/unlimitedpipe/ask-0.5b-GGUF:latest",  # the same, trained on public data only
     "gemma3:1b",
     "qwen2.5:1.5b",
     "llama3.2:1b",

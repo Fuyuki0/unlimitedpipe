@@ -10,5 +10,6 @@ state/
 # research data and environment (private news items)
 research/data/
 research/ask/data/
+research/ask/data-public/
 research/.venv/
 research/**/results/

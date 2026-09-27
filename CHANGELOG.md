@@ -3,6 +3,26 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.0 - 2026-09-27
+
+"Open": the format as a protocol, a model trained for `ask`, and public data.
+
+- The Feed Catalog Protocol, version 1 (docs/protocol.md): what `publish` writes (feeds.json,
+  feed files, the monthly archive, events) specified as an open format any tool can write and
+  read, with JSON Schemas in docs/schemas; discovery, peers and signed archives are proposed.
+- `unlimited validate CATALOG`: checks a site, a feeds.json URL or a folder against the
+  protocol; `--deep` reads every feed file and archive month, `--json` prints the findings.
+- `unlimited setup` installs `unlimitedpipe/ask-0.5b` (531 MB), a 0.5B model trained to
+  answer from numbered sources with citations and to say when they do not cover the question,
+  in English and Thai. Trained on public data only, it passes 87% of test questions on news it
+  never saw, against 5% for Qwen2.5 0.5B, its base; `ask` prefers it over general models of
+  its size.
+- Releases publish to PyPI from GitHub Actions (trusted publishing, no stored token) with a
+  GitHub release for each tag.
+- research/: the ask model's data, training on Kaggle and grading; fruit-fly circuits on the
+  catalog (a negative result, and a modular one that does not forget); collectors for the
+  public dataset unlimitedpipe/public-records (Federal Register, SEC 10-K).
+
 ## 0.9.1 - 2026-09-26
 
 "Checked": fixes from using everything as a new user would, checked against the live

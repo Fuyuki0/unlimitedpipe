@@ -641,6 +641,62 @@ def setup_command(yes: bool, skip: tuple[str, ...], catalog: str | None) -> None
     Setup(yes=yes, skip=steps, catalog=catalog)()
 
 
+@cli.command("validate")
+@click.argument("catalog", required=False)
+@click.option("--deep", is_flag=True, help="Also read every feed file and archive month.")
+@click.option("--json", "as_json", is_flag=True, help="Print the findings as JSON.")
+@click.pass_context
+def validate_command(ctx: click.Context, catalog: str | None, deep: bool, as_json: bool) -> None:
+    """Check a feed catalog against the Feed Catalog Protocol (docs/protocol.md): its
+    feeds.json, items and archive index, and with --deep every feed file and archive month.
+    CATALOG is a site, a feeds.json URL or a folder (default: the public catalog).
+
+    \b
+    Examples:
+      unlimited validate https://feeds.daemonfill.dev/
+      unlimited validate ./public --deep
+    """
+    from dataclasses import asdict
+
+    from unlimitedpipe.context import Context
+    from unlimitedpipe.validate import validate
+
+    async def go():
+        run = Context(quiet=True)
+        try:
+            return await validate(run, catalog, deep=deep)
+        finally:
+            await run.aclose()
+
+    report = asyncio.run(go())
+    if as_json:
+        click.echo(
+            json.dumps(
+                {"checked": report.checked, "findings": [asdict(f) for f in report.findings]},
+                indent=1,
+            )
+        )
+    else:
+        for finding in report.findings:
+            colour = "red" if finding.level == "error" else "yellow"
+            click.echo(
+                f"{click.style(finding.level, fg=colour, bold=True)}: "
+                f"{finding.where}: {finding.message}"
+            )
+        warnings = len(report.findings) - report.errors
+        verdict = (
+            click.style("valid", fg="green", bold=True)
+            if not report.errors
+            else click.style("not valid", fg="red", bold=True)
+        )
+        click.echo(
+            f"{verdict}: {report.errors} error(s), {warnings} warning(s), "
+            f"{len(report.checked)} file(s) read"
+        )
+    if report.errors:
+        sys.exit(1)
+
+
 @cli.command("doctor")
 @click.option("--catalog", default=None, help="Catalog to check (default: the public one).")
 @click.option("--json", "as_json", is_flag=True, help="Print the checks as JSON, for agents.")
