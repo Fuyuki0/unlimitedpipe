@@ -17,6 +17,8 @@ the event format is versioned separately by its `schema` field (see docs/events.
 - `web` reads CSV files, one record per row.
 - `unlimited doctor` says when a newer ask model is out, and when the embedding model is
   missing.
+- `diff` records a change only once what follows has taken it, so a run stopped in between
+  reports it again next time instead of losing it (feed outputs keep it once).
 
 ## 0.10.4 - 2026-09-27
 

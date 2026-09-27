@@ -114,8 +114,12 @@ def test_interrupted_run_saves_what_it_saw_without_removals(tmp_path):
 
     asyncio.run(partial())
     state = json.loads((tmp_path / "diff" / "w.json").read_text())
-    assert state["items"][f"{PAGE}#basic"]["data"]["price"] == 10
-    assert f"{PAGE}#pro" in state["items"]
+    # The run stopped before the change was known to be written: it is not recorded, so the
+    # next run reports it again (with the same id, which feed outputs keep once).
+    assert state["items"][f"{PAGE}#basic"]["data"]["price"] == 9
+    assert f"{PAGE}#pro" in state["items"]  # nothing counts as removed
+    [again] = run_ops(plans(basic=10, pro=49), Diff(namespace="w"), ctx=ctx)
+    assert again.data["summary"] == "price: 9 → 10"
 
 
 def test_corrupt_state_suggests_reset(tmp_path):

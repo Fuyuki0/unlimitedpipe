@@ -240,8 +240,9 @@ class Diff(Operator):
                     "seen": event.observed_at,
                 }
                 old = store.items.get(key)
-                if old is None or old.get("hash") != entry["hash"]:
-                    store.items[key] = entry  # "seen": when this version was first seen
+                # A change is recorded once what follows has taken its event (the code after
+                # `yield` runs then): a run stopped in between reports it again next time
+                # rather than never.
                 if baseline:
                     counts["baseline"] += 1
                     if self.emit_initial and "added" in self._wanted:
@@ -255,6 +256,8 @@ class Diff(Operator):
                     counts["modified"] += 1
                     if "modified" in self._wanted:
                         yield self._change("modified", key, event.label, event, entry, fields)
+                if old is None or old.get("hash") != entry["hash"]:
+                    store.items[key] = entry  # "seen": when this version was first seen
             if store is not None and not baseline:
                 for key, entry in list(store.items.items()):
                     if key in seen or entry.get("source_url") not in fetched_urls:
