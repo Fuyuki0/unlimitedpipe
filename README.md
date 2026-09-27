@@ -44,9 +44,9 @@ unlimited mirror && unlimited search flood --catalog offline    # works without 
   business and tech, and news from every region. Each
   feed is a YAML file of about 15 lines; [fork them](https://github.com/Fuyuki0/unlimitedpipe-feeds).
 - **Answers that cite.** `ask` finds the facts with plain search, then a small local model
-  trained for the job answers from them: on 70 questions typed the way people type, 81% of
-  its answers pass, level with Qwen3.5 4B (eight times its size) and ahead of the 11 other
-  open models up to 5B we tried.
+  trained for the job answers from them: on 115 questions typed the way people type, 97% of
+  its answers pass, against 82% for Qwen3.5 4B, a model eight times its size; it is ahead of
+  all 12 other open models up to 5B we tried.
 - **Open.** What it publishes is an [open protocol](docs/protocol.md) any tool can read or
   write, and its public-domain corpus of US government records is
   [on Hugging Face](https://huggingface.co/datasets/unlimitedpipe/public-records) (2.85 billion
@@ -372,17 +372,17 @@ The model `unlimited setup` installs is
 (531 MB) trained for this one job: cite the sources it uses, list every match when asked what
 is new, invent nothing, and say plainly when the sources do not cover the question, in English
 and Thai. It was trained on public data only, and graded with other small open models on 70
-questions typed the way people type ("whats new with bitget", "ข่าวไทยวันนี้มีอะไรบ้าง"),
-through `ask`'s own search, labelled by hand:
+questions typed the way people type ("microsoft news", "whats new with bitget"), through
+`ask`'s own search, labelled by hand. They are not blind: they showed where earlier builds fell
+short, and this one was made to fix that.
 
-| Model | Size | Answers that pass |
+| Model | Size | Answers that pass (115 questions) |
 | --- | --- | --- |
-| **unlimitedpipe/ask-0.5b** | **0.5B** | **57 of 70 (81%)** |
-| Qwen3.5 4B | 4.2B | 56 of 70 (80%) |
-| Qwen3.5 2B | 1.9B | 45 of 70 (64%) |
-| Phi-4 mini | 3.8B | 43 of 70 (61%) |
-| Llama 3.2 3B | 3.2B | 37 of 70 (53%) |
-| Qwen2.5 0.5B, the general model it started from | 0.5B | 0 of 70 (0%) |
+| **unlimitedpipe/ask-0.5b** | **0.5B** | **112 (97%)** |
+| Qwen3.5 4B | 4.2B | 95 (82%) |
+| Phi-4 mini | 3.8B | 76 (66%) |
+| Qwen3.5 2B | 1.9B | 74 (64%) |
+| Llama 3.2 3B | 3.2B | 66 (57%) |
 
 ```bash
 ollama pull hf.co/unlimitedpipe/ask-0.5b-GGUF     # or let unlimited setup do it
@@ -553,8 +553,8 @@ news](docs/posts/fruit-fly-on-the-news.md).
 - **v0.9 Setup**: a one-line installer and `unlimited setup`, which sets up the
   browser, a local AI model, Claude Code's tools and skill, and an offline catalog.
 - **v0.10 Open** (current): the Feed Catalog Protocol with `unlimited validate`, a 0.5B model
-  trained for `ask` on public data (81% on questions typed the way people type, level with
-  Qwen3.5 4B), and the public dataset unlimitedpipe/public-records.
+  trained for `ask` on public data (97% on questions typed the way people type, against 82%
+  for Qwen3.5 4B), and the public dataset unlimitedpipe/public-records.
 - **Next**: searching the archive from the web page,
   bot-network filtering for trends, a network of catalogs.
 

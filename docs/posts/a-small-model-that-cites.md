@@ -72,6 +72,12 @@ sources as `ask` gives: 81% on those 70 questions. We graded 13 other open model
 way; the best, Qwen3.5 4B, eight times its size, passed 80%. The full table is in
 [research/ask](../../research/ask).
 
+Build 4 went further: 45 more English questions showed build 3 still named one item when
+asked about a topic ("microsoft news"), because in its examples an answer always came from one
+item even when several matched. Answering such questions with a list, and putting English
+first, took it to 95% on the 70 and 100% on the 45. Those questions shaped it, so they are
+not blind; a fresh set is the next check.
+
 ## Try it
 
 ```bash

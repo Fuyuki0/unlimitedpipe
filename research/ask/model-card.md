@@ -20,59 +20,62 @@ ollama pull hf.co/unlimitedpipe/ask-0.5b-GGUF
 unlimited ask "any big crypto hacks this week?"      # ask picks it up by itself
 ```
 
-`unlimited setup` installs it for you. This is build 3 (2026-09-27); build 2 is on the
-`build-2` branch.
+`unlimited setup` installs it for you. This is build 4 (2026-09-27); earlier builds are on
+the `build-3` and `build-2` branches.
 
 ## Scores
 
-70 questions written the way people type them ("bitcoin price?", "whats new with bitget",
-"ข่าวไทยวันนี้มีอะไรบ้าง"), put through `ask`'s own search on the public catalog of
-2026-09-27 and labelled by hand. Every model got the same prompts, answered greedily (up to
-200 new tokens, thinking off), and was graded the same way: it cites a source that answers
-(three of the matching ones for a list), does not cite every source, says so when the sources
-do not answer, invents no number, cites no source that does not exist, and answers Thai in
-Thai ([`research/ask`](https://github.com/Fuyuki0/unlimitedpipe/tree/main/research/ask)).
+Questions written the way people type them ("bitcoin price?", "microsoft news", "whats new
+with bitget"), put through `ask`'s own search on the public catalog of 2026-09-27 and labelled
+by hand: 70 in English and Thai, and 45 more in English. Every model got the same prompts,
+answered greedily (up to 200 new tokens, thinking off), and was graded the same way: it cites
+a source that answers (three of the matching ones for a list), does not cite every source,
+says so when the sources do not answer, invents no number, cites no source that does not
+exist, and answers Thai in Thai
+([`research/ask`](https://github.com/Fuyuki0/unlimitedpipe/tree/main/research/ask)).
 
-| Model | Parameters | Real questions (70) |
-| --- | --- | --- |
-| **unlimitedpipe/ask-0.5b, build 3 (this model)** | **0.5B** | **57 (81%)** |
-| Qwen3.5 4B | 4.2B | 56 (80%) |
-| Qwen3.5 2B | 1.9B | 45 (64%) |
-| Phi-4 mini | 3.8B | 43 (61%) |
-| Gemma 4 E2B | 5.1B (2B active) | 43 (61%) |
-| Granite 4.1 3B | 3.4B | 42 (60%) |
-| Llama 3.2 3B | 3.2B | 37 (53%) |
-| LFM2.5 1.2B | 1.2B | 37 (53%) |
-| unlimitedpipe/ask-0.5b, build 2 | 0.5B | 36 (51%) |
-| SmolLM3 3B | 3.1B | 35 (50%) |
-| Qwen3.5 0.8B | 0.8B | 22 (31%) |
-| Llama 3.2 1B | 1.2B | 21 (30%) |
-| Gemma 3 1B | 1.0B | 9 (13%) |
-| Qwen2.5 0.5B Instruct (the base) | 0.5B | 0 (0%) |
+| Model | Parameters | Real questions (70) | More English (45) |
+| --- | --- | --- | --- |
+| **unlimitedpipe/ask-0.5b, build 4 (this model)** | **0.5B** | **67 (95%)** | **45 (100%)** |
+| Qwen3.5 4B | 4.2B | 56 (80%) | 39 (86%) |
+| unlimitedpipe/ask-0.5b, build 3 | 0.5B | 57 (81%) | 27 (60%) |
+| Phi-4 mini | 3.8B | 42 (60%) | 34 (75%) |
+| Qwen3.5 2B | 1.9B | 45 (64%) | 29 (64%) |
+| Llama 3.2 3B | 3.2B | 37 (53%) | 29 (64%) |
+| Gemma 4 E2B | 5.1B (2B active) | 43 (61%) | |
+| Granite 4.1 3B | 3.4B | 42 (60%) | |
+| LFM2.5 1.2B | 1.2B | 37 (53%) | |
+| unlimitedpipe/ask-0.5b, build 2 | 0.5B | 36 (51%) | |
+| SmolLM3 3B | 3.1B | 35 (50%) | |
+| Qwen3.5 0.8B | 0.8B | 22 (31%) | |
+| Llama 3.2 1B | 1.2B | 21 (30%) | |
+| Gemma 3 1B | 1.0B | 9 (13%) | |
+| Qwen2.5 0.5B Instruct (the base) | 0.5B | 0 (0%) | |
 
-On the template test sets it was built for, it passes 110 of 120 (build 3's), 78 of 84 (build
-2's public data) and 87 of 92 (news it never saw, from build 2's private set).
+A caution: these questions are not blind for build 4. The 70 showed where build 3 fell short
+(a bare topic such as "openai news" got one item), and the 45 were written after, with more
+of those; build 4 was made to fix exactly that. A new set of questions is the next check.
 
-Build 3 over build 2: lists (39 of 48 real list questions, from 18), because build 2 had 56
-list examples and build 3 has 7,719; 10 sources per question as `ask` gives by default (build 2
-always had 5); and questions typed the way people type.
+Build 4 over build 3: English first (86% of examples; Thai still passes its 19 questions), and
+a question as broad as a topic is answered with a list. Its misses: "nasa image of the day"
+gets a list where one item was wanted, and twice it answered where it should have said the
+sources do not cover it ("python 4 release date", "kaspa price").
 
 ## Training
 
-Qwen2.5 0.5B Instruct with LoRA (r=16, all linear layers), one pass over 18,468 examples of
+Qwen2.5 0.5B Instruct with LoRA (r=16, all linear layers), one pass over 17,785 examples of
 [unlimitedpipe/ask-sft-public](https://huggingface.co/datasets/unlimitedpipe/ask-sft-public):
 the exact prompt `ask` sends and an answer written from the sources by templates. The sources
 are public data only: works of the US federal government (SEC, the Federal Register, OFAC,
 USGS, NOAA, NASA, CISA, FDA, DOJ, the Federal Reserve, the White House, the State Department)
-and sentences UnlimitedPipe writes from open data. No news articles. 146 minutes on one T4.
+and sentences UnlimitedPipe writes from open data. No news articles. 147 minutes on one T4.
 
 ## Limits
 
 - It answers with its sources' own words (headlines and summaries). That keeps it from
   inventing, and also means it does not explain or reason; a larger general model explains
   better.
-- A bare topic ("openai news", "ข่าวญี่ปุ่นล่าสุด") often gets one item where a list was
-  wanted; lists come with "any", "what's new", "this week".
+- It lists readily: a question about one thing that several sources mention gets a list.
 - Lists make answers longer: about 15 to 20 seconds on a 2-core CPU, against about 9 for one
   item.
 - It was taught one prompt format, `ask`'s. Other prompts get ordinary Qwen 0.5B behaviour.

@@ -139,3 +139,33 @@ ten always did; `grade.py` also fails citing more than two sources that do not a
 Build 3 is published as [unlimitedpipe/ask-0.5b-GGUF](https://huggingface.co/unlimitedpipe/ask-0.5b-GGUF)
 (build 2 on its `build-2` branch), with its data,
 [unlimitedpipe/ask-sft-public](https://huggingface.co/datasets/unlimitedpipe/ask-sft-public).
+
+## Build 4: English first, and lists for broad questions (2026-09-27)
+
+On 45 more English questions ("microsoft news", "ebola", "recent ipos"), build 3 passed 60%:
+asked about a topic, it named one item. In build 3's examples, a lookup always answered with
+the one item it was made from, even when several sources matched the question as well; so it
+learned to pick one. Build 4 answers such a question with a list (three or more sources match
+as well as the item: the question is broader than the item), adds topic-style questions, and
+is English first (86% of 17,785 examples; build 3 was half Thai). 147 minutes on the T4, test
+loss 0.814 to 0.003.
+
+| Model | Parameters | Real (70) | More English (45) | Build 4 test (116) | Build 3 test (120) | Build 2 news (92) |
+| --- | --- | --- | --- | --- | --- | --- |
+| **ask-0.5b build 4** | **0.5B** | **67 (95%)** | **45 (100%)** | **115 (99%)** | 100 (83%) | 83 (90%) |
+| Qwen3.5 4B | 4.2B | 56 (80%) | 39 (86%) | 77 (66%) | 57 (47%) | 62 (67%) |
+| ask-0.5b build 3 | 0.5B | 57 (81%) | 27 (60%) | 93 (80%) | **110 (91%)** | **87 (94%)** |
+| Phi-4 mini | 3.8B | 42 (60%) | 34 (75%) | 42 (36%) | 31 (25%) | 34 (36%) |
+| Qwen3.5 2B | 1.9B | 45 (64%) | 29 (64%) | 65 (56%) | 50 (41%) | 52 (56%) |
+| Llama 3.2 3B | 3.2B | 37 (53%) | 29 (64%) | 45 (38%) | 36 (30%) | 54 (58%) |
+
+Thai still passes all 19 Thai questions. Build 4's three misses on the 70: "nasa image of the
+day" gets a list where one item was wanted, and it answered "python 4 release date" and
+"kaspa price" where it should have said the sources do not say. It is a little weaker than
+build 3 on build 3's own template tests, which reward one item where build 4 lists.
+
+These real questions are not blind for build 4: the 70 showed build 3's weak spot and the 45
+were written after, with more of it. A fresh set is the next honest check.
+
+Build 4 is published as [unlimitedpipe/ask-0.5b-GGUF](https://huggingface.co/unlimitedpipe/ask-0.5b-GGUF)
+(builds 3 and 2 on the `build-3` and `build-2` branches).
