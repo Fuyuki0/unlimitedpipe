@@ -3,6 +3,14 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.1 - 2026-09-27
+
+- `bluesky` works out of the box: its WebSocket client is a dependency now (a few hundred
+  KB). The one-line installer puts UnlimitedPipe in its own environment, where the old hint,
+  `pip install "unlimitedpipe[live]"`, could not reach. `[live]` still installs.
+- The browser hints point to `unlimited setup`, which installs Playwright and Chromium however
+  UnlimitedPipe was installed.
+
 ## 0.10.0 - 2026-09-27
 
 "Open": the format as a protocol, a model trained for `ask`, and public data.

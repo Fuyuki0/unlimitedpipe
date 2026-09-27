@@ -132,7 +132,7 @@ def run_checks(catalog: str | None = None, timeout: float = 8.0) -> list[Check]:
             detail,
             None
             if browser and chromium
-            else 'pip install "unlimitedpipe[browser]" && playwright install chromium',
+            else "unlimited setup (it installs Playwright and Chromium)",
             optional=True,
         )
     )

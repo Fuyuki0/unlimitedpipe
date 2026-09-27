@@ -33,6 +33,7 @@ dependencies = [
     "platformdirs>=4.0",
     "pyyaml>=6.0",
     "rich>=13.0",
+    "websockets>=12",
 ]
 
 [project.urls]
@@ -46,7 +47,7 @@ Issues = "https://github.com/Fuyuki0/unlimitedpipe/issues"
 unlimited = "unlimitedpipe.cli:main"
 
 [project.optional-dependencies]
-live = ["websockets>=12"]
+live = []  # kept so `unlimitedpipe[live]` still installs: websockets is now a dependency
 browser = ["playwright>=1.45"]
 dev = ["pytest>=8", "ruff>=0.6", "pyright>=1.1.380", "websockets>=12", "playwright>=1.45"]
 

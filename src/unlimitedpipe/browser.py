@@ -37,7 +37,9 @@ class Browser:
             except ImportError:
                 raise UsageError(
                     "rendering pages needs the browser extra",
-                    hint='pip install "unlimitedpipe[browser]" && playwright install chromium',
+                    hint="run `unlimited setup`, which installs it however UnlimitedPipe was "
+                    'installed (or: pip install "unlimitedpipe[browser]" && playwright install '
+                    "chromium)",
                 ) from None
             self._playwright = await async_playwright().start()
             try:
