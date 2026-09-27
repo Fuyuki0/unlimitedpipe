@@ -52,7 +52,12 @@ exist, and answers Thai in Thai
 | Gemma 3 1B | 1.0B | 9 (13%) | |
 | Qwen2.5 0.5B Instruct (the base) | 0.5B | 0 (0%) | |
 
-A caution: these questions are not blind for build 4. The 70 showed where build 3 fell short
+On 40 blind questions written after build 4 and used for no model, it passes 35 (87%), as
+does Qwen3.5 2B; Phi-4 mini 34 (85%), Qwen3.5 4B 31 (77%), Llama 3.2 3B 25 (62%). Its successor,
+[unlimitedpipe/decide-0.5b](https://huggingface.co/unlimitedpipe/decide-0.5b-GGUF), scores the
+same, three times faster.
+
+A caution: the questions in the table are not blind for build 4. The 70 showed where build 3 fell short
 (a bare topic such as "openai news" got one item), and the 45 were written after, with more
 of those; build 4 was made to fix exactly that. A new set of questions is the next check.
 

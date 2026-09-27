@@ -33,9 +33,12 @@ their answers:
 | --- | --- | --- | --- | --- |
 | **unlimitedpipe/decide-0.5b (this model)** | **66 (94%)** | **45 (100%)** | **35 (87%)** | **4.6 s** |
 | unlimitedpipe/ask-0.5b, build 4 (writes its answers) | 67 (95%) | 45 (100%) | 35 (87%) | about 13 s |
-| Qwen3.5 4B (writes its answers) | 56 (80%) | 39 (86%) | | |
+| Qwen3.5 2B (writes its answers) | 45 (64%) | 29 (64%) | 35 (87%) | |
+| Phi-4 mini (writes its answers) | 42 (60%) | 34 (75%) | 34 (85%) | |
+| Qwen3.5 4B (writes its answers) | 56 (80%) | 39 (86%) | 31 (77%) | |
 
-The blind questions were written after both 0.5B models were trained and used for neither.
+The blind questions were written after both 0.5B models were trained and used for neither:
+read that column first. The real and English sets shaped these models and flatter them.
 When the decision was 95% sure or more (150 of 155 answers), it was right 144 times; below that,
 2 of 5.
 
