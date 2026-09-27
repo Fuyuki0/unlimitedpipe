@@ -192,18 +192,26 @@ class Setup:
                 self.skipped.append("ai")
                 return self.note("the Ollama installer failed; see https://ollama.com/download")
             models = []
+        from unlimitedpipe.meaning import EMBED_MODEL, pick
+
         if ASK_MODEL in models or f"{ASK_MODEL}:latest" in models:
+            if pick(models) is None:  # finding by meaning came later: add its small model
+                self.sh(["ollama", "pull", EMBED_MODEL])
             return self.ok("the ask model is ready (it answers from sources, with citations)")
         if "ai" in self.skip or not self.ask(
-            "Download the ask model (about 0.5 GB), trained to answer from sources with citations?"
+            "Download the ask model (about 0.5 GB), trained to answer from sources with "
+            "citations, and a small model (46 MB) that finds items by meaning?"
         ):
             self.skipped.append("ai")
-            return self.note(f"later: ollama pull {ASK_MODEL}")
+            return self.note(f"later: ollama pull {ASK_MODEL}; ollama pull {EMBED_MODEL}")
         if self.sh(["ollama", "pull", ASK_MODEL]):
+            self.sh(["ollama", "pull", EMBED_MODEL])
             self.done.append("ai")
             self.ok('ask ready: unlimited ask "what is happening in Bangkok?"')
             if (memory_gb() or 0) >= 8:
-                self.note(f"for longer explanations a general model fits too: ollama pull {model}")
+                self.note(
+                    f"for longer explanations: ollama pull {model}, then ask with --model {model}"
+                )
             return None
         self.note(f"the download failed; try: ollama pull {ASK_MODEL}")
 

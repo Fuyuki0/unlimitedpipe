@@ -158,7 +158,8 @@ def test_the_ai_step_pulls_the_ask_model(home, tmp_path, monkeypatch):
 
     setup = Setup(yes=True, skip=set(), catalog=catalog(tmp_path), echo=lambda _: None, run=run)
     setup.ai()
-    assert commands == [["ollama", "pull", onboard.ASK_MODEL]] and setup.done == ["ai"]
+    assert commands == [["ollama", "pull", onboard.ASK_MODEL], ["ollama", "pull", "all-minilm"]]
+    assert setup.done == ["ai"]
     monkeypatch.setattr(
         httpx,
         "get",
@@ -171,4 +172,11 @@ def test_the_ai_step_pulls_the_ask_model(home, tmp_path, monkeypatch):
         yes=True, skip=set(), catalog=catalog(tmp_path / "b"), echo=lambda _: None, run=run
     )
     again.ai()
-    assert len(commands) == 1  # already there: nothing to pull
+    assert commands[2:] == [["ollama", "pull", "all-minilm"]]  # only the small model added
+    with_both = {"models": [{"name": f"{onboard.ASK_MODEL}:latest"}, {"name": "all-minilm:latest"}]}
+    monkeypatch.setattr(
+        httpx, "get", lambda *a, **k: type("T", (), {"json": lambda self: with_both})()
+    )
+    (tmp_path / "c").mkdir()
+    Setup(yes=True, skip=set(), catalog=catalog(tmp_path / "c"), echo=lambda _: None, run=run).ai()
+    assert len(commands) == 3  # both there: nothing to pull

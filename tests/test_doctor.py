@@ -37,3 +37,22 @@ def test_doctor_json_for_agents(tmp_path):
     )
     checks = json.loads(run.stdout)
     assert {"area", "name", "ok", "detail", "fix", "optional"} <= set(checks[0])
+
+
+def test_doctor_says_when_a_newer_ask_model_is_out(monkeypatch):
+    import httpx
+
+    from unlimitedpipe.doctor import newer_ask_model
+
+    class Answer:
+        def json(self):
+            return {"lastModified": "2026-09-27T12:00:00.000Z"}
+
+    monkeypatch.setattr(httpx, "get", lambda url, **kw: Answer())
+    tags = [
+        {"name": "hf.co/unlimitedpipe/ask-0.5b-GGUF:latest", "modified_at": "2026-09-27T01:00:00Z"}
+    ]
+    assert newer_ask_model(tags) == "2026-09-27"
+    tags[0]["modified_at"] = "2026-09-27T13:00:00Z"
+    assert newer_ask_model(tags) is None  # pulled after it came out
+    assert newer_ask_model([{"name": "qwen2.5:3b", "modified_at": "2026-01-01"}]) is None

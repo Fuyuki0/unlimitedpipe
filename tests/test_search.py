@@ -280,7 +280,7 @@ def test_workflow_records_results_and_installs_what_it_is_told(repo):
     p = repo_plan(repo)
     p.install = "git+https://github.com/Fuyuki0/unlimitedpipe@v0.5.0"
     text = workflow(p)
-    assert 'echo "$code $pipeline" >> "$RUNNER_TEMP/unlimitedpipe-results"' in text
+    assert 'echo "$code $1" >> "$RUNNER_TEMP/unlimitedpipe-results"' in text
     assert 'unlimited catalog --results "$RUNNER_TEMP/unlimitedpipe-results"' in text
     assert 'pip install "git+https://github.com/Fuyuki0/unlimitedpipe@v0.5.0"' in text
 
@@ -324,3 +324,29 @@ def test_search_shows_two_updates_of_a_story_unless_asked(web, make_ctx):
     assert [e.data["link"] for e in newest] == ["b84", "b83"]
     every = Search(words=["bitcoin"], catalog="https://c.example/feeds.json", every_update=True)
     assert len(run_source(every, make_ctx())) == 3
+
+
+def test_words_people_use_match_the_words_sources_use():
+    from unlimitedpipe.sources.search import word_pattern
+
+    assert word_pattern("fed").search("Federal Reserve issues FOMC statement")
+    assert word_pattern("gdp").search("Gross Domestic Product, 2nd Quarter 2026")
+    assert word_pattern("jobless").search("Unemployment Insurance Weekly Claims Report")
+    assert word_pattern("purchase").search("a director bought 10,000 shares")
+    assert word_pattern("ipos").search("TCGX Acquisition Corp. filed to go public")
+    assert not word_pattern("fed").search("fedora")
+
+
+def test_typos_are_searched_as_the_catalog_word_one_letter_away():
+    from unlimitedpipe.sources.search import corrected
+
+    document = {
+        "feeds": [{"name": "crypto-prices"}],
+        "items": [{"title": "Bitcoin (BTC) price: $84,292"}, {"title": "Ethereum price"}],
+    }
+    assert corrected(["bitcion", "price"], document) == (
+        ["bitcoin", "price"],
+        {"bitcion": "bitcoin"},
+    )
+    assert corrected(["zebra"], document) == (["zebra"], {})  # nothing close: left alone
+    assert corrected(["crypto"], document) == (["crypto"], {})  # found as typed

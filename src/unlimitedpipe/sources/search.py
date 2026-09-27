@@ -98,6 +98,30 @@ IRREGULAR = {
     "shake": ("shook",),
 }
 
+# What people ask for in words the sources do not use: "fed" for the Federal Reserve,
+# "jobless" for unemployment. Each is matched as well as the word itself.
+SAME = {
+    "fed": ("federal reserve", "fomc"),
+    "gdp": ("gross domestic product",),
+    "jobless": ("unemployment",),
+    "job": ("employment",),
+    "inflation": ("consumer price",),
+    "cpi": ("consumer price",),
+    "ipo": ("go public", "initial public offering"),
+    "purchase": ("bought", "buy"),
+    "outage": ("issues with", "elevated error", "degraded", "disruption", "unavailable"),
+    "quake": ("earthquake",),
+    "sec": ("securities and exchange commission",),
+    "fda": ("food and drug administration",),
+    "doj": ("justice department", "department of justice"),
+    "us": ("u.s.", "united states"),
+    "uk": ("britain", "british", "united kingdom"),
+    "eu": ("european union",),
+    "un": ("united nations",),
+    "ai": ("artificial intelligence",),
+    "stock": ("share",),
+}
+
 
 @lru_cache(maxsize=256)
 def word_pattern(word: str) -> re.Pattern[str]:
@@ -105,7 +129,9 @@ def word_pattern(word: str) -> re.Pattern[str]:
     # "hacked", not "Thackeray"; "buys" finds "bought"). Scripts written without spaces, such
     # as Thai or Chinese, match anywhere.
     if word.isascii():
-        forms = (stem(word), *IRREGULAR.get(stem(word), ()))
+        base = stem(word)
+        same = SAME.get(base) or SAME.get(word.casefold()) or ()
+        forms = (base, *IRREGULAR.get(base, ()), *same)
         return re.compile("|".join(map(_start, forms)), re.IGNORECASE)
     # A Thai word also matches its other spellings and its English equivalents.
     parts = [_start(stem(form)) if form.isascii() else re.escape(form) for form in thai.forms(word)]
@@ -122,6 +148,59 @@ def _start(form: str) -> str:
 
 
 STORY_UPDATES = 2  # updates of one story that search and ask show, newest first
+
+
+def corrected(words: list[str], document: dict[str, Any]) -> tuple[list[str], dict[str, str]]:
+    """The words with typos fixed ("bitcion" -> "bitcoin"): a word of five letters or more
+    that no item has is replaced by the most common word of the catalog one letter away (two
+    for long words). Returns the words and what was replaced."""
+    names = " ".join(str(f.get("name", "")).replace("-", " ") for f in document.get("feeds", []))
+    text = "\n".join(
+        f"{i.get('title') or ''} {i.get('summary') or ''}" for i in document.get("items", [])
+    )
+    text += "\n" + names
+    vocabulary: Counter[str] | None = None
+    fixed: dict[str, str] = {}
+    out = []
+    for word in words:
+        if not (word.isascii() and word.isalpha() and len(word) >= 5) or word_pattern(word).search(
+            text
+        ):
+            out.append(word)
+            continue
+        if vocabulary is None:
+            vocabulary = Counter(re.findall(r"[a-z]{4,}", text.casefold()))
+        allowed = 1 if len(word) < 9 else 2
+        near = [
+            (count, known)
+            for known, count in vocabulary.items()
+            if abs(len(known) - len(word)) <= allowed and _distance(word, known, allowed)
+        ]
+        if near:
+            fixed[word] = max(near)[1]
+            out.append(fixed[word])
+        else:
+            out.append(word)
+    return out, fixed
+
+
+def _distance(a: str, b: str, limit: int) -> bool:
+    """Whether a and b are at most `limit` edits apart (insert, delete, replace, swap)."""
+    if a == b:
+        return False  # the same word is not a correction
+    previous2: list[int] | None = None
+    previous = list(range(len(b) + 1))
+    for i, ca in enumerate(a, 1):
+        current = [i]
+        for j, cb in enumerate(b, 1):
+            cost = min(previous[j] + 1, current[j - 1] + 1, previous[j - 1] + (ca != cb))
+            if previous2 is not None and i > 1 and j > 1 and ca == b[j - 2] and a[i - 2] == cb:
+                cost = min(cost, previous2[j - 2] + 1)
+            current.append(cost)
+        if min(current) > limit:
+            return False
+        previous2, previous = previous, current
+    return previous[-1] <= limit
 
 
 def story(item: dict[str, Any]) -> str:
@@ -316,12 +395,15 @@ class Search(Source):
                 if (error := ctx.fail(exc, source=self.name, url=url)) is not None:
                     yield error
                 return
+        words, fixed = corrected(self.words, {**document, "items": items})
+        for typo, word in fixed.items():
+            ctx.notice(f"search: no item has {typo!r}; searched for {word!r}")
         found = 0
         updates: Counter[str] = Counter()
         for item in items:
             if wanted and item.get("feed") not in wanted:
                 continue
-            if not matches(item, self.words, about.get(item.get("feed"), "")):
+            if not matches(item, words, about.get(item.get("feed"), "")):
                 continue
             if not self.every_update:
                 updates[story(item)] += 1
@@ -345,8 +427,51 @@ class Search(Source):
             found += 1
             if found >= self.limit:
                 return
+        if not found and words and not wanted:
+            async for event in self._by_meaning(ctx, url, items):
+                found += 1
+                yield event
         if not found:
             ctx.notice(self._nothing_found())
+
+    async def _by_meaning(self, ctx: Context, url: str, items: list[dict[str, Any]]):
+        """Items alike the words in meaning, with a local embedding model, when none has them."""
+        import httpx
+
+        from unlimitedpipe import meaning
+        from unlimitedpipe.sources.ask import OLLAMA, _ollama_models
+
+        host = os.environ.get("OLLAMA_HOST", OLLAMA)
+        host = host if host.startswith("http") else f"http://{host}"
+        async with httpx.AsyncClient(timeout=30, transport=ctx.transport) as client:
+            model = meaning.pick(await _ollama_models(client, host) or [])
+            if model is None or not items:
+                return
+            try:
+                found = await meaning.nearest(
+                    ctx, client, host, model, " ".join(self.words), items, self.limit
+                )
+            except (httpx.HTTPError, ValueError, KeyError):
+                return
+        if found:
+            ctx.notice(f"search: no item has these words; {len(found)} match their meaning")
+        for _, item in found:
+            yield Event(
+                source=self.name,
+                type="entry",
+                key=item_key(item),
+                source_url=item.get("link") or url,
+                timestamp=item.get("date"),
+                data={
+                    "title": item.get("title"),
+                    "summary": item.get("summary"),
+                    "link": item.get("link"),
+                    "published_at": item.get("date"),
+                    "feed": item.get("feed"),
+                    "found_by": "meaning",
+                },
+                metadata={"catalog": url},
+            )
 
     def _nothing_found(self) -> str:
         feeds = ", ".join(self.feed)

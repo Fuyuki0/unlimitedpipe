@@ -223,3 +223,14 @@ def test_invalid_options():
 )
 def test_parse_price(text, expected):
     assert parse_price(text) == expected
+
+
+def test_a_csv_file_becomes_one_record_per_row(web, ctx):
+    csv_text = "observation_date,SP500\n2026-09-24,7704.13\n2026-09-25,7743.41\n"
+    web.add("https://data.example/graph.csv?id=SP500", csv_text, content_type="text/csv")
+    events = run_source(Web(url=["https://data.example/graph.csv?id=SP500"]), ctx)
+    assert [e.data for e in events] == [
+        {"observation_date": "2026-09-24", "SP500": "7704.13"},
+        {"observation_date": "2026-09-25", "SP500": "7743.41"},
+    ]
+    assert events[0].metadata["method"] == "csv"

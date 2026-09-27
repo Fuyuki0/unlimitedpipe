@@ -80,6 +80,7 @@ def main() -> None:
     parser.add_argument("answers", nargs="+")
     parser.add_argument("--real", required=True)
     parser.add_argument("--real-extra")
+    parser.add_argument("--real-blind")
     parser.add_argument("--build4")
     parser.add_argument("--build3", required=True)
     parser.add_argument("--build2-public", required=True)
@@ -89,6 +90,8 @@ def main() -> None:
     sets = {"real": rows(args.real)}
     if args.real_extra:
         sets["real extra"] = rows(args.real_extra)
+    if args.real_blind:
+        sets["real blind"] = rows(args.real_blind)
     if args.build4:
         sets["build 4"] = sample(rows(args.build4))
     sets["build 3"] = sample(rows(args.build3))

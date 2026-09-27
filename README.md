@@ -334,11 +334,10 @@ State lives in your platform's user state directory; set `UNLIMITEDPIPE_STATE_DI
 
 ## AI integration
 
-UnlimitedPipe is useful without AI and ships no AI models. Agents can use it as a tool (see
-the next section). Optional AI operators
-(`ai extract`, `ai summarize`, `ai classify`) are planned behind a provider interface with
-local models (Ollama) first, and every AI result will keep the provenance of the event it came
-from. Until then, pipe events into any LLM command-line tool:
+UnlimitedPipe is useful without AI. `ask` uses a small local model trained for it (see
+[Ask](#ask)), and `search` and `ask` fall back to a 46 MB embedding model when words find
+nothing; both run in Ollama on your machine. Agents can use UnlimitedPipe as a tool (see the
+next section). To do more with events, pipe them into any LLM command-line tool:
 
 ```bash
 unlimited web https://example.com/changelog | jq -r .data.text | llm "What changed?"
@@ -350,6 +349,12 @@ unlimited web https://example.com/changelog | jq -r .data.text | llm "What chang
 matching as `search`; a model only explains what was found, citing numbered sources that are
 always printed with their links. When nothing in the catalog matches, it says so without asking
 a model.
+
+Matching forgives the way people ask: a typo is searched as the catalog word one letter away
+("bitcion"), common words the sources put differently match ("fed" finds the Federal Reserve,
+"jobless" unemployment claims, "gdp" gross domestic product), and when no item has the
+question's words at all, a small local model (all-minilm, 46 MB, installed by `unlimited
+setup`) finds the items that mean the same ("delisted stocks" finds delisting notices).
 
 ```text
 $ unlimited ask "any big insider buys this week?"

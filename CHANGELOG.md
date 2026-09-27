@@ -3,6 +3,21 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.5 - 2026-09-27
+
+- `search` and `ask` forgive the way people ask: a typo is searched as the catalog word one
+  letter away ("bitcion" as "bitcoin"), common words the sources put differently match ("fed"
+  the Federal Reserve, "jobless" unemployment, "gdp" gross domestic product, "purchase"
+  bought), and when no item has the words at all, a small local embedding model (all-minilm,
+  46 MB, which `unlimited setup` now installs) finds the items that mean the same.
+- `ask` prefers the model trained for it over general models: on questions typed the way
+  people type it passes more answers than general models eight times its size.
+- `publish --express NAME` puts time-sensitive pipelines in an express lane that runs every
+  `--express-every` (default 15m); the rest run every `--every`.
+- `web` reads CSV files, one record per row.
+- `unlimited doctor` says when a newer ask model is out, and when the embedding model is
+  missing.
+
 ## 0.10.4 - 2026-09-27
 
 - `search` and `ask` show at most two updates of one story (a storm's advisories, a coin's

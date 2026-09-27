@@ -6,6 +6,7 @@ import json
 import logging
 import re
 from typing import Any, Literal
+from urllib.parse import urlsplit
 
 from unlimitedpipe.component import Source, arg, opt
 from unlimitedpipe.context import Context
@@ -183,13 +184,29 @@ class Web(Source):
                         for k, v in value.items()
                     ]
             return self._json_records(url, value, meta)
+        if "csv" in response.content_type or urlsplit(page).path.endswith(".csv"):
+            # A CSV file (statistics offices, FRED): one record per row, named by the header.
+            import csv
+            import io
+
+            rows = csv.DictReader(io.StringIO(response.text))
+            return [
+                Event(
+                    source=self.name,
+                    type="record",
+                    source_url=url,
+                    data={k: v for k, v in row.items() if k is not None},
+                    metadata={**meta, "method": "csv"},
+                )
+                for row in rows
+            ]
         if response.content_type and not any(
             t in response.content_type for t in ("html", "xml", "text/plain")
         ):
             raise FetchError(
                 f"{url} is {response.content_type}, not a web page",
                 url=url,
-                hint="UnlimitedPipe reads HTML pages, feeds (unlimited rss) and JSON",
+                hint="UnlimitedPipe reads HTML pages, feeds (unlimited rss), JSON and CSV",
             )
         head = response.content[:500].lstrip().lower()
         if b"<rss" in head or b"<feed" in head:

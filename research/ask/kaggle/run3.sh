@@ -47,6 +47,10 @@ case "${1:-}" in
     upload unlimitedpipe-ask-real "unlimitedpipe ask real" "$here/../real/test.jsonl" \
       "$here/../real/extra.jsonl"
     ;;
+  real)
+    upload unlimitedpipe-ask-real "unlimitedpipe ask real" "$here/../real/test.jsonl" \
+      "$here/../real/extra.jsonl" "$here/../real/blind.jsonl"
+    ;;
   train4)
     push unlimitedpipe-ask-v4-train "unlimitedpipe ask v4 train" "$here/train.py" \
       "\"$user/unlimitedpipe-ask-sft-public-v4\"" ""

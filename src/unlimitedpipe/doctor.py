@@ -139,8 +139,11 @@ def run_checks(catalog: str | None = None, timeout: float = 8.0) -> list[Check]:
 
     host = os.environ.get("OLLAMA_HOST", OLLAMA)
     host = host if host.startswith("http") else f"http://{host}"
+    from unlimitedpipe.onboard import ASK_MODEL
+
     try:
-        models = [m["name"] for m in httpx.get(f"{host}/api/tags", timeout=3).json()["models"]]
+        tags = httpx.get(f"{host}/api/tags", timeout=3).json()["models"]
+        models = [m["name"] for m in tags]
         best = next((m for m in PREFERRED if m in models), models[0] if models else None)
         checks.append(
             Check(
@@ -148,10 +151,34 @@ def run_checks(catalog: str | None = None, timeout: float = 8.0) -> list[Check]:
                 "Ollama (ask, local)",
                 bool(models),
                 f"{len(models)} model(s), ask uses {best}" if models else "no models",
-                None if models else "ollama pull qwen2.5:3b",
+                None if models else f"ollama pull {ASK_MODEL}",
                 optional=True,
             )
         )
+        from unlimitedpipe.meaning import EMBED_MODEL, pick
+
+        if models and pick(models) is None:
+            checks.append(
+                Check(
+                    "ai",
+                    "finding by meaning",
+                    False,
+                    "no embedding model: a question with none of the items' words finds nothing",
+                    f"ollama pull {EMBED_MODEL}",
+                    optional=True,
+                )
+            )
+        if (newer := newer_ask_model(tags)) is not None:
+            checks.append(
+                Check(
+                    "ai",
+                    "ask model up to date",
+                    False,
+                    f"a newer build came out on {newer}",
+                    f"ollama pull {ASK_MODEL}",
+                    optional=True,
+                )
+            )
     except (httpx.HTTPError, ValueError, KeyError):
         checks.append(
             Check(
@@ -159,7 +186,7 @@ def run_checks(catalog: str | None = None, timeout: float = 8.0) -> list[Check]:
                 "Ollama (ask, local)",
                 False,
                 f"not running at {host}",
-                "install from https://ollama.com, then: ollama pull qwen2.5:3b",
+                "install from https://ollama.com, then: unlimited setup",
                 optional=True,
             )
         )
@@ -170,3 +197,26 @@ def run_checks(catalog: str | None = None, timeout: float = 8.0) -> list[Check]:
             Check("keys", variable, present, what, None if present else fix, optional=True)
         )
     return checks
+
+
+def newer_ask_model(tags: list[dict]) -> str | None:
+    """The day a newer build of the ask model came out on Hugging Face than the one pulled,
+    or None (up to date, not installed, or Hugging Face out of reach)."""
+    from unlimitedpipe.event import parse_time
+    from unlimitedpipe.onboard import ASK_MODEL
+
+    pulled = next(
+        (parse_time(m.get("modified_at")) for m in tags if m.get("name", "").startswith(ASK_MODEL)),
+        None,
+    )
+    if pulled is None:
+        return None
+    repo = ASK_MODEL.removeprefix("hf.co/")
+    try:
+        response = httpx.get(f"https://huggingface.co/api/models/{repo}", timeout=3)
+        published = parse_time(response.json().get("lastModified"))
+    except (httpx.HTTPError, ValueError, AttributeError):
+        return None
+    if published is None or published <= pulled:
+        return None
+    return published.date().isoformat()

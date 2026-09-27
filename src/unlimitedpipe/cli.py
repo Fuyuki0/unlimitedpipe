@@ -401,6 +401,19 @@ def _load_for_publishing(pipelines: tuple[Path, ...]):
 )
 @click.option("--title", default=None, help="The site's title (default: the workflow name).")
 @click.option("--about", default=None, help="A sentence under the title on the index page.")
+@click.option(
+    "--express",
+    multiple=True,
+    metavar="NAME",
+    help="A pipeline for the express lane, run every --express-every (repeatable).",
+)
+@click.option(
+    "--express-every",
+    default="15m",
+    show_default=True,
+    metavar="DURATION",
+    help="How often the express lane runs; the rest run every --every.",
+)
 @click.pass_context
 def publish_command(
     ctx: click.Context,
@@ -411,6 +424,8 @@ def publish_command(
     install: str | None,
     title: str | None,
     about: str | None,
+    express: tuple[str, ...],
+    express_every: str,
 ) -> None:
     """Host pipelines' outputs for free: GitHub Actions runs them, GitHub Pages serves them.
 
@@ -424,6 +439,7 @@ def publish_command(
       unlimited publish feeds/blog.yml --every 1h
       unlimited publish feeds/*.yml --every 1h        # a catalog of feeds
       unlimited publish feeds/*.yml --title "City alerts" --about "Floods and roads in Hat Yai"
+      unlimited publish feeds/*.yml --express earthquakes --express tsunami-alerts
     """
     from unlimitedpipe.publish import (
         INDEX_MARKER,
@@ -437,7 +453,7 @@ def publish_command(
 
     items = _load_for_publishing(pipelines)
     seconds = parse_duration(every)
-    p = plan(items, seconds, name)
+    p = plan(items, seconds, name, list(express), parse_duration(express_every))
     if install:
         if '"' in install or "\n" in install:
             raise UsageError("--install must be a pip requirement or URL without quotes")
@@ -462,6 +478,8 @@ def publish_command(
     say = lambda line="": click.echo(line, err=True)  # noqa: E731
     count = f"{len(p.pipelines)} pipeline(s)" if len(p.pipelines) > 1 else p.pipelines[0].name
     say(f'Wrote {p.workflow}: {count}, every {format_duration(seconds)} (cron "{p.cron}")')
+    if p.express:
+        say(f"Express lane: {len(p.express)} pipeline(s), every {express_every}")
     if wrote_index:
         say(f"Wrote {p.site_dir / 'index.html'}")
     say()

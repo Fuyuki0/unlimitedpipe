@@ -157,7 +157,7 @@ def test_nothing_found_answers_without_a_model(catalog, make_ctx):
     [answer] = run_source(Ask(question=["volcano", "news?"], catalog=URL), make_ctx())
     assert answer.type == "answer" and answer.data["model"] is None
     assert answer.data["answer"].startswith("Nothing in the catalog")
-    assert not any("11434" in u for u in catalog.urls())
+    assert not any("/api/generate" in u for u in catalog.urls())  # no model was asked
 
 
 def test_a_local_model_answers_from_numbered_sources(catalog, make_ctx):
@@ -232,3 +232,38 @@ def test_updates_of_one_story_do_not_crowd_out_the_rest():
     assert story(advisories[0]) == story(advisories[3])
     assert story(advisories[0]) != story(catalog["items"][-1])
     assert links(rank(catalog, ["hurricane"], 10)) == ["p23", "p20", "l"]
+
+
+def test_items_that_mean_the_same_are_found_when_none_has_the_words(web, make_ctx, tmp_path):
+    catalog = {
+        "schema": CATALOG_SCHEMA,
+        "feeds": [{"name": "sec-company-events"}],
+        "items": [
+            {"feed": "sec-company-events", "title": "Acme: delisting notice", "link": "d"},
+            {"feed": "sec-company-events", "title": "Beta: auditor change", "link": "a"},
+        ],
+    }
+    web.add(URL, json.dumps(catalog), content_type="application/json")
+    web.add(
+        "http://127.0.0.1:11434/api/tags",
+        json.dumps({"models": [{"name": "all-minilm:latest"}, {"name": "qwen2.5:3b"}]}),
+        content_type="application/json",
+    )
+
+    def embed(request: httpx.Request) -> httpx.Response:
+        # "delisted stocks" and the delisting notice point the same way; the rest does not.
+        texts = json.loads(request.content)["input"]
+        vectors = [[1.0, 0.1] if "delist" in t else [0.0, 1.0] for t in texts]
+        return httpx.Response(200, json={"embeddings": vectors})
+
+    def generate(request: httpx.Request) -> httpx.Response:
+        assert "(all-minilm" not in json.loads(request.content)["model"]
+        return httpx.Response(200, json={"response": "Acme got a delisting notice [1]."})
+
+    web.pages["http://127.0.0.1:11434/api/embed"] = embed
+    web.pages["http://127.0.0.1:11434/api/generate"] = generate
+    ctx = make_ctx()
+    [answer] = run_source(Ask(question=["delisted", "stocks?"], catalog=URL), ctx)
+    assert answer.data["found_by"] == "meaning"
+    assert [s["link"] for s in answer.data["sources"]] == ["d"]
+    assert answer.data["model"] == "qwen2.5:3b"  # never the embedding model

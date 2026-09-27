@@ -25,6 +25,7 @@ from unlimitedpipe.event import Event
 from unlimitedpipe.operators.extract import STOPWORDS
 from unlimitedpipe.sources.search import (
     STORY_UPDATES,
+    corrected,
     items_since,
     open_catalog,
     story,
@@ -36,15 +37,15 @@ ANTHROPIC = "https://api.anthropic.com/v1/messages"
 ANTHROPIC_MODEL = "claude-haiku-4-5"
 # Small local models that summarize well, best first; any installed model works with --model.
 PREFERRED = (
+    # Trained for ask with research/ask: on questions typed the way people type it passes more
+    # answers than general models eight times its size (research/ask), so it goes first.
+    "hf.co/unlimitedpipe/ask-0.5b-GGUF:latest",
+    "unlimitedpipe-ask:0.5b",  # the same recipe, trained on news (private)
     "qwen2.5:7b",
     "llama3.1:8b",
     "gemma3:4b",
     "qwen2.5:3b",
     "llama3.2:3b",
-    # Trained for ask with research/ask: cites and declines far better than a general 0.5B
-    # (94% against 4% on its test set), so it goes before the small general models.
-    "unlimitedpipe-ask:0.5b",
-    "hf.co/unlimitedpipe/ask-0.5b-GGUF:latest",  # the same, trained on public data only
     "gemma3:1b",
     "qwen2.5:1.5b",
     "llama3.2:1b",
@@ -278,7 +279,9 @@ class Ask(Source):
             return
         if self.since:
             document = {**document, "items": await items_since(ctx, url, document, self.since)}
-        words = terms(question)
+        words, fixed = corrected(terms(question), document)
+        for typo, word in fixed.items():
+            ctx.notice(f"ask: no item has {typo!r}; searched for {word!r}")
         days = days_asked(question)
         after = (
             (datetime.now(UTC) - timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -293,6 +296,12 @@ class Ask(Source):
             older, older_covered = rank(document, words, 3)
             if older and len(older_covered) >= needed(words):
                 items, covered, stale, weak = older, older_covered, True, False
+        by_meaning = False
+        if (not items or weak) and self.provider != "anthropic":
+            # No item has the words ("delisted stocks"): items that mean the same may.
+            alike = await self._by_meaning(ctx, question, document, after)
+            if alike:
+                items, covered, weak, by_meaning = alike, set(words), False, True
         names = {f.get("name"): str(f.get("name", "")) for f in document.get("feeds", [])}
         texts = [text_of(i, names.get(i.get("feed"), "").replace("-", " ")) for i in items]
         missing = [w for w in words if not any(word_pattern(w).search(t) for t in texts)]
@@ -356,8 +365,39 @@ class Ask(Source):
                 "model": model,
                 "sources": found,
                 **({"unsupported": check} if check else {}),
+                **({"found_by": "meaning"} if by_meaning else {}),
             },
         )
+
+    async def _by_meaning(
+        self, ctx: Context, question: str, document: dict[str, Any], after: str | None
+    ) -> list[dict[str, Any]]:
+        """Items alike the question in meaning, with a local embedding model; none when Ollama
+        or an embedding model is missing."""
+        from unlimitedpipe import meaning
+
+        host = os.environ.get("OLLAMA_HOST", OLLAMA)
+        host = host if host.startswith("http") else f"http://{host}"
+        items = [
+            item
+            for item in document.get("items", [])
+            if not (after and item.get("date") and str(item["date"]) < after)
+        ]
+        async with httpx.AsyncClient(timeout=self.timeout, transport=ctx.transport) as client:
+            model = meaning.pick(await _ollama_models(client, host) or [])
+            if model is None or not items:
+                return []
+            try:
+                found = await meaning.nearest(
+                    ctx, client, host, model, question, items, self.sources
+                )
+            except (httpx.HTTPError, ValueError, KeyError):
+                return []
+        if found:
+            ctx.notice(
+                f"ask: no item has the question's words; {len(found)} match its meaning ({model})"
+            )
+        return [item for _, item in found]
 
     async def _answer(self, ctx: Context, prompt_for: Callable[[int], str]) -> tuple[str, str, str]:
         """The answer, the model that gave it, and the prompt it was given."""
@@ -373,7 +413,10 @@ class Ask(Source):
                         f"Ollama is not running at {host}",
                         hint="install it from https://ollama.com, then: ollama pull qwen2.5:3b",
                     )
-                model = self.model or next((m for m in PREFERRED if m in models), models[0])
+                from unlimitedpipe.meaning import is_embedding
+
+                chat = [m for m in models if not is_embedding(m)] or models
+                model = self.model or next((m for m in PREFERRED if m in chat), chat[0])
                 if model not in models and f"{model}:latest" not in models:
                     raise UsageError(
                         f"the model {model!r} is not installed", hint=f"ollama pull {model}"

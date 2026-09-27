@@ -110,6 +110,7 @@ def listing_recall(example, answer):
 SETS = [
     ("real", "unlimitedpipe-ask-real", "test.jsonl", False),
     ("real extra", "unlimitedpipe-ask-real", "extra.jsonl", False),
+    ("real blind", "unlimitedpipe-ask-real", "blind.jsonl", False),
     ("build 4", "unlimitedpipe-ask-sft-public-v4", "test.jsonl", True),
     ("build 3", "unlimitedpipe-ask-sft-public-v3", "test.jsonl", True),
     ("build 2 public", "unlimitedpipe-ask-sft-public", "test.jsonl", True),
