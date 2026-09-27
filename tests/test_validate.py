@@ -91,3 +91,21 @@ def test_unknown_versions_and_missing_files_are_errors(tmp_path):
     (folder / "quakes.xml").unlink()
     report = run(folder, tmp_path, deep=True)
     assert any("quakes.xml" in f.message for f in report.findings if f.level == "error")
+
+
+def test_deep_finds_odd_dates_repeats_and_items_in_the_wrong_month(tmp_path):
+    folder = site(tmp_path)
+    empty = {**ITEM, "title": "M0.0 earthquake in", "date": "1970-01-01T07:00:00Z"}
+    append(folder, [empty], "2026-09-26T00:00:00Z")
+    month = folder / "archive" / "2026-09.jsonl"
+    line = month.read_text().splitlines()[0]
+    moved = json.dumps({**json.loads(line), "title": "M6.0 Tonga", "date": "2026-08-02"})
+    month.write_text("\n".join([line, line, moved]) + "\n")
+    append(folder, [], "2026-09-26T00:00:00Z")
+    from unlimitedpipe.archive import write_index
+
+    write_index(folder / "archive")
+    messages = [f"{f.where}: {f.message}" for f in run(folder, tmp_path, deep=True).findings]
+    assert any("1970-01 line 1: date 1970-01-01T07:00:00Z is before 1990" in m for m in messages)
+    assert "archive 2026-09: 1 item(s) are in it twice (same feed, link and title)" in messages
+    assert "archive 2026-09: 1 item(s) are dated in another month" in messages

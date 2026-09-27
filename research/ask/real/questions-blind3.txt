@@ -1,0 +1,55 @@
+# Blind set 3 (2026-09-28): questions about the past, written after the archive was backfilled
+# and before build 7's data, never used to build or tune a model. Most name a year or a month;
+# some name none ("ronin hack"), and some ask for what the feeds do not keep.
+earthquakes in japan in 2024
+biggest earthquake in 2023
+turkey earthquake february 2023
+earthquake in morocco september 2023
+any earthquakes in taiwan april 2024?
+myanmar earthquake march 2025
+us inflation in june 2022
+cpi march 2021
+unemployment rate april 2020
+jobs report december 2023
+fed funds rate in 2019
+mortgage rates october 2023
+jobless claims march 2020
+s&p 500 close march 2020
+oil price april 2020
+vix in march 2020
+10 year treasury yield october 2023
+nikkei in 2024
+citrix vulnerabilities exploited in 2023
+moveit vulnerability 2023
+ivanti exploited 2024
+log4j 2021
+critical vulnerabilities in fortinet 2025
+cisco critical flaws 2024
+data breaches in 2024
+ticketmaster breach
+crypto hacks in 2022
+ronin hack
+bybit hack 2025
+fda approved drugs in 2023
+alzheimer drug approval 2023
+new obesity drug approvals 2024
+companies that disclosed cyber incidents to the sec in 2024
+ipo filings in 2021
+spac ipo filings march 2021
+reddit ipo filing
+significant epa rules in 2024
+sec rules 2023
+ebola outbreak 2022
+mpox outbreak 2022
+cholera outbreaks in 2023
+marburg outbreak 2023
+what happened last year with bird flu
+significant rules last year
+earthquakes in 1995
+bitcoin price in 2019
+gold price 2020
+uk inflation 2022
+apple stock price 2021
+world cup 2022 winner
+covid cases march 2020
+tesla ipo 2010

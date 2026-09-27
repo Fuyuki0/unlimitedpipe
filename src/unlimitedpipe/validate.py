@@ -49,6 +49,24 @@ def _date_ok(value: Any) -> bool:
 
 
 QUIET_DAYS = 14
+EARLIEST = "1990"  # a date before this in a feed of news and records is a parsing slip (1970-01-01)
+FUTURE_DAYS = 2
+
+
+def _date_odd(value: Any) -> str | None:
+    """Why an item's date looks wrong (long ago, or days ahead), or None."""
+    from datetime import UTC, datetime, timedelta
+
+    from unlimitedpipe.event import parse_time
+
+    when = parse_time(value) if isinstance(value, str) else None
+    if when is None:
+        return None
+    if when.year < int(EARLIEST):
+        return f"date {value} is before {EARLIEST}: probably an empty or misread record"
+    if when > datetime.now(UTC) + timedelta(days=FUTURE_DAYS):
+        return f"date {value} is in the future"
+    return None
 
 
 def _quiet(latest: Any) -> str | None:
@@ -81,6 +99,8 @@ def _check_item(report: Report, where: str, item: Any, feeds: set[str]) -> None:
         report.error(where, f"link is not an absolute web address: {link!r}")
     if not _date_ok(item.get("date")):
         report.error(where, f"date is not ISO 8601: {item.get('date')!r}")
+    elif odd := _date_odd(item.get("date")):
+        report.warn(where, odd)
     if item.get("summary") is not None and not isinstance(item["summary"], str):
         report.error(where, "summary is neither text nor null")
 
@@ -183,6 +203,7 @@ async def validate(ctx: Context, catalog: str | None, *, deep: bool = False) -> 
 
 
 async def _check_archive(ctx, report: Report, url: str, path: str, names: set[str], deep: bool):
+    from unlimitedpipe.archive import item_key
     from unlimitedpipe.sources.search import join, read
 
     index_url = join(url, path)
@@ -220,6 +241,8 @@ async def _check_archive(ctx, report: Report, url: str, path: str, names: set[st
         lines = [line for line in content.decode("utf-8", "replace").splitlines() if line.strip()]
         if month.get("items") != len(lines):
             report.warn(where, f"index says {month.get('items')} items, the file has {len(lines)}")
+        keys: set[str] = set()
+        repeated = misplaced = 0
         for n, line in enumerate(lines):
             try:
                 item = json.loads(line)
@@ -227,5 +250,17 @@ async def _check_archive(ctx, report: Report, url: str, path: str, names: set[st
                 report.error(where, f"line {n + 1} is not JSON")
                 continue
             _check_item(report, f"{where} line {n + 1}", item, names | {item.get("feed")})
-            if isinstance(item, dict) and not item.get("seen"):
+            if not isinstance(item, dict):
+                continue
+            if not item.get("seen"):
                 report.warn(f"{where} line {n + 1}", "has no seen time")
+            if (key := item_key(item)) in keys:
+                repeated += 1
+            keys.add(key)
+            date = str(item.get("date") or item.get("seen") or "")
+            if MONTH.match(date[:7]) and date[:7] != month.get("month"):
+                misplaced += 1
+        if repeated:
+            report.warn(where, f"{repeated} item(s) are in it twice (same feed, link and title)")
+        if misplaced:
+            report.warn(where, f"{misplaced} item(s) are dated in another month")
