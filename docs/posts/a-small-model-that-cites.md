@@ -60,6 +60,18 @@ does not explain or reason; a larger general model explains more and cites less.
 new in a feed, it often lists one item where two or three were there. And it knows one prompt,
 `ask`'s.
 
+## Update: build 3, and questions people actually type
+
+The test questions above come from the same templates as the training ones. So we wrote 70
+questions the way people type them ("whats new with bitget", "ข่าวไทยวันนี้มีอะไรบ้าง"), put
+them through `ask`'s own search, and labelled the answers by hand. The model above passed 51%:
+asked what is new, it gave one item. It had seen 56 lists in training.
+
+Build 3 was trained on 18,468 examples, 7,719 of them lists, with casual questions and 10
+sources as `ask` gives: 81% on those 70 questions. We graded 13 other open models the same
+way; the best, Qwen3.5 4B, eight times its size, passed 80%. The full table is in
+[research/ask](../../research/ask).
+
 ## Try it
 
 ```bash

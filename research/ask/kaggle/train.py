@@ -21,7 +21,7 @@ import torch  # noqa: E402
 from peft import LoraConfig, get_peft_model  # noqa: E402
 from transformers import AutoModelForCausalLM, AutoTokenizer  # noqa: E402
 
-BASE, EPOCHS, BATCH, ACCUMULATE, LR, MAX_TOKENS = "Qwen/Qwen2.5-0.5B-Instruct", 1, 2, 8, 2e-4, 1536
+BASE, EPOCHS, BATCH, ACCUMULATE, LR, MAX_TOKENS = "Qwen/Qwen2.5-0.5B-Instruct", 1, 2, 8, 2e-4, 2560
 device = "cuda" if torch.cuda.is_available() else "cpu"
 print("GPU:", torch.cuda.get_device_name(0) if device == "cuda" else "none", flush=True)
 random.seed(0)
@@ -92,7 +92,7 @@ model = get_peft_model(
     ),
 )
 model.print_trainable_parameters()
-# Recompute activations instead of storing them: a batch of 1,536 tokens fits a T4 with room.
+# Recompute activations instead of storing them: two examples of 2,560 tokens fit a T4.
 model.gradient_checkpointing_enable()
 model.enable_input_require_grads()
 optimizer = torch.optim.AdamW([p for p in model.parameters() if p.requires_grad], lr=LR)

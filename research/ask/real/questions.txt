@@ -1,0 +1,94 @@
+# Questions written the way people type them, English and Thai. One per line.
+bitcoin price?
+what is the bitcoin price today?
+eth price
+any big crypto hacks this week?
+whats new with bitget
+crypto hacks lately?
+any stablecoin news?
+new exchange listings this week
+biggest crypto moves today
+any insider buys this week?
+insider trades today
+activist stakes?
+any sec enforcement actions this week?
+sec cyber incidents
+new ipo filings
+any new sanctions?
+earthquakes today
+any earthquakes in japan this week?
+tsunami alerts?
+hurricanes or typhoons right now?
+volcano news
+space weather today
+solar storm?
+what's the weather in bangkok today?
+exploited vulnerabilities this week
+any new zyxel vulnerabilities?
+data breaches this week
+food recalls?
+fda news this week
+disease outbreaks?
+any travel advisories today?
+latest ai releases
+openai news
+python news
+rust release
+show hn today
+nasa image of the day
+space launches this week
+central bank rate decisions
+usd thb rate
+federal reserve news
+china news today
+japan news
+what happened in ukraine today?
+un news
+thailand news
+lobbying big spenders
+world bank tenders this week
+us justice department news
+new us rules this week
+ราคา bitcoin วันนี้
+ราคาบิตคอยน์เท่าไหร่
+มี crypto hacks อะไรบ้างสัปดาห์นี้
+แผ่นดินไหววันนี้
+แผ่นดินไหวที่ไทยล่าสุด
+น้ำท่วมกรุงเทพเป็นไงบ้าง
+สภาพอากาศกรุงเทพวันนี้
+พายุไต้ฝุ่นล่าสุด
+ข่าวไทยวันนี้มีอะไรบ้าง
+ข่าวเศรษฐกิจไทย
+แบงก์ชาติ ดอกเบี้ย
+ค่าเงินบาทวันนี้
+ขอข่าว AI ล่าสุดหน่อย
+openai มีอะไรใหม่
+ข่าวจีนวันนี้
+ข่าวญี่ปุ่นล่าสุด
+ภูเขาไฟล่าสุด
+ข่าวโรคระบาด
+insider trades วันนี้มีอะไรบ้าง
+ข่าว SEC สัปดาห์นี้
+# Should be declined: the catalog does not say (two of three words match at most).
+bitcoin price in 2019
+ethereum hack yesterday binance
+tesla earnings call results
+iphone 18 price in thailand
+ราคาทองคำวันนี้
+bangkok flood insurance claims
+japan earthquake death toll
+arsenal premier league result
+nvidia stock price today
+ราคาน้ำมันวันนี้
+bitcoin price prediction
+openai ipo date
+python 4 release date
+ebola vaccine approval
+sec lawsuit elon musk
+insider trades nvidia
+tesla recall
+bitget hack refund
+ราคาบิตคอยน์ปีหน้า
+ข่าวอีโบลาในไทย
+typhoon surigae landfall philippines
+kaspa price

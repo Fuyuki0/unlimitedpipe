@@ -297,3 +297,15 @@ def test_a_site_title_shows_and_survives_the_hourly_rebuild(repo):
     hourly = repo_plan(repo)  # `unlimited catalog` in the workflow has no title
     assert catalog(hourly, previous={"title": "City alerts"})["title"] == "City alerts"
     assert catalog(hourly)["title"] == hourly.name
+
+
+def test_short_words_match_whole_words_only():
+    from unlimitedpipe.sources.search import word_pattern
+
+    assert word_pattern("sec").search("SEC charges a trader")
+    assert word_pattern("sec").search("the SEC's new rule")
+    assert not word_pattern("sec").search("security news")
+    assert not word_pattern("ai").search("aid package")
+    assert not word_pattern("us").search("user data leaked")
+    assert word_pattern("eth").search("Ethereum (ETH) price")
+    assert word_pattern("hack").search("hackers stole $5M")  # longer words keep any ending

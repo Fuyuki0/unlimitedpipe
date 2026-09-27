@@ -8,21 +8,27 @@ run on a laptop?
 ## How
 
 1. [`build.py`](build.py) turns the catalog into examples: the exact prompt `ask` sends
-   (same wording, same source ranking) and an answer written from the sources by templates,
-   so each answer is correct by construction. Four kinds, each in English and Thai: lookup
-   (answer from one item, cite it), listing (several items, cite them), refusal (the key word
-   is in no source: say so and give the closest item). 10% of items are only ever tested.
-   Build 1 (catalog of 2026-09-26): 7,016 examples to learn from, 795 to test.
-2. [`score.py`](score.py) grades any Ollama model on the test examples: right citation, no
-   citation of a source that does not exist, no invented number, Thai answers to Thai
-   questions, and plain refusals.
-3. [`train_kaggle.ipynb`](train_kaggle.ipynb) trains Qwen2.5 0.5B Instruct with LoRA on a free
-   Kaggle GPU and uploads the model and a GGUF file for Ollama.
-4. [`install_model.sh`](install_model.sh) adds the trained model to Ollama as
-   `unlimitedpipe-ask:0.5b`; then `unlimited ask "..." --model unlimitedpipe-ask:0.5b`.
+   (same wording, same search, same time window, same number of sources) and an answer
+   written from the sources by templates, so each answer is correct by construction. Three
+   kinds, each in English and Thai, asked formally and the way people type: lookup (answer
+   from one item, cite it), listing (every matching source up to five, each cited), refusal
+   (the key word is in no source: say so and give the closest item). One in ten items and
+   topics is only ever tested. `--public` uses public data only, plus Federal Register
+   documents from [unlimitedpipe/public-records](https://huggingface.co/datasets/unlimitedpipe/public-records).
+2. [`real/`](real): 70 questions typed the way people type them, put through `ask`'s own search
+   on a saved catalog and labelled by hand: the honest test, as the template test sets come
+   from the same patterns the model learns from.
+3. [`kaggle/run3.sh`](kaggle/run3.sh) trains Qwen2.5 0.5B Instruct with LoRA on a free Kaggle
+   GPU ([`kaggle/train.py`](kaggle/train.py), GGUF file for Ollama included) and has any
+   models answer every test set there ([`kaggle/compare3.py`](kaggle/compare3.py)).
+4. [`grade.py`](grade.py) grades the answers the same way for every model: a source that
+   answers is cited (three of the matching ones for a list), not every source is cited, the
+   sources not covering the question is said plainly, no number is invented, no source that
+   does not exist is cited, and Thai is answered in Thai.
 
-The examples hold publishers' headlines, so the dataset (`unlimitedpipe/ask-sft`) and the
-trained model are private; the code and the scores are public.
+Built from news feeds, examples hold publishers' headlines, so that dataset
+(`unlimitedpipe/ask-sft`) and the model trained on it are private; the public model is trained
+on public data only. The code and the scores are public.
 
 ## Results
 
@@ -86,3 +92,50 @@ misses are incomplete lists (one cited item where two or three were there), not 
 It is published as [unlimitedpipe/ask-0.5b-GGUF](https://huggingface.co/unlimitedpipe/ask-0.5b-GGUF)
 with its data, [unlimitedpipe/ask-sft-public](https://huggingface.co/datasets/unlimitedpipe/ask-sft-public),
 and `unlimited setup` installs it.
+
+## Build 3: lists, and real questions (2026-09-27)
+
+Build 2 had 56 list examples out of 6,974, always 5 sources (`ask` gives 10 by default), and
+only formal questions. It passed 97% of its own template tests but, on the real questions,
+only half: asked "whats new with bitget" or "ข่าวไทยวันนี้มีอะไรบ้าง", it gave one item or
+said the sources did not cover it.
+
+Build 3 (public data only): 18,468 examples to learn from (7,719 lists, 8,448 lookups, 2,301
+refusals; 8,446 typed casually), from the public catalog of 2026-09-27 and 30,185 Federal
+Register documents of 2025 and 2026, with `ask`'s own search and 10, 5 or 3 sources as `ask`
+gives. 146 minutes on Kaggle's T4, test loss 0.925 to 0.008.
+
+Every model below answered the same prompts on Kaggle (greedy, up to 200 new tokens, thinking
+off, 16-bit) and was graded by `grade.py`:
+
+| Model | Parameters | Real (70) | Build 3 test (120) | Build 2 public (84) | Build 2 news (92) |
+| --- | --- | --- | --- | --- | --- |
+| **ask-0.5b build 3** | **0.5B** | **57 (81%)** | **110 (91%)** | 78 (92%) | **87 (94%)** |
+| Qwen3.5 4B | 4.2B | 56 (80%) | 57 (47%) | 71 (84%) | 62 (67%) |
+| Qwen3.5 2B | 1.9B | 45 (64%) | 50 (41%) | 54 (64%) | 52 (56%) |
+| Phi-4 mini | 3.8B | 43 (61%) | 31 (25%) | 35 (41%) | 34 (36%) |
+| Gemma 4 E2B | 5.1B | 43 (61%) | 51 (42%) | 51 (60%) | 50 (54%) |
+| Granite 4.1 3B | 3.4B | 42 (60%) | 37 (30%) | 43 (51%) | 44 (47%) |
+| Llama 3.2 3B | 3.2B | 37 (53%) | 36 (30%) | 48 (57%) | 54 (58%) |
+| LFM2.5 1.2B | 1.2B | 37 (53%) | 22 (18%) | 4 (4%) | 10 (10%) |
+| ask-0.5b build 2 | 0.5B | 36 (51%) | 74 (61%) | **82 (97%)** | 77 (83%) |
+| SmolLM3 3B | 3.1B | 35 (50%) | 44 (36%) | 34 (40%) | 38 (41%) |
+| Qwen3.5 0.8B | 0.8B | 22 (31%) | 37 (30%) | 46 (54%) | 42 (45%) |
+| Llama 3.2 1B | 1.2B | 21 (30%) | 37 (30%) | 31 (36%) | 42 (45%) |
+| Gemma 3 1B | 1.0B | 9 (13%) | 14 (11%) | 16 (19%) | 19 (20%) |
+| Qwen2.5 0.5B Instruct (base) | 0.5B | 0 (0%) | 4 (3%) | 4 (4%) | 3 (3%) |
+
+On the real questions, build 3 passes 39 of 48 lists (build 2: 18), 12 of 14 lookups and 6
+of 8 refusals. Its misses: a bare topic ("openai news", "ข่าวญี่ปุ่นล่าสุด") often gets one
+item where a list was wanted; "nasa image of the day" gets a list where one was wanted; and it
+gave a price when asked for next year's. Larger general models word their answers better and
+explain; this one quotes its sources.
+
+Two notes on the other models. Qwen3.5 4B ran out of GPU memory at 16 answers at a time and
+was run at 4; Gemma 4 E2B gave empty answers when batched and was run one at a time. The first
+grader counted a list as right when it cited three matching sources, which a model citing all
+ten always did; `grade.py` also fails citing more than two sources that do not answer.
+
+Build 3 is published as [unlimitedpipe/ask-0.5b-GGUF](https://huggingface.co/unlimitedpipe/ask-0.5b-GGUF)
+(build 2 on its `build-2` branch), with its data,
+[unlimitedpipe/ask-sft-public](https://huggingface.co/datasets/unlimitedpipe/ask-sft-public).

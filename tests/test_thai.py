@@ -11,6 +11,15 @@ def test_thai_questions_are_split_into_words():
     assert split("ศุภมาสลงพื้นที่") == ["ศุภมาสลงพื้นที่"]  # unknown words stay one term
 
 
+def test_casual_thai_leaves_only_the_topic():
+    assert terms("Bitget hack เป็นไงบ้าง") == ["bitget", "hack"]  # how is it going
+    assert terms("ขอข่าว Bitget hack หน่อย") == ["bitget", "hack"]  # news please
+    assert terms("Bitget hack มีอะไรใหม่") == ["bitget", "hack"]  # anything new
+    assert terms("Bitget hack อัปเดต") == ["bitget", "hack"]  # update
+    assert split("น้ำท่วมเชียงใหม่") == ["น้ำท่วม", "เชียงใหม่"]  # ใหม่ inside a name stays
+    assert split("ปีใหม่") == ["ปีใหม่"]  # New Year
+
+
 def test_thai_words_match_other_spellings_and_english():
     assert word_pattern("กรุงเทพ").search("น้ำท่วม กทม. หนัก")
     assert word_pattern("น้ำท่วม").search("Bangkok floods worsen")

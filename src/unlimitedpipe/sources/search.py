@@ -105,13 +105,19 @@ def word_pattern(word: str) -> re.Pattern[str]:
     # as Thai or Chinese, match anywhere.
     if word.isascii():
         forms = (stem(word), *IRREGULAR.get(stem(word), ()))
-        return re.compile(r"(?<!\w)(?:" + "|".join(map(re.escape, forms)) + ")", re.IGNORECASE)
+        return re.compile("|".join(map(_start, forms)), re.IGNORECASE)
     # A Thai word also matches its other spellings and its English equivalents.
-    parts = [
-        r"(?<!\w)" + re.escape(stem(form)) if form.isascii() else re.escape(form)
-        for form in thai.forms(word)
-    ]
+    parts = [_start(stem(form)) if form.isascii() else re.escape(form) for form in thai.forms(word)]
     return re.compile("|".join(parts), re.IGNORECASE)
+
+
+def _start(form: str) -> str:
+    """A word's start: longer words match any ending ("hack" finds "hacker"), words of three
+    letters or fewer only their plural and verb endings ("sec" is not "security", "ai" not
+    "aid", "us" not "user")."""
+    if len(form) <= 3:
+        return r"(?<!\w)" + re.escape(form) + r"(?:s|es|'s|ed|ing)?(?!\w)"
+    return r"(?<!\w)" + re.escape(form)
 
 
 def split_words(words: list[str]) -> list[str]:

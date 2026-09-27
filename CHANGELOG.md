@@ -3,6 +3,19 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.3 - 2026-09-27
+
+- The `ask` model `unlimited setup` installs is build 3: it lists every matching source when
+  asked what is new, and on 70 questions typed the way people type passes 81% (build 2: 51%),
+  level with Qwen3.5 4B. `ollama pull hf.co/unlimitedpipe/ask-0.5b-GGUF` updates it.
+- Search and `ask`: words of three letters or fewer match whole words only, so "SEC" no longer
+  finds "security", "AI" no longer "aid", "US" no longer "user" (longer words still match any
+  ending: "hack" finds "hackers").
+- `ask` leaves out casual filler ("update", "lately"; in Thai ใหม่, ขอ, ว่าไง, อัปเดต) instead of
+  searching for it, and "show hn" searches for "hn".
+- When "today" or "this week" finds nothing that recent, `ask` shows the latest matching items
+  and their date instead of nothing ("baht rate today" on a Sunday gets Friday's rate).
+
 ## 0.10.2 - 2026-09-27
 
 - `publish --title` and `--about` give a catalog's site a title and a sentence under it;

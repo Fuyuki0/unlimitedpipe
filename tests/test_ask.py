@@ -41,6 +41,8 @@ URL = "https://feeds.example/feeds.json"
 def test_terms_keep_the_words_worth_searching():
     assert terms("What is the weather in Bangkok today?") == ["weather", "bangkok"]
     assert terms("Any big insider buys?") == ["insider", "buys"]
+    assert terms("update on crypto hacks lately?") == ["crypto", "hacks"]
+    assert terms("show hn today") == ["hn"]
 
 
 def links(items):
@@ -114,6 +116,28 @@ def test_numbers_the_sources_do_not_have_are_flagged():
     # A made-up percentage is not excused by a source numbered [10] or humidity 93%.
     sources = "[10] Bangkok: rain, humidity 93% - 10.0 mm of rain"
     assert unsupported_numbers("SET100 fell 10% [10]; humidity 93%", sources) == ["10%"]
+
+
+def test_nothing_recent_shows_the_latest_older_items(web, make_ctx):
+    # "the baht rate today" on a Sunday: Friday's rate is the latest there is.
+    catalog = {
+        "schema": CATALOG_SCHEMA,
+        "feeds": [{"name": "usd-rates"}],
+        "items": [
+            {
+                "feed": "usd-rates",
+                "title": "US dollar: 33.345 baht",
+                "link": "fx",
+                "date": "2020-01-03T00:00:00Z",
+            }
+        ],
+    }
+    web.add(URL, json.dumps(catalog), content_type="application/json")
+    [answer] = run_source(Ask(question=["baht", "rate", "today?"], catalog=URL), make_ctx())
+    assert answer.data["model"] is None
+    assert answer.data["answer"].startswith("Nothing in the catalog from the last 2 days")
+    assert "is older, from 2020-01-03" in answer.data["answer"]
+    assert [s["link"] for s in answer.data["sources"]] == ["fx"]
 
 
 def test_a_half_match_is_not_given_to_a_model(catalog, make_ctx):

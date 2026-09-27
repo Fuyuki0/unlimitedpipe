@@ -13,3 +13,5 @@ research/ask/data/
 research/ask/data-public/
 research/.venv/
 research/**/results/
+research/ask/real/test.jsonl
+research/data-fr/

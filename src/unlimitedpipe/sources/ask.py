@@ -47,7 +47,8 @@ QUESTION_WORDS = frozenset(
     "what whats which who whom whose when where why how is are was were do does did any anything "  # noqa: SIM905
     "tell show give me today now latest new news happening happened going there should can "
     "tonight yesterday week weeks month months recent recently past currently right "
-    "think thought call called know want please guess maybe really like mean".split()
+    "think thought call called know want please guess maybe really like mean update updates "
+    "lately got".split()
 )
 # Words that ask about a time, and how many days back they reach.
 TIME_WORDS = (
@@ -70,6 +71,10 @@ Sources:
 Question: {question}"""
 
 
+# Stopwords for counting words in titles that are still worth searching for ("show hn").
+SEARCHABLE = frozenset({"hn"})
+
+
 def terms(question: str) -> list[str]:
     """The words of a question worth searching for."""
     text = thai.THAI_RUN.sub(" ", question.casefold())
@@ -77,7 +82,7 @@ def terms(question: str) -> list[str]:
     return [
         w
         for w in dict.fromkeys(words)
-        if w not in STOPWORDS and w not in QUESTION_WORDS and len(w) > 1
+        if (w not in STOPWORDS or w in SEARCHABLE) and w not in QUESTION_WORDS and len(w) > 1
     ]
 
 
@@ -268,6 +273,12 @@ class Ask(Source):
         )
         items, covered = rank(document, words, self.sources, since=after)
         weak = bool(items) and len(covered) < needed(words)
+        stale = False
+        if after and (not items or weak):
+            # "baht rate today" on a Sunday: nothing that recent, so show the latest there is.
+            older, older_covered = rank(document, words, 3)
+            if older and len(older_covered) >= needed(words):
+                items, covered, stale, weak = older, older_covered, True, False
         names = {f.get("name"): str(f.get("name", "")) for f in document.get("feeds", [])}
         texts = [text_of(i, names.get(i.get("feed"), "").replace("-", " ")) for i in items]
         missing = [w for w in words if not any(word_pattern(w).search(t) for t in texts)]
@@ -288,6 +299,13 @@ class Ask(Source):
                 f"Nothing in the catalog{period} matches this question. Try other words, "
                 "--since 2026-01 to use the archive too, or see what the feeds cover: "
                 "unlimited search --list-feeds"
+            )
+            model = None
+        elif stale:
+            latest = max(str(i.get("date") or "")[:10] for i in items) or "an earlier day"
+            answer = (
+                f"Nothing in the catalog{period} matches this question. The latest that does "
+                f"is older, from {latest}: see the sources below."
             )
             model = None
         elif weak:
