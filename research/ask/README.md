@@ -198,6 +198,24 @@ Published as [unlimitedpipe/decide-0.5b-GGUF](https://huggingface.co/unlimitedpi
 with [unlimitedpipe/decide-sft-public](https://huggingface.co/datasets/unlimitedpipe/decide-sft-public);
 `unlimited setup` installs it.
 
+## Build 6: practice saying "not covered" (2026-09-27)
+
+Build 5's misses were mostly questions about a source's topic asking for something no source
+says. Build 6 adds those (`Builder.asked_more`): two words of an item and something asked for
+(`ASKED_FOR`: a death toll, a forecast, a release date, a price target...), kept only when no
+source found for the question has that word. 23,244 examples, 30% of them "not covered"; 156
+minutes on the T4.
+
+| Model | Blind (40) | Blind 2 (42) | Real (70) | More English (45) | Not covered (28) |
+| --- | --- | --- | --- | --- | --- |
+| **decide-0.5b build 6** | **36 (90%)** | **32 (76%)** | 67 (95%) | 44 (97%) | **21** |
+| decide-0.5b build 5 | 35 (87%) | 30 (71%) | 66 (94%) | 45 (100%) | 14 |
+
+Seven more "not covered" questions right, three listings now wrongly called not covered
+("stablecoin supply change", "cyber attack disclosed to sec", a Thai typhoon question) and one
+lookup lost. At 95% sure or more (191 of 197 answers) it was right 174 times. Published as
+the main version of decide-0.5b; build 5 is on the `build-5` branch of the model and the data.
+
 ## The blind question sets
 
 `real/blind.jsonl` (40) was written after build 4, and `real/blind2.jsonl` (42) before build
@@ -215,4 +233,4 @@ same way (other models on Kaggle, 16-bit; ours through Ollama, 8-bit):
 The leads on the earlier sets (95% against Qwen3.5 4B's 80%) were mostly from questions that
 shaped our models; on blind questions the 0.5B model ties with a 2B one and is ahead of the 3
 to 4B ones. On the second blind set, build 5 passes 30 of 42 (71%), and only 4 of the 12
-questions the sources do not answer.
+questions the sources do not answer; build 6 passes 32 (76%), and 7 of the 12.

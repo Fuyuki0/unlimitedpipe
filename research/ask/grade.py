@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 import collections
 import json
+import os
 import random
 import re
 
@@ -101,9 +102,15 @@ def main() -> None:
     if args.build4:
         sets["build 4"] = sample(rows(args.build4))
     if args.decide_sets:
-        for name, file in (("real", "test"), ("real extra", "extra"), ("real blind", "blind")):
+        for name, file in (
+            ("real", "test"),
+            ("real extra", "extra"),
+            ("real blind", "blind"),
+            ("real blind2", "blind2"),
+        ):
             path = f"{args.decide_sets}/{file}-decide.jsonl"
-            sets[f"{name} decide"] = rows(path)
+            if os.path.exists(path):
+                sets[f"{name} decide"] = rows(path)
     if args.build_decide:
         sets["build decide"] = sample(rows(args.build_decide))
     sets["build 3"] = sample(rows(args.build3))
