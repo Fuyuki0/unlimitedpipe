@@ -399,6 +399,8 @@ def _load_for_publishing(pipelines: tuple[Path, ...]):
     help="What the workflow installs with pip (default: this version from PyPI), "
     "e.g. git+https://github.com/Fuyuki0/unlimitedpipe@v0.5.0",
 )
+@click.option("--title", default=None, help="The site's title (default: the workflow name).")
+@click.option("--about", default=None, help="A sentence under the title on the index page.")
 @click.pass_context
 def publish_command(
     ctx: click.Context,
@@ -407,6 +409,8 @@ def publish_command(
     name: str | None,
     force: bool,
     install: str | None,
+    title: str | None,
+    about: str | None,
 ) -> None:
     """Host pipelines' outputs for free: GitHub Actions runs them, GitHub Pages serves them.
 
@@ -419,6 +423,7 @@ def publish_command(
     Examples:
       unlimited publish feeds/blog.yml --every 1h
       unlimited publish feeds/*.yml --every 1h        # a catalog of feeds
+      unlimited publish feeds/*.yml --title "City alerts" --about "Floods and roads in Hat Yai"
     """
     from unlimitedpipe.publish import (
         INDEX_MARKER,
@@ -437,6 +442,7 @@ def publish_command(
         if '"' in install or "\n" in install:
             raise UsageError("--install must be a pip requirement or URL without quotes")
         p.install = install
+    p.title, p.about = title, about
     workflow_path = p.root / p.workflow
     if workflow_path.exists() and not force:
         raise UsageError(f"{p.workflow} already exists", hint="pass --force to replace it")

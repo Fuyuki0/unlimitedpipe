@@ -283,3 +283,17 @@ def test_workflow_records_results_and_installs_what_it_is_told(repo):
     assert 'echo "$code $pipeline" >> "$RUNNER_TEMP/unlimitedpipe-results"' in text
     assert 'unlimited catalog --results "$RUNNER_TEMP/unlimitedpipe-results"' in text
     assert 'pip install "git+https://github.com/Fuyuki0/unlimitedpipe@v0.5.0"' in text
+
+
+def test_a_site_title_shows_and_survives_the_hourly_rebuild(repo):
+    from unlimitedpipe.publish import index_page
+
+    p = repo_plan(repo)
+    p.title, p.about = "City alerts", "Floods & roads"
+    page = index_page(p, "1h")
+    assert "<title>City alerts</title>" in page and "<p>Floods &amp; roads</p>" in page
+    assert "2 feeds, refreshed by a GitHub Actions workflow scheduled every" in page
+    assert catalog(p)["title"] == "City alerts"
+    hourly = repo_plan(repo)  # `unlimited catalog` in the workflow has no title
+    assert catalog(hourly, previous={"title": "City alerts"})["title"] == "City alerts"
+    assert catalog(hourly)["title"] == hourly.name

@@ -54,6 +54,8 @@ class PublishPlan:
     secrets: list[str]  # ${NAME} references, passed from repository secrets
     install: str = f"unlimitedpipe=={__version__}"  # what the workflow installs with pip
     browser: bool = False  # a pipeline renders pages with --browser: install Chromium too
+    title: str | None = None  # the site's title (default: the workflow name)
+    about: str | None = None  # a sentence under the title on the index page
 
     @property
     def files(self) -> list[Path]:
@@ -364,7 +366,8 @@ def catalog(
     items.sort(key=lambda i: i["date"] or "", reverse=True)
     return {
         "schema": CATALOG_SCHEMA,
-        "title": p.name,
+        # A catalog keeps its title between runs: the hourly `unlimited catalog` has none.
+        "title": p.title or (previous or {}).get("title") or p.name,
         "archive": "archive/index.json",  # every item ever listed, by month
         "feeds": feeds,
         "items": items,
@@ -481,7 +484,8 @@ def index_page(p: PublishPlan, every: str) -> str:
             f"      <h2>{html.escape(item.name)}</h2>\n"
             f"      {about}\n      <p>{links}</p>\n    </section>"
         )
-    title = html.escape(p.name)
+    title = html.escape(p.title or p.name)
+    about = f"\n    <p>{html.escape(p.about)}</p>" if p.about else ""
     body = "\n".join(sections)
     return f"""\
 <!doctype html>
@@ -507,9 +511,11 @@ def index_page(p: PublishPlan, every: str) -> str:
     </style>
   </head>
   <body>
-    <h1>{title}</h1>
-    <p>Updated every {html.escape(every)} by a GitHub Actions workflow. Subscribe to any feed
-    in a feed reader (XML), or read it as data (JSON).</p>
+    <h1>{title}</h1>{about}
+    <p>{len(p.pipelines)} feeds, refreshed by a GitHub Actions workflow scheduled every
+    {html.escape(every)}. Subscribe to any feed in a feed reader (XML), or read it as data
+    (JSON). From a terminal: <code>pip install unlimitedpipe</code>, then
+    <code>unlimited search WORDS</code> or <code>unlimited ask "QUESTION"</code>.</p>
     <input id="q" type="search" placeholder="Search every feed, e.g. flood, bankruptcy, Bangkok"
       autocomplete="off" aria-label="Search every feed">
     <p id="status" class="muted"></p>

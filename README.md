@@ -4,18 +4,18 @@
 [![Python](https://img.shields.io/pypi/pyversions/unlimitedpipe)](https://pypi.org/project/unlimitedpipe/)
 [![CI](https://github.com/Fuyuki0/unlimitedpipe/actions/workflows/ci.yml/badge.svg)](https://github.com/Fuyuki0/unlimitedpipe/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/Fuyuki0/unlimitedpipe/blob/main/LICENSE)
+[![Model](https://img.shields.io/badge/%F0%9F%A4%97%20model-ask--0.5b-yellow)](https://huggingface.co/unlimitedpipe/ask-0.5b-GGUF)
+[![Dataset](https://img.shields.io/badge/%F0%9F%A4%97%20dataset-2.85B%20tokens-yellow)](https://huggingface.co/datasets/unlimitedpipe/public-records)
+[![Feeds](https://img.shields.io/badge/live%20feeds-77-brightgreen)](https://feeds.daemonfill.dev/)
 
 **Pipe the public internet.**
 
-Collect public web data, transform it, detect what changed, and send it anywhere, from the
-command line. Local-first, no account, no API key, no AI required. Think Yahoo Pipes, rebuilt
-as Unix commands.
+Watch anything public (a price, a filing, a feed, a government page) and get only what
+changed, with a link to where it came from. Search and ask 77 live feeds of public records and
+news in one command, even offline, answered by a 0.5B model that cites its sources.
+Local-first, free, no account, no API key.
 
-**See it running:** [26 free feeds](https://feeds.daemonfill.dev/) (AI releases, exploited
-vulnerabilities, cloud incidents, earthquakes, rocket launches…), each one a YAML file of about
-15 lines, updated hourly on GitHub Actions. [Fork them](https://github.com/Fuyuki0/unlimitedpipe-feeds).
-
-![UnlimitedPipe detecting a price change, a new plan and a removed plan on a pricing page](https://raw.githubusercontent.com/Fuyuki0/unlimitedpipe/main/docs/assets/demo.svg)
+![unlimited ask answering "any big crypto hacks this week?" with cited sources](https://raw.githubusercontent.com/Fuyuki0/unlimitedpipe/main/docs/assets/ask.svg)
 
 Install and set everything up with one command (it asks before each step):
 
@@ -24,18 +24,31 @@ curl -fsSL https://raw.githubusercontent.com/Fuyuki0/unlimitedpipe/main/install.
 ```
 
 It installs the `unlimited` command and runs `unlimited setup`, which adds what this machine can
-use: the browser for JavaScript pages, a local AI model sized for its memory, the tools and skill
-for Claude Code, and an offline copy of the feed catalog. Already have Python? `pip install
-unlimitedpipe`, then `unlimited setup`.
+use: the browser for JavaScript pages, the `ask` model (531 MB, runs on any laptop), the tools
+and skill for Claude Code, and an offline copy of the feed catalog. Already have Python?
+`pip install unlimitedpipe`, then `unlimited setup`.
 
 ```bash
-unlimited web https://example.com
-unlimited web https://example.com | unlimited select title url | unlimited json
-unlimited rss https://hnrss.org/frontpage | unlimited grep AI | unlimited diff --only added
-unlimited search "cyber attack"          # search 75+ live public-record feeds at once
-unlimited ask "what is the weather in Bangkok?"   # answered from the feeds, with sources
-unlimited mirror && unlimited search flood --catalog offline   # works offline
+unlimited search "cyber attack"                     # 77 live feeds at once, one request
+unlimited ask "what happened in Bangkok today?"     # answered from the feeds, with sources
+unlimited web https://example.com | unlimited diff               # only what changed
+unlimited new https://some-shop.example/product     # writes a price-and-stock watch for you
+unlimited mirror && unlimited search flood --catalog offline    # works without the internet
 ```
+
+- **Change detection with proof.** Every result carries its source link and when it was
+  fetched; `diff` remembers what it saw and reports only what is new, changed or gone.
+- **[77 free feeds](https://feeds.daemonfill.dev/)** of public records and news, refreshed
+  through the day on GitHub Actions: SEC filings and insider trades, sanctions, new rules,
+  disasters and solar storms, disease outbreaks, crypto, and news from every region. Each
+  feed is a YAML file of about 15 lines; [fork them](https://github.com/Fuyuki0/unlimitedpipe-feeds).
+- **Answers that cite.** `ask` finds the facts with plain search, then a small local model
+  trained for the job answers from them: 87% of answers pass on news it never saw, against 5%
+  for the general model of the same size.
+- **Open.** What it publishes is an [open protocol](docs/protocol.md) any tool can read or
+  write, and its public-domain corpus of US government records is
+  [on Hugging Face](https://huggingface.co/datasets/unlimitedpipe/public-records) (2.85 billion
+  tokens, every document with its source).
 
 ## What is UnlimitedPipe?
 
@@ -296,6 +309,8 @@ as peers, and signed archives, so a copy can prove it is the original.
 
 ## Change detection
 
+![UnlimitedPipe detecting a price change, a new plan and a removed plan on a pricing page](https://raw.githubusercontent.com/Fuyuki0/unlimitedpipe/main/docs/assets/demo.svg)
+
 `diff` stores a small state file per watch and compares each item with the previous run:
 
 - Items are matched by their key: product URL + SKU, feed item id, or `--key FIELD`.
@@ -494,7 +509,9 @@ more.
 ## Research
 
 [`research/`](research) holds experiments on UnlimitedPipe's data, with their results written
-up, good or bad:
+up, good or bad. Two short reads: [A 0.5B model that cites its sources: from 5% to
+87%](docs/posts/a-small-model-that-cites.md) and [We tried a fruit fly's brain on the
+news](docs/posts/fruit-fly-on-the-news.md).
 
 - [A small model trained for `ask`](research/ask): a 0.5B model fine-tuned to answer from
   numbered sources, with citations, and to say plainly when the sources do not cover a

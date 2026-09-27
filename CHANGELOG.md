@@ -3,6 +3,16 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.2 - 2026-09-27
+
+- `publish --title` and `--about` give a catalog's site a title and a sentence under it;
+  `unlimited catalog` keeps the title between runs.
+- The index page says how many feeds it has, that the workflow is scheduled (GitHub runs
+  scheduled workflows when it can, sometimes hours late), and how to search and ask it from a
+  terminal.
+- README: what UnlimitedPipe is in one paragraph, pictures of `ask` and `search` recorded
+  from real runs (docs/assets/make_demos.py), and two write-ups in docs/posts.
+
 ## 0.10.1 - 2026-09-27
 
 - `bluesky` works out of the box: its WebSocket client is a dependency now (a few hundred
