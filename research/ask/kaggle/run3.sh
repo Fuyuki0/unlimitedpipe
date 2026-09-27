@@ -38,7 +38,18 @@ case "${1:-}" in
   data)
     upload unlimitedpipe-ask-sft-public-v3 "unlimitedpipe ask-sft-public v3" \
       "$here/../data-public/train.jsonl" "$here/../data-public/test.jsonl"
-    upload unlimitedpipe-ask-real "unlimitedpipe ask real" "$here/../real/test.jsonl"
+    upload unlimitedpipe-ask-real "unlimitedpipe ask real" "$here/../real/test.jsonl" \
+      "$here/../real/extra.jsonl"
+    ;;
+  data4)
+    upload unlimitedpipe-ask-sft-public-v4 "unlimitedpipe ask-sft-public v4" \
+      "$here/../data-public/train.jsonl" "$here/../data-public/test.jsonl"
+    upload unlimitedpipe-ask-real "unlimitedpipe ask real" "$here/../real/test.jsonl" \
+      "$here/../real/extra.jsonl"
+    ;;
+  train4)
+    push unlimitedpipe-ask-v4-train "unlimitedpipe ask v4 train" "$here/train.py" \
+      "\"$user/unlimitedpipe-ask-sft-public-v4\"" ""
     ;;
   train)
     push unlimitedpipe-ask-v3-train "unlimitedpipe ask v3 train" "$here/train.py" \
@@ -55,9 +66,10 @@ text = open(src).read().replace("MODELS = {}", "MODELS = " + models, 1)
 open(dst, "w").write(text)
 PY
     kernels="$(for a in "$@"; do case "$a" in *=kernel:*) printf '"%s/%s",' "$user" "${a#*=kernel:}";; esac; done)"
-    push "unlimitedpipe-ask-$name" "unlimitedpipe ask $name" "$code" \
-      "\"$user/unlimitedpipe-ask-real\", \"$user/unlimitedpipe-ask-sft-public-v3\", \"$user/unlimitedpipe-ask-sft-public\", \"$user/unlimitedpipe-ask-sft\"" \
-      "${kernels%,}"
+    # DATASETS="a b" attaches only those test sets (default: all of them).
+    sets="${DATASETS:-unlimitedpipe-ask-real unlimitedpipe-ask-sft-public-v4 unlimitedpipe-ask-sft-public-v3 unlimitedpipe-ask-sft-public unlimitedpipe-ask-sft}"
+    datasets="$(for d in $sets; do printf '"%s/%s",' "$user" "$d"; done)"
+    push "unlimitedpipe-ask-$name" "unlimitedpipe ask $name" "$code" "${datasets%,}" "${kernels%,}"
     ;;
   *) echo "usage: run3.sh data | train | compare NAME LABEL=SOURCE..." >&2; exit 2 ;;
 esac

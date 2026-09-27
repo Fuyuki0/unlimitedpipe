@@ -513,7 +513,8 @@ def index_page(p: PublishPlan, every: str) -> str:
   <body>
     <h1>{title}</h1>{about}
     <p>{len(p.pipelines)} feeds, refreshed by a GitHub Actions workflow scheduled every
-    {html.escape(every)}. Subscribe to any feed in a feed reader (XML), or read it as data
+    {html.escape(every)} (GitHub starts scheduled runs when it has room, so often less
+    often). Subscribe to any feed in a feed reader (XML), or read it as data
     (JSON). From a terminal: <code>pip install unlimitedpipe</code>, then
     <code>unlimited search WORDS</code> or <code>unlimited ask "QUESTION"</code>.</p>
     <input id="q" type="search" placeholder="Search every feed, e.g. flood, bankruptcy, Bangkok"

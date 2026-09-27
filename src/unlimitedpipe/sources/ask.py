@@ -10,6 +10,7 @@ from __future__ import annotations
 import math
 import os
 import re
+from collections import Counter
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
@@ -22,7 +23,13 @@ from unlimitedpipe.context import Context
 from unlimitedpipe.errors import FetchError, UsageError
 from unlimitedpipe.event import Event
 from unlimitedpipe.operators.extract import STOPWORDS
-from unlimitedpipe.sources.search import items_since, open_catalog, word_pattern
+from unlimitedpipe.sources.search import (
+    STORY_UPDATES,
+    items_since,
+    open_catalog,
+    story,
+    word_pattern,
+)
 
 OLLAMA = "http://127.0.0.1:11434"
 ANTHROPIC = "https://api.anthropic.com/v1/messages"
@@ -151,7 +158,14 @@ def rank(
     scored.sort(key=lambda s: (s[0], s[1], s[2]), reverse=True)
     best_coverage, best_score = scored[0][0], scored[0][1]
     kept = [s for s in scored if s[0] == best_coverage and s[1] >= best_score / 2]
-    return [s[3] for s in kept[:limit]], scored[0][4]
+    # Twenty advisories of one storm would push everything else out: two updates per story.
+    updates: Counter[str] = Counter()
+    chosen = []
+    for s in kept:
+        updates[story(s[3])] += 1
+        if updates[story(s[3])] <= STORY_UPDATES:
+            chosen.append(s[3])
+    return chosen[:limit], scored[0][4]
 
 
 def text_of(item: dict[str, Any], feed_name: str = "") -> str:

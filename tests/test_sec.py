@@ -145,6 +145,18 @@ def test_insider_trades_filters_by_code_and_value(web, make_ctx):
     assert big == []
 
 
+def test_all_new_reads_each_filing_once_across_runs(web, make_ctx):
+    web.add(LATEST, ATOM, content_type="application/atom+xml")
+    web.add(f"{FOLDER}/1197649/0001-26-7/0001-26-7.txt", FORM4, content_type="text/plain")
+    source = Sec(resource="insider-trades", contact="me@example.com", all_new=True, limit=500)
+    assert [e.key for e in run_source(source, make_ctx())] == ["0001-26-7#S"]
+    texts = [u for u in web.urls() if u.endswith(".txt")]
+    assert run_source(source, make_ctx()) == []  # nothing filed since: nothing read again
+    assert [u for u in web.urls() if u.endswith(".txt")] == texts
+    with pytest.raises(ValueError, match="between 1 and 200"):
+        Sec(resource="insider-trades", limit=500)
+
+
 def test_the_sec_needs_a_contact_email(make_ctx, monkeypatch):
     monkeypatch.delenv("SEC_CONTACT", raising=False)
     with pytest.raises(UsageError, match="contact email"):

@@ -104,3 +104,23 @@ def test_errors_point_at_the_line(tmp_path, text, message, hint):
 def test_missing_file():
     with pytest.raises(ConfigError, match="cannot read"):
         load_pipeline(Path("/nonexistent/pipeline.yml"))
+
+
+def test_date_variables_fill_in_today_and_days_ago(tmp_path, monkeypatch):
+    from datetime import UTC, datetime, timedelta
+
+    from unlimitedpipe.config import env_references
+
+    monkeypatch.delenv("TODAY", raising=False)
+    text = """
+name: recent
+sources:
+  - type: web
+    url: https://example.com/search?from=${DAYS_AGO_30}&to=${TODAY}
+"""
+    pipeline = load_pipeline(write(tmp_path, text))
+    today = datetime.now(UTC).date()
+    assert pipeline.sources[0].url == [
+        f"https://example.com/search?from={today - timedelta(days=30)}&to={today}"
+    ]
+    assert env_references(text) == []  # dates are not secrets to set

@@ -65,6 +65,15 @@ def test_only_and_emit_initial(diff_ctx):
     assert [c.data["change"] for c in changes] == ["added"]
 
 
+def test_remember_keeps_items_that_come_back_from_being_added_again(diff_ctx):
+    # A source that leaves items out now and then: with remember, their return is not news.
+    run_ops(plans(basic=9, pro=49), Diff(remember=True), ctx=diff_ctx())
+    assert run_ops(plans(basic=9), Diff(remember=True), ctx=diff_ctx()) == []
+    assert run_ops(plans(basic=9, pro=49), Diff(remember=True), ctx=diff_ctx()) == []
+    [added] = run_ops(plans(basic=9, pro=49, team=99), Diff(remember=True), ctx=diff_ctx())
+    assert added.data["change"] == "added" and added.data["label"] == "team"
+
+
 def test_key_field_ignore_and_reset(diff_ctx):
     events = [ev({"name": "pro", "price": 1, "seen": "mon"}, source_url=PAGE)]
     run_ops(events, Diff(key="name", ignore=["seen"]), ctx=diff_ctx())

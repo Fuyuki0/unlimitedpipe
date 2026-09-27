@@ -216,3 +216,19 @@ def test_no_model_explains_how_to_get_one(catalog, make_ctx, monkeypatch):
         run_source(Ask(question=["weather"], catalog=URL, provider="ollama"), make_ctx())
     with pytest.raises(ValueError, match="needs a question"):
         Ask()
+
+
+def test_updates_of_one_story_do_not_crowd_out_the_rest():
+    from unlimitedpipe.sources.search import story
+
+    advisories = [
+        {"feed": "hurricanes", "title": f"Hurricane Polo, advisory 26/{h}00Z", "link": f"p{h}"}
+        for h in (23, 20, 17, 14)
+    ]
+    catalog = {
+        "feeds": [{"name": "hurricanes"}],
+        "items": [*advisories, {"feed": "hurricanes", "title": "Hurricane Lee forms", "link": "l"}],
+    }
+    assert story(advisories[0]) == story(advisories[3])
+    assert story(advisories[0]) != story(catalog["items"][-1])
+    assert links(rank(catalog, ["hurricane"], 10)) == ["p23", "p20", "l"]

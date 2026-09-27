@@ -79,17 +79,21 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("answers", nargs="+")
     parser.add_argument("--real", required=True)
+    parser.add_argument("--real-extra")
+    parser.add_argument("--build4")
     parser.add_argument("--build3", required=True)
     parser.add_argument("--build2-public", required=True)
     parser.add_argument("--build2-news", required=True)
     parser.add_argument("--json")
     args = parser.parse_args()
-    sets = {
-        "real": rows(args.real),
-        "build 3": sample(rows(args.build3)),
-        "build 2 public": sample(rows(args.build2_public)),
-        "build 2 news": sample(rows(args.build2_news)),
-    }
+    sets = {"real": rows(args.real)}
+    if args.real_extra:
+        sets["real extra"] = rows(args.real_extra)
+    if args.build4:
+        sets["build 4"] = sample(rows(args.build4))
+    sets["build 3"] = sample(rows(args.build3))
+    sets["build 2 public"] = sample(rows(args.build2_public))
+    sets["build 2 news"] = sample(rows(args.build2_news))
     answers: dict[tuple[str, str], list[dict]] = collections.defaultdict(list)
     for path in args.answers:  # a later file's answers replace an earlier one's
         mine: dict[tuple[str, str], list[dict]] = collections.defaultdict(list)
@@ -98,6 +102,8 @@ def main() -> None:
         answers.update(mine)
     report: dict[str, dict] = {}
     for (model, name), given in answers.items():
+        if name not in sets:
+            continue
         examples = sets[name]
         assert [a["question"] for a in given] == [e["question"] for e in examples], (model, name)
         passed, fails, recall = 0, collections.Counter(), []

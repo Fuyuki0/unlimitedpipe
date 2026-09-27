@@ -11,7 +11,9 @@ correct by construction:
 - each asked in English and Thai, formally and the way people type ("bitget hack?").
 
 Build 3 (2026-09-27) adds listings over many days and topics (build 2 had 56), casual
-questions, and 10 sources as `ask` gives by default (build 2 always had 5). A search that
+questions, and 10 sources as `ask` gives by default (build 2 always had 5). Build 4 is English
+first (Thai 15%), and answers a broad question ("openai news": three or more sources match as
+well as the item asked about) with a list, where build 3 picked one item. A search that
 works like `ask`'s own (`World.rank`, checked against it on every run) makes it fast.
 
 Items are split once: those in `test.jsonl` never appear as the answer in `train.jsonl`.
@@ -49,11 +51,13 @@ from unlimitedpipe.sources.ask import (
     source_lines,
     terms,
 )
-from unlimitedpipe.sources.search import IRREGULAR, stem, word_pattern
+from unlimitedpipe.sources.search import IRREGULAR, STORY_UPDATES, stem, story, word_pattern
 
 SOURCE_COUNTS = (10,) * 7 + (5,) * 2 + (3,)  # `ask` gives 10 unless --sources says otherwise
 LISTED = 5  # a listing names at most this many sources
 SENTENCES = 2  # what `ask` asks of models under 3B parameters
+THAI_SHARE = 0.15  # English first (build 4); build 3 was half Thai
+YES_NO = re.compile(r"(any|anything|is|are|was|were|did|do|does|got|has|have)\b", re.IGNORECASE)
 FORMAL = {
     ("lookup", "en"): (
         "What is the latest on {a} {b}?",
@@ -73,6 +77,8 @@ FORMAL = {
         "Show me recent {topic}.",
         "Were there any {topic} today?",
         "What {topic} were there this month?",
+        "What is the latest {topic} news?",
+        "Tell me the latest news on {topic}.",
     ),
     ("listing", "th"): (
         "มี {topic} อะไรบ้างสัปดาห์นี้",
@@ -114,6 +120,12 @@ CASUAL = {
         "latest {topic} please",
         "whats new with {topic}",
         "anything about {topic}?",
+        "{topic} news",
+        "news about {topic}",
+        "{topic} updates",
+        "what's going on with {topic}",
+        "latest on {topic}",
+        "{topic} today",
     ),
     ("listing", "th"): (
         "{topic} วันนี้มีอะไรบ้าง",
@@ -263,7 +275,13 @@ class World:
         scored.sort(key=lambda s: (s[0], s[1], s[2]), reverse=True)
         best_coverage, best_score = scored[0][0], scored[0][1]
         kept = [s for s in scored if s[0] == best_coverage and s[1] >= best_score / 2]
-        return [self.items[s[3]] for s in kept[:limit]], scored[0][4]
+        updates: collections.Counter[str] = collections.Counter()
+        chosen = []
+        for s in kept:
+            updates[story(self.items[s[3]])] += 1
+            if updates[story(self.items[s[3]])] <= STORY_UPDATES:
+                chosen.append(self.items[s[3]])
+        return chosen[:limit], scored[0][4]
 
     def check(self, questions: list[str], until: str) -> None:
         """Stop if this ranking and `ask.rank` ever disagree."""
@@ -303,6 +321,10 @@ class Builder:
             return None
         words.sort(key=lambda w: -self.rarity.get(w, 0))
         return words[:count]
+
+    def lang(self) -> str:
+        """English first: most people ask in English; a little Thai keeps Thai working."""
+        return "th" if self.rng.random() < THAI_SHARE else "en"
 
     def question(self, kind: str, lang: str, **parts: str) -> tuple[str, str]:
         style = "casual" if self.rng.random() < 0.45 else "formal"
@@ -360,6 +382,10 @@ class Builder:
         sources = self.ask(question, today)
         if not sources or item not in sources:
             return None  # search would not find it: nothing for the model to learn here
+        if len(sources) >= 3:
+            # Three or more sources match the question as well as this item does: the question
+            # is broader than one item ("openai news"), so the answer lists them.
+            return self.listed(lang, style, question, sources, today)
         n = sources.index(item) + 1
         text, date = headline(item["title"]), day(item)
         if lang == "en":
@@ -377,9 +403,18 @@ class Builder:
         sources = self.ask(question, today)
         if not sources or len(sources) < 2:
             return None
+        return self.listed(lang, style, question, sources, today)
+
+    def listed(self, lang, style, question, sources, today) -> dict:
         gold = list(range(1, min(LISTED, len(sources)) + 1))
         parts = [f"{short(sources[n - 1]['title'])} [{n}]" for n in gold]
-        answer = ("Yes: " if lang == "en" else "มีดังนี้: ") + "; ".join(parts) + "."
+        if lang == "th":
+            opening = "มีดังนี้: "
+        elif YES_NO.match(question):
+            opening = "Yes: "  # "any insider buys this week?"
+        else:
+            opening = "Latest: "  # "openai news", "what are the latest earthquakes?"
+        answer = opening + "; ".join(parts) + "."
         return self.example("listing", lang, style, question, sources, answer, gold, today)
 
     def refusal(self, item: dict, lang: str) -> dict | None:
@@ -519,17 +554,16 @@ def federal_register_items(folder: str) -> list[dict]:
 
 
 def build_world(builder: Builder, items: list[dict], days: list[datetime], per_day: int, name: str):
-    """Examples from one world: a lookup and a refusal per item (alternating English and Thai),
-    and on each of `days`, a listing per feed and `per_day` "what's new with" topics."""
+    """Examples from one world: a lookup (a list when the question is broad) and a refusal per
+    item, and on each of `days`, a listing per feed and `per_day` "what's new with" topics."""
     split: dict[str, list[dict]] = {"train": [], "test": []}
     rng = builder.rng
-    for n, item in enumerate(items):
-        lang = "en" if n % 2 else "th"
+    for item in items:
         part = "test" if held(f"{name}|{item['feed']}|{item['title']}") else "train"
         made_here = (
-            builder.lookup(item, lang),
+            builder.lookup(item, builder.lang()),
             builder.refusal(item, "en"),
-            builder.refusal(item, "th"),
+            builder.refusal(item, "th") if rng.random() < THAI_SHARE else None,
         )
         for made in made_here:
             if made:
@@ -538,11 +572,11 @@ def build_world(builder: Builder, items: list[dict], days: list[datetime], per_d
     for today in days:
         for feed in sorted(feeds):
             topic = feed.replace("-", " ")
-            made = builder.listing(topic, rng.choice(("en", "th")), today)
+            made = builder.listing(topic, builder.lang(), today)
             if made:
                 split["test" if held(f"{name}|feed|{feed}") else "train"].append(made)
         for word in builder.topics(today, per_day):
-            made = builder.listing(word, rng.choice(("en", "th")), today)
+            made = builder.listing(word, builder.lang(), today)
             if made:
                 split["test" if held(f"{name}|topic|{word.casefold()}") else "train"].append(made)
     return split

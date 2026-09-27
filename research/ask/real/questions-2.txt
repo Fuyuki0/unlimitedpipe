@@ -1,0 +1,54 @@
+# A second set, English only (2026-09-27): more of what people type, with bare topics.
+crypto news
+sec news
+earthquake news
+typhoon news
+hacker news
+security news today
+ai news
+microsoft news
+google news
+apple news
+tesla news
+nvidia news
+ebola
+ukraine
+israel news
+bangkok flood
+new cve this week
+wordpress vulnerability
+sharepoint vulnerability
+what did the fed do this week?
+any big insider sells?
+who bought shares this week?
+berkshire hathaway
+qualcomm insider
+schedule 13d filings
+recent ipos
+delisting notices
+sec lawsuits this week
+recalls this week
+salmonella
+latest volcano eruptions
+solar flare
+hurricane polo
+typhoon surigae
+usdt supply
+stablecoin supply change
+kaspa
+biggest crypto gainers today
+python release
+new python peps
+rust 1.98
+ollama release
+langchain release
+vllm
+un general assembly
+xi trump summit
+world bank lebanon
+# Should be declined: the sources do not answer it.
+bitget hack arrests
+fed rate cut odds
+ebola vaccine trial results
+typhoon surigae damage cost
+sec lawsuit penalty amount

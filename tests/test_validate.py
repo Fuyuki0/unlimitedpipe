@@ -58,6 +58,22 @@ def test_a_good_catalog_is_valid(tmp_path):
     assert {"quakes.xml", "archive/index.json", "2026-09.jsonl"} <= set(report.checked)
 
 
+def test_feeds_that_never_had_an_item_or_went_quiet_are_warned_about(tmp_path):
+    def feed(name, latest):
+        health = {"status": "ok", "since": "2026-09-26T00:00:00Z", "latest": latest}
+        return {"name": name, "description": "x", "files": ["quakes.xml"], "health": health}
+
+    from datetime import UTC, datetime
+
+    now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+    feeds = [feed("quakes", now), feed("empty", None), feed("old", "2020-01-01")]
+    report = run(site(tmp_path, feeds=feeds), tmp_path)
+    messages = {f.where: f.message for f in report.findings if f.level == "warning"}
+    assert messages["feed 'empty'"] == "has never had an item"
+    assert messages["feed 'old'"].startswith("no new item for ")
+    assert "feed 'quakes'" not in messages
+
+
 def test_protocol_errors_are_reported(tmp_path):
     bad = dict(ITEM, feed="volcanoes", link="urn:uuid:1", date="yesterday")
     report = run(site(tmp_path, items=[bad, ITEM, ITEM]), tmp_path)

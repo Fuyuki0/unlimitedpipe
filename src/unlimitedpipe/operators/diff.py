@@ -143,6 +143,11 @@ class Diff(Operator):
         "Only emit these changes (repeatable): added, removed, modified", default_factory=list
     )
     emit_initial: bool = opt("On the first run, emit every item as added", default=False)
+    remember: bool = opt(
+        "Keep items that disappear, so one that comes back is not added again (for sources "
+        "that leave items out now and then)",
+        default=False,
+    )
 
     def __post_init__(self) -> None:
         self._key_path = split_path(self.key) if self.key else None
@@ -253,6 +258,8 @@ class Diff(Operator):
             if store is not None and not baseline:
                 for key, entry in list(store.items.items()):
                     if key in seen or entry.get("source_url") not in fetched_urls:
+                        continue
+                    if self.remember:
                         continue
                     del store.items[key]
                     counts["removed"] += 1

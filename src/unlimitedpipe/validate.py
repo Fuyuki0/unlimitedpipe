@@ -48,6 +48,25 @@ def _date_ok(value: Any) -> bool:
     return value is None or (isinstance(value, str) and parse_time(value) is not None)
 
 
+QUIET_DAYS = 14
+
+
+def _quiet(latest: Any) -> str | None:
+    """A warning for a feed that runs fine but has never had an item, or none for weeks: its
+    source may have moved, or a filter may drop everything."""
+    from datetime import UTC, datetime
+
+    from unlimitedpipe.event import parse_time
+
+    if not latest:
+        return "has never had an item"
+    when = parse_time(latest) if isinstance(latest, str) else None
+    if when is None:
+        return None
+    days = (datetime.now(UTC) - when).days
+    return f"no new item for {days} days" if days >= QUIET_DAYS else None
+
+
 def _check_item(report: Report, where: str, item: Any, feeds: set[str]) -> None:
     if not isinstance(item, dict):
         return report.error(where, "is not an object")
@@ -124,6 +143,8 @@ async def validate(ctx: Context, catalog: str | None, *, deep: bool = False) -> 
                 report.error(where, "health status must be ok, partial or failing")
             elif health["status"] != "ok":
                 report.warn(where, f"health is {health['status']} since {health.get('since')}")
+            elif "latest" in health and (quiet := _quiet(health["latest"])) is not None:
+                report.warn(where, quiet)
         if deep:
             for path in files:
                 if not isinstance(path, str) or path.startswith(("/", "http:", "https:")):

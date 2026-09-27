@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import re
 from typing import Any, Literal
@@ -11,6 +12,7 @@ from unlimitedpipe.component import Source, arg, opt
 from unlimitedpipe.context import Context
 from unlimitedpipe.errors import FetchError, UsageError
 from unlimitedpipe.event import Event
+from unlimitedpipe.state import state_path, write_json_atomic
 
 LATEST = "https://www.sec.gov/cgi-bin/browse-edgar"
 # Form 4 transaction codes: https://www.sec.gov/edgar/searchedgar/ownershipformcodes.html
@@ -237,12 +239,20 @@ class Sec(Source):
         default_factory=list,
     )
     min_value: float = opt("Only trades worth at least this many dollars", default=0.0)
-    limit: int = opt("How many of the latest filings to read, up to 200", default=60)
+    limit: int = opt(
+        "How many of the latest filings to read, up to 200 (1,000 with --all-new)", default=60
+    )
+    all_new: bool = opt(
+        "Read every Form 4 filed since the last run, up to --limit, remembering the ones read "
+        "(for scheduled runs: the latest 200 are only an hour or two on a busy day)",
+        default=False,
+    )
     timeout: float = opt("Seconds to wait for each response", default=20.0)
 
     def __post_init__(self) -> None:
-        if not 1 <= self.limit <= 200:
-            raise ValueError("--limit must be between 1 and 200")
+        top = 1000 if self.all_new else 200
+        if not 1 <= self.limit <= top:
+            raise ValueError(f"--limit must be between 1 and {top}")
         self._codes = [c.upper() for c in self.code] or ["P", "S"]
         unknown = [c for c in self._codes if c not in ACTIONS]
         if unknown:
@@ -263,21 +273,36 @@ class Sec(Source):
             async for event in self._stakes(ctx, agent):
                 yield event
             return
+        path = state_path(ctx, "sec", "insider-trades-read")
+        read: dict[str, str | None] | None = _load_read(path) if self.all_new else None
         try:
-            filings = await self._latest(ctx, agent)
+            filings = await self._latest(ctx, agent, read)
         except FetchError as exc:
             if (error := ctx.fail(exc, source=self.name, url=LATEST)) is not None:
                 yield error
             return
+        try:
+            async for event in self._trades(ctx, agent, filings, read):
+                yield event
+        finally:
+            if read is not None:
+                newest = sorted(read.items(), key=lambda kv: kv[1] or "", reverse=True)
+                write_json_atomic(path, dict(newest[:KEEP_READ]))
+
+    async def _trades(self, ctx, agent, filings, read):
         for index_url, filed_at in filings:
             text_url = index_url.removesuffix("-index.htm") + ".txt"
             try:
-                response = await ctx.http.get(text_url, user_agent=agent, timeout=self.timeout)
+                response = await ctx.http.get(
+                    text_url, user_agent=agent, timeout=self.timeout, interval=SEC_INTERVAL
+                )
                 filing = parse_form4(_xml_part(response.content))
             except (FetchError, ValueError) as exc:
                 if (error := ctx.fail(exc, source=self.name, url=text_url)) is not None:
                     yield error
-                continue
+                continue  # not remembered: the next run tries it again
+            if read is not None:
+                read[index_url.rsplit("/", 1)[-1].removesuffix("-index.htm")] = filed_at
             for code in self._codes:
                 trade = summarize(filing, code)
                 if trade is None or (self.min_value and (trade["value"] or 0) < self.min_value):
@@ -332,14 +357,19 @@ class Sec(Source):
                 metadata={"method": "edgar-schedule-13d"},
             )
 
-    async def _latest(self, ctx: Context, agent: str) -> list[tuple[str, str | None]]:
-        """Index pages of the newest Form 4 filings, newest first, each once."""
+    async def _latest(
+        self, ctx: Context, agent: str, read: dict[str, str | None] | None = None
+    ) -> list[tuple[str, str | None]]:
+        """Index pages of the newest Form 4 filings, newest first, each once; with `read`,
+        only those not read yet, going back until the ones read before."""
         import feedparser
 
         # A filing is listed once per party (the insider, the company, co-filers), each under
-        # its own folder; the accession number at the end of the link identifies it.
+        # its own folder; the accession number at the end of the link identifies it. The list
+        # also holds every form starting with 4 (424B2 prospectuses): about two days fit in
+        # 5,000 entries.
         filings: dict[str, tuple[str, str | None]] = {}
-        for start in range(0, 200, 100):
+        for start in range(0, 200 if read is None else 5000, 100):
             params = {
                 "action": "getcurrent",
                 "type": "4",
@@ -349,19 +379,43 @@ class Sec(Source):
                 "output": "atom",
             }
             response = await ctx.http.get(
-                LATEST, params=params, user_agent=agent, timeout=self.timeout, cache=False
+                LATEST,
+                params=params,
+                user_agent=agent,
+                timeout=self.timeout,
+                cache=False,
+                interval=SEC_INTERVAL,
             )
             feed = feedparser.parse(response.content)
+            known = fresh = 0
             for entry in feed.entries:
                 link = entry.get("link") or ""
                 accession = link.rsplit("/", 1)[-1]
                 # `type=4` matches every form that starts with 4, such as 424B2 prospectuses.
                 is_form4 = re.match(r"4(/A)? - ", entry.get("title") or "")
-                if is_form4 and link.endswith("-index.htm") and accession not in filings:
+                if not (is_form4 and link.endswith("-index.htm")):
+                    continue
+                if read is not None and accession.removesuffix("-index.htm") in read:
+                    known += 1
+                elif accession not in filings:
                     filings[accession] = (link, entry.get("updated"))
-            if len(filings) >= self.limit or len(feed.entries) < 100:
+                    fresh += 1
+            caught_up = read is not None and known and not fresh  # back to what was read
+            if len(filings) >= self.limit or len(feed.entries) < 100 or caught_up:
                 break
         return list(filings.values())[: self.limit]
+
+
+SEC_INTERVAL = 0.2  # five requests a second: half of what the SEC allows automated readers
+KEEP_READ = 20000  # Form 4 accession numbers remembered by --all-new: about two months
+
+
+def _load_read(path) -> dict[str, str | None]:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
 
 
 def _xml_part(content: bytes) -> bytes:

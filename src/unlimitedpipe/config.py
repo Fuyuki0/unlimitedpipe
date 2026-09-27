@@ -17,7 +17,9 @@
 
 Relative paths (``path``, ``state``) are resolved from the pipeline file's directory.
 ``${NAME}`` in a value is replaced by the environment variable NAME, so secrets such as
-webhook URLs stay out of the file. Every error names the file, line and option at fault.
+webhook URLs stay out of the file. ``${TODAY}`` and ``${DAYS_AGO_30}`` are dates (UTC,
+YYYY-MM-DD), for APIs that take a date range. Every error names the file, line and option at
+fault.
 """
 
 from __future__ import annotations
@@ -25,6 +27,7 @@ from __future__ import annotations
 import os
 import re
 from dataclasses import dataclass, field
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -39,11 +42,21 @@ TOP_LEVEL = {"name", "description", "sources", "operators", "outputs", "settings
 SETTINGS = {"errors_as_events"}
 PATH_OPTIONS = {"path", "state"}
 ENV_REFERENCE = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
+DATE_REFERENCE = re.compile(r"TODAY|DAYS_AGO_(\d+)")
 
 
 def env_references(text: str) -> list[str]:
     """Environment variables a pipeline file refers to, in order of appearance."""
-    return list(dict.fromkeys(ENV_REFERENCE.findall(text)))
+    names = dict.fromkeys(ENV_REFERENCE.findall(text))
+    return [name for name in names if not DATE_REFERENCE.fullmatch(name)]
+
+
+def _date(name: str) -> str | None:
+    """``TODAY`` and ``DAYS_AGO_N`` as dates (UTC, YYYY-MM-DD); None for other names."""
+    match = DATE_REFERENCE.fullmatch(name)
+    if match is None:
+        return None
+    return (datetime.now(UTC).date() - timedelta(days=int(match.group(1) or 0))).isoformat()
 
 
 def _interpolate(value: Any) -> Any:
@@ -51,9 +64,11 @@ def _interpolate(value: Any) -> Any:
 
         def replace(match: re.Match[str]) -> str:
             name = match.group(1)
-            if name not in os.environ:
-                raise KeyError(name)
-            return os.environ[name]
+            if name in os.environ:
+                return os.environ[name]
+            if (date := _date(name)) is not None:
+                return date
+            raise KeyError(name)
 
         return ENV_REFERENCE.sub(replace, value)
     if isinstance(value, list):

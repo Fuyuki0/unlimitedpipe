@@ -3,6 +3,22 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.4 - 2026-09-27
+
+- `search` and `ask` show at most two updates of one story (a storm's advisories, a coin's
+  price, a package's releases), so one busy story no longer pushes everything else out of the
+  results; `search --every-update` shows them all.
+- `sec insider-trades --all-new` reads every Form 4 filed since the last run (up to
+  `--limit 1000`), remembering which it read: the latest 200 are only an hour or two on a busy
+  day. SEC requests go at five a second, half the SEC's limit.
+- `diff --remember` keeps items that disappear, so a source that leaves items out now and then
+  does not report them as new when they come back.
+- Pipeline files can use `${TODAY}` and `${DAYS_AGO_30}` (UTC dates) in values, for APIs that
+  take a date range.
+- `unlimited validate` warns about feeds that have never had an item, or none for two weeks.
+- The index page of a published catalog says that GitHub starts scheduled runs when it has
+  room, often later than scheduled.
+
 ## 0.10.3 - 2026-09-27
 
 - The `ask` model `unlimited setup` installs is build 3: it lists every matching source when

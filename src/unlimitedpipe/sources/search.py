@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import re
+from collections import Counter
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
@@ -118,6 +119,16 @@ def _start(form: str) -> str:
     if len(form) <= 3:
         return r"(?<!\w)" + re.escape(form) + r"(?:s|es|'s|ed|ing)?(?!\w)"
     return r"(?<!\w)" + re.escape(form)
+
+
+STORY_UPDATES = 2  # updates of one story that search and ask show, newest first
+
+
+def story(item: dict[str, Any]) -> str:
+    """What makes items updates of one story: their feed, and the title without its numbers
+    ("Hurricane Polo, advisory 26/2357Z", "USDT supply +$199.8M in a day, now $183.9B")."""
+    title = re.sub(r"[\d.,:/%$#+-]+", " ", str(item.get("title") or "")).casefold()
+    return f"{item.get('feed')}|{' '.join(title.split())}"
 
 
 def split_words(words: list[str]) -> list[str]:
@@ -237,6 +248,10 @@ class Search(Source):
         metavar="DATE",
     )
     limit: int = opt("Most results to return", default=20)
+    every_update: bool = opt(
+        "Show every update of a story (default: the newest two, as of a storm or a price)",
+        default=False,
+    )
     list_feeds: bool = opt("List the catalog's feeds instead of searching", default=False)
 
     def __post_init__(self) -> None:
@@ -302,11 +317,16 @@ class Search(Source):
                     yield error
                 return
         found = 0
+        updates: Counter[str] = Counter()
         for item in items:
             if wanted and item.get("feed") not in wanted:
                 continue
             if not matches(item, self.words, about.get(item.get("feed"), "")):
                 continue
+            if not self.every_update:
+                updates[story(item)] += 1
+                if updates[story(item)] > STORY_UPDATES:
+                    continue
             yield Event(
                 source=self.name,
                 type="entry",

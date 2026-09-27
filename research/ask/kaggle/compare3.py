@@ -105,16 +105,27 @@ def listing_recall(example, answer):
     return len(cited & gold) / min(5, len(gold))
 
 
+# Test sets: name, input dataset, file, and whether to take a sample of it. A set whose
+# dataset is not attached to the job is skipped.
+SETS = [
+    ("real", "unlimitedpipe-ask-real", "test.jsonl", False),
+    ("real extra", "unlimitedpipe-ask-real", "extra.jsonl", False),
+    ("build 4", "unlimitedpipe-ask-sft-public-v4", "test.jsonl", True),
+    ("build 3", "unlimitedpipe-ask-sft-public-v3", "test.jsonl", True),
+    ("build 2 public", "unlimitedpipe-ask-sft-public", "test.jsonl", True),
+    ("build 2 news", "unlimitedpipe-ask-sft", "test.jsonl", True),
+]
+
+
 def load_sets():
-    real = glob.glob(folder("unlimitedpipe-ask-real") + "**/test.jsonl", recursive=True)[0]
-    sets = {"real": rows(real)}
-    for name, slug in (
-        ("build 3", "unlimitedpipe-ask-sft-public-v3"),
-        ("build 2 public", "unlimitedpipe-ask-sft-public"),
-        ("build 2 news", "unlimitedpipe-ask-sft"),
-    ):
-        path = glob.glob(folder(slug) + "**/test.jsonl", recursive=True)[0]
-        sets[name] = sample(rows(path))
+    sets = {}
+    for name, slug, file, sampled in SETS:
+        try:
+            path = glob.glob(folder(slug) + "**/" + file, recursive=True)[0]
+        except (FileNotFoundError, IndexError):
+            print(f"{name}: not attached, skipped", flush=True)
+            continue
+        sets[name] = sample(rows(path)) if sampled else rows(path)
     return sets
 
 

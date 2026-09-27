@@ -309,3 +309,18 @@ def test_short_words_match_whole_words_only():
     assert not word_pattern("us").search("user data leaked")
     assert word_pattern("eth").search("Ethereum (ETH) price")
     assert word_pattern("hack").search("hackers stole $5M")  # longer words keep any ending
+
+
+def test_search_shows_two_updates_of_a_story_unless_asked(web, make_ctx):
+    items = [
+        {"feed": "prices", "title": f"Bitcoin (BTC) price: ${p},000", "link": f"b{p}"}
+        for p in (84, 83, 82)
+    ]
+    catalog = {"schema": "unlimitedpipe.catalog/1", "feeds": [{"name": "prices"}], "items": items}
+    web.add("https://c.example/feeds.json", json.dumps(catalog), content_type="application/json")
+    newest = run_source(
+        Search(words=["bitcoin"], catalog="https://c.example/feeds.json"), make_ctx()
+    )
+    assert [e.data["link"] for e in newest] == ["b84", "b83"]
+    every = Search(words=["bitcoin"], catalog="https://c.example/feeds.json", every_update=True)
+    assert len(run_source(every, make_ctx())) == 3
