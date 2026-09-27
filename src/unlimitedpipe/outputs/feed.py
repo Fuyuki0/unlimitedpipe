@@ -109,24 +109,25 @@ def feed_item(event: Event) -> dict[str, Any]:
         link = _text(data.get("link")) or _text(data.get("url")) or event.source_url
         summary = _summary(data)
     categories = details.get("categories") if isinstance(details, dict) else None
+    dated = next(
+        (
+            when
+            for value in (
+                event.timestamp,
+                details.get("published_at") if isinstance(details, dict) else None,
+                details.get("date") if isinstance(details, dict) else None,
+            )
+            if (when := parse_time(value)) is not None
+        ),
+        None,
+    )
     return {
         "id": event.id,
         "title": title,
         "link": link,
         "summary": _shorten(summary, SUMMARY_CHARS),
-        "date": next(
-            (
-                when
-                for value in (
-                    event.timestamp,
-                    details.get("published_at") if isinstance(details, dict) else None,
-                    details.get("date") if isinstance(details, dict) else None,
-                    event.observed_at,
-                )
-                if (when := parse_time(value)) is not None
-            ),
-            datetime.now(UTC),
-        ),
+        "date": dated or parse_time(event.observed_at) or datetime.now(UTC),
+        "dated": dated is not None,  # False: the date is when the item was seen
         "categories": [c for c in categories or [] if isinstance(c, str)],
     }
 

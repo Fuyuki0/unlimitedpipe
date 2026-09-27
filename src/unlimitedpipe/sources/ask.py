@@ -18,6 +18,7 @@ from typing import Any, Literal
 import httpx
 
 from unlimitedpipe import thai
+from unlimitedpipe.archive import named_period
 from unlimitedpipe.component import Source, arg, opt
 from unlimitedpipe.context import Context
 from unlimitedpipe.errors import FetchError, UsageError
@@ -279,12 +280,25 @@ class Ask(Source):
             if (error := ctx.fail(exc, source=self.name, url=exc.url)) is not None:
                 yield error
             return
+        asked = terms(question)
+        named = None if self.since else named_period(question, datetime.now(UTC).isoformat())
         if self.since:
             document = {**document, "items": await items_since(ctx, url, document, self.since)}
-        words, fixed = corrected(terms(question), document)
+        elif named:
+            # "earthquakes in 2023": that period's items from the archive, not the latest ones
+            first, last, said = named
+            try:
+                items = await items_since(ctx, url, document, first, last)
+            except FetchError as exc:
+                if (error := ctx.fail(exc, source=self.name, url=exc.url)) is not None:
+                    yield error
+                return
+            document = {**document, "items": items}
+            asked = [w for w in asked if w not in said]
+        words, fixed = corrected(asked, document)
         for typo, word in fixed.items():
             ctx.notice(f"ask: no item has {typo!r}; searched for {word!r}")
-        days = days_asked(question)
+        days = None if named else days_asked(question)
         after = (
             (datetime.now(UTC) - timedelta(days=days)).strftime("%Y-%m-%dT%H:%M:%SZ")
             if days
@@ -318,6 +332,8 @@ class Ask(Source):
             for n, i in enumerate(items, 1)
         ]
         period = f" from the last {days} days" if days else ""
+        if named:
+            period = f" from {named[0]}" if named[0] == named[1] else f" from {named[0][:4]}"
         check: list[str] = []
         confidence: float | None = None
         if not items:

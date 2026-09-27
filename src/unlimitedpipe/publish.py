@@ -15,6 +15,7 @@ import re
 import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from unlimitedpipe._version import __version__
 from unlimitedpipe.config import Pipeline, env_references
@@ -408,16 +409,7 @@ def catalog(
             if not str(document.get("version", "")).startswith("https://jsonfeed.org/"):
                 continue
             for entry in document.get("items", [])[:per_feed]:
-                summary = entry.get("summary") or entry.get("content_text") or ""
-                if summary == entry.get("title"):
-                    summary = ""
-                listed = {
-                    "feed": item.name,
-                    "title": entry.get("title"),
-                    "summary": summary[:summary_chars] or None,
-                    "link": entry.get("url"),
-                    "date": entry.get("date_published"),
-                }
+                listed = listed_item(item.name, entry, summary_chars)
                 if (key := archive.item_key(listed)) not in seen:  # one story, two sources
                     seen.add(key)
                     items.append(listed)
@@ -429,6 +421,20 @@ def catalog(
         "archive": "archive/index.json",  # every item ever listed, by month
         "feeds": feeds,
         "items": items,
+    }
+
+
+def listed_item(feed: str, entry: dict[str, Any], summary_chars: int = 300) -> dict[str, Any]:
+    """A JSON Feed item as the catalog and its archive list it."""
+    summary = entry.get("summary") or entry.get("content_text") or ""
+    if summary == entry.get("title"):
+        summary = ""
+    return {
+        "feed": feed,
+        "title": entry.get("title"),
+        "summary": summary[:summary_chars] or None,
+        "link": entry.get("url"),
+        "date": entry.get("date_published"),
     }
 
 

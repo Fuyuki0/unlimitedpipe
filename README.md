@@ -409,11 +409,24 @@ it was built and graded, with all the models: [research/ask](research/ask).
 ## History and offline
 
 Every run of a published catalog also appends its new items to a monthly archive
-(`archive/2026-09.jsonl`), so questions can reach back further than the latest items:
+(`archive/2026-09.jsonl`), so questions can reach back further than the latest items. A
+question that names a year or a month reads the archive for it by itself:
 
 ```bash
-unlimited search sanctions --since 2026-08
+unlimited ask "strongest earthquake in Japan in 2024?"
+unlimited search sanctions march 2025
 unlimited ask "how did the Ebola outbreak develop?" --since 2026-07
+```
+
+`backfill` fills the archive with a feed's past items, from sources that can be asked about
+the past: an API that takes a date range (the feed's `${DAYS_AGO_N}` and `${TODAY}`) or a list
+that keeps every item. It runs the feed's own pipeline once per month (or `--every` week,
+quarter, year, 30d), so old items read like new ones, and leaves the feed's files and state
+alone:
+
+```bash
+unlimited backfill feeds/earthquakes.yml --from 2016 --dry-run    # count first
+unlimited backfill feeds/exploited-vulnerabilities.yml --from 2021
 ```
 
 A catalog also works without the internet. `mirror` downloads it, including the search index,

@@ -12,11 +12,11 @@ from typing import Any
 from urllib.parse import urljoin
 
 from unlimitedpipe import thai
-from unlimitedpipe.archive import item_key
+from unlimitedpipe.archive import item_key, named_period
 from unlimitedpipe.component import Source, arg, opt
 from unlimitedpipe.context import Context
 from unlimitedpipe.errors import FetchError, UsageError
-from unlimitedpipe.event import Event
+from unlimitedpipe.event import Event, utcnow
 
 # The public catalog built with UnlimitedPipe; any site made by `unlimited publish` works.
 DEFAULT_CATALOG = "https://feeds.daemonfill.dev/"
@@ -262,10 +262,10 @@ async def load_catalog(ctx: Context, url: str) -> dict[str, Any]:
 
 
 async def items_since(
-    ctx: Context, url: str, document: dict[str, Any], since: str
+    ctx: Context, url: str, document: dict[str, Any], since: str, until: str | None = None
 ) -> list[dict[str, Any]]:
-    """The catalog's latest items plus its archive from ``since`` (a month or a day) on,
-    each once, newest first."""
+    """The catalog's latest items plus its archive from ``since`` (a month or a day) on, and
+    up to the month ``until`` when given, each once, newest first."""
 
     merged = {item_key(i): i for i in document.get("items", [])}
     index_url = join(url, document.get("archive") or "archive/index.json")
@@ -275,7 +275,8 @@ async def items_since(
         ctx.warn(f"{url} has no archive; searching its latest items only")
         index = {"months": []}
     for month in index.get("months", []):
-        if str(month.get("month", "")) < since[:7]:
+        name = str(month.get("month", ""))
+        if name < since[:7] or (until and name > until):
             continue
         content = await read(ctx, join(index_url, str(month.get("file"))))
         for line in content.decode("utf-8", errors="replace").splitlines():
@@ -288,7 +289,8 @@ async def items_since(
     items = [
         i
         for i in merged.values()
-        if str(i.get("date") or i.get("seen") or "")[: len(since)] >= since
+        if (when := str(i.get("date") or i.get("seen") or ""))[: len(since)] >= since
+        and not (until and when[:7] > until)
     ]
     items.sort(key=lambda i: str(i.get("date") or ""), reverse=True)
     return items
@@ -388,14 +390,20 @@ class Search(Source):
             for f in document.get("feeds", [])
         }
         items = document.get("items", [])
-        if self.since:
+        asked = list(self.words)
+        named = None if self.since else named_period(" ".join(asked), utcnow())
+        if self.since or named:
+            # "earthquake 2023": that period's items from the archive, not the latest ones
+            first, last = (named[0], named[1]) if named else (str(self.since), None)
             try:
-                items = await items_since(ctx, url, document, self.since)
+                items = await items_since(ctx, url, document, first, last)
             except FetchError as exc:
                 if (error := ctx.fail(exc, source=self.name, url=url)) is not None:
                     yield error
                 return
-        words, fixed = corrected(self.words, {**document, "items": items})
+            if named:
+                asked = [w for w in asked if w.casefold().rstrip(".") not in named[2]]
+        words, fixed = corrected(asked, {**document, "items": items})
         for typo, word in fixed.items():
             ctx.notice(f"search: no item has {typo!r}; searched for {word!r}")
         found = 0

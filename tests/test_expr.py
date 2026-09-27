@@ -95,7 +95,7 @@ def test_parse_error_points_at_the_problem():
 
 
 def test_unknown_function_lists_known_ones():
-    with pytest.raises(ExpressionError, match="known: abs, commas, date, exists"):
+    with pytest.raises(ExpressionError, match="known: abs, commas, date, default, exists"):
         compile_expression("shout(name)")
 
 
@@ -116,3 +116,12 @@ def test_function_arity_is_checked():
 def test_empty_expression():
     with pytest.raises(ExpressionError):
         compile_expression("  ")
+
+
+def test_default_max_and_min_fill_in_missing_values():
+    event = Event(source="t", data={"id": "CVE-1", "first": 7.4, "second": "9.1"})
+    title = compile_expression('id + default(" (" + region + ")", "") + " " + max(first, second)')
+    assert title(event) == "CVE-1 9.1"
+    assert compile_expression("min(first, second, missing)")(event) == 7.4
+    assert compile_expression("max(missing)")(event) is None
+    assert compile_expression('default(id, "x")')(event) == "CVE-1"

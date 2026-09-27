@@ -717,6 +717,115 @@ def check_command(pipelines: tuple[Path, ...], as_markdown: bool, readme: Path |
         sys.exit(1)
 
 
+@cli.command("backfill")
+@click.argument(
+    "pipelines",
+    nargs=-1,
+    required=True,
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+)
+@click.option(
+    "--from", "start", required=True, metavar="DATE", help="First day: 2020, 2020-03, 2020-03-15."
+)
+@click.option("--to", "end", default=None, metavar="DATE", help="Last day (default: today).")
+@click.option(
+    "--every",
+    default="month",
+    show_default=True,
+    help="How much of the past one run asks for: 30d, week, month, quarter or year.",
+)
+@click.option(
+    "--site",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=None,
+    help="The catalog folder that holds archive/ (default: where the pipeline writes).",
+)
+@click.option("--dry-run", is_flag=True, help="Only count what would be added.")
+@click.option(
+    "--pause", default=1.0, show_default=True, help="Seconds between runs, to go easy on sources."
+)
+@click.pass_context
+def backfill_command(
+    ctx: click.Context,
+    pipelines: tuple[Path, ...],
+    start: str,
+    end: str | None,
+    every: str,
+    site: Path | None,
+    dry_run: bool,
+    pause: float,
+) -> None:
+    """Fill a catalog's archive with a feed's past items, so `search --since` and `ask` can
+    answer about the past. Runs each pipeline's sources and operators once per period from
+    --from to --to, with ${TODAY} and ${YEAR} as the period's last day and year and every
+    ${DAYS_AGO_N} as its first day; a pipeline without them runs once and keeps the items
+    dated in the range. Its diff and limit operators and its outputs are left out, so its
+    feed files and state stay as they are. Items the archive has already are not added twice.
+
+    \b
+    Examples:
+      unlimited backfill feeds/earthquakes.yml --from 2020 --dry-run
+      unlimited backfill feeds/critical-vulnerabilities.yml --from 2016 --every 30d
+      unlimited backfill feeds/exploited-vulnerabilities.yml --from 2021
+    """
+    from datetime import UTC, datetime
+
+    from unlimitedpipe.backfill import backfill, parse_day, parse_every
+    from unlimitedpipe.config import load_pipeline
+
+    first = parse_day(start)
+    last = parse_day(end, end=True) if end else datetime.now(UTC).date()
+    last = min(last, datetime.now(UTC).date())
+    if first > last:
+        raise UsageError(f"--from {start} is after --to {end or 'today'}")
+    every = parse_every(every)
+    quiet = bool((ctx.obj or {}).get("quiet"))
+    for path in pipelines:
+        folder = site
+        if folder is None:
+            written = [
+                Path(str(where)).parent
+                for o in load_pipeline(path).outputs
+                if (where := getattr(o, "path", None))
+            ]
+            if not written:
+                raise UsageError(f"{path} writes no file; say where the archive is with --site")
+            folder = written[0]
+
+        def report(window, name=path.name) -> None:
+            if not quiet:
+                verb = "would add" if dry_run else "added"
+                mark = " (a source failed)" if window.failed else ""
+                click.echo(
+                    f"{name} {window.start}..{window.end}: {window.found} found, "
+                    f"{window.kept} in range, {verb} {window.added}{mark}",
+                    err=True,
+                )
+
+        result = backfill(
+            path,
+            folder,
+            first,
+            last,
+            every,
+            dry_run=dry_run,
+            pause=pause,
+            quiet=quiet,
+            progress=report,
+        )
+        total = sum(w.added for w in result.windows)
+        verb = "would add" if dry_run else "added"
+        months = len(result.months)
+        click.echo(
+            f"{result.feed}: {verb} {total} item(s) to {folder / 'archive'}"
+            + (f" in {months} month(s)" if months else "")
+            + (f"; {result.undated} undated item(s) left out" if result.undated else ""),
+            err=True,
+        )
+        for sample in result.samples[:3]:
+            click.echo(f"  - {str(sample['date'])[:10]} {sample['title']}", err=True)
+
+
 @cli.command("validate")
 @click.argument("catalog", required=False)
 @click.option("--deep", is_flag=True, help="Also read every feed file and archive month.")

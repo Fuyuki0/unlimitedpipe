@@ -89,6 +89,59 @@ def write_index(folder: Path) -> None:
     (folder / INDEX).write_text(json.dumps(index, indent=1) + "\n", encoding="utf-8")
 
 
+MONTH_NAMES = {
+    name: number
+    for number, names in enumerate(
+        (
+            "january jan",
+            "february feb",
+            "march mar",
+            "april apr",
+            "may",
+            "june jun",
+            "july jul",
+            "august aug",
+            "september sep sept",
+            "october oct",
+            "november nov",
+            "december dec",
+        ),
+        1,
+    )
+    for name in names.split()
+}
+_PERIOD = re.compile(
+    r"\b(?:(?P<month>" + "|".join(sorted(MONTH_NAMES, key=len, reverse=True)) + r")\.?\s+)?"
+    r"(?P<year>(?:19|20)\d\d)(?:-(?P<iso>0[1-9]|1[0-2]))?\b"
+    r"|\b(?P<relative>last|this)\s+year\b",
+    re.IGNORECASE,
+)
+
+
+def named_period(text: str, today: str) -> tuple[str, str, list[str]] | None:
+    """The months a question names, as the first and last (YYYY-MM), and the words that named
+    them: "earthquakes in 2023", "rules in march 2025", "2025-03", "last year". None when it
+    names no period, or one after ``today`` (an ISO date)."""
+    match = _PERIOD.search(text)
+    if match is None:
+        return None
+    this_year = int(today[:4])
+    if match["relative"]:
+        year = this_year - (match["relative"].casefold() == "last")
+        return f"{year}-01", f"{year}-12", [w.casefold() for w in match[0].split()]
+    year = int(match["year"])
+    if year > this_year:
+        return None  # "python 2027 roadmap" is not in the past
+    said = [match["year"] if not match["iso"] else f"{year}-{match['iso']}"]
+    if match["iso"]:
+        month = f"{year}-{match['iso']}"
+        return month, month, said
+    if match["month"]:
+        month = f"{year}-{MONTH_NAMES[match['month'].casefold()]:02d}"
+        return month, month, [match["month"].casefold(), *said]
+    return f"{year}-01", f"{year}-12", said
+
+
 def parse_since(value: str) -> str:
     """``2026-08`` or ``2026-08-15`` -> the same, checked."""
     value = value.strip()

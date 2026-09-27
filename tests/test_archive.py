@@ -7,7 +7,7 @@ import pytest
 
 from tests.conftest import run_source
 from unlimitedpipe import Context
-from unlimitedpipe.archive import append, item_key, month_of, parse_since
+from unlimitedpipe.archive import append, item_key, month_of, named_period, parse_since
 from unlimitedpipe.publish import CATALOG_SCHEMA
 from unlimitedpipe.sources.search import Search, catalog_url
 
@@ -159,3 +159,27 @@ def test_serve_needs_a_catalog_folder(tmp_path):
         text=True,
     )
     assert run.returncode == 2 and "has no feeds.json" in run.stderr
+
+
+def test_named_period_finds_the_months_a_question_names():
+    today = "2026-09-27T00:00:00Z"
+    assert named_period("earthquakes in 2023", today) == ("2023-01", "2023-12", ["2023"])
+    assert named_period("Rules in March 2025?", today) == ("2025-03", "2025-03", ["march", "2025"])
+    assert named_period("cves 2025-03", today) == ("2025-03", "2025-03", ["2025-03"])
+    assert named_period("what happened last year", today)[:2] == ("2025-01", "2025-12")
+    assert named_period("python 3.15 release", today) is None
+    assert named_period("python 2027 roadmap", today) is None  # not in the past
+
+
+def test_search_and_ask_use_the_archive_for_a_period_they_name(tmp_path):
+    from unlimitedpipe.sources.ask import Ask
+
+    site = local_catalog(tmp_path)
+    ctx = Context(quiet=True, state_dir=tmp_path / "s", cache_dir=tmp_path / "c")
+    found = run_source(Search(words=["quakes", "August", "2026"], catalog=str(site)), ctx)
+    assert [e.data["title"] for e in found] == ["M6.1 Tonga"]
+    ctx = Context(quiet=True, state_dir=tmp_path / "s", cache_dir=tmp_path / "c")
+    ask = Ask(question=["loyalty", "islands", "quake", "in", "2025?"], catalog=str(site))
+    ask.provider = "anthropic"  # no meaning search: that needs Ollama
+    [answer] = run_source(ask, ctx)
+    assert answer.data["answer"].startswith("Nothing in the catalog from 2025 matches")

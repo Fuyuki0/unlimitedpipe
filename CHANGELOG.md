@@ -3,6 +3,18 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.8 - 2026-09-28
+
+- `unlimited backfill FEED.yml --from 2016` fills a catalog's archive with a feed's past
+  items: it runs the feed's own sources and operators once per month (or `--every` week,
+  quarter, year or a number of days) with `${TODAY}` and `${DAYS_AGO_N}` set to that period,
+  leaves out its `diff`, `limit` and outputs, and adds each item once.
+- `search` and `ask` read the archive by themselves for a year or month the question names
+  ("earthquakes in 2023", "sanctions march 2025", "last year").
+- Pipelines: `${YEAR}` is the current year (a period's year in a backfill); expressions get
+  `max()`, `min()` and `default(value, fallback)`, since text joined with a missing value is
+  missing.
+
 ## 0.10.7 - 2026-09-27
 
 - `unlimited setup` installs the decision model, unlimitedpipe/decide-0.5b: it picks the

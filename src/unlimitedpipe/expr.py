@@ -23,7 +23,11 @@ Rules:
   ``replace(summary, "^arXiv:\\S+ .*? Abstract: ", "")``.
 * ``date(value)`` reads ISO 8601, RFC 2822 or Unix time (seconds or milliseconds) and
   returns ISO 8601 UTC, so ``published_at=date(properties.time)`` dates feed items.
-* A missing field is ``null``; ordering comparisons with ``null`` are false.
+* ``max(a, b, ...)`` and ``min(a, b, ...)`` pick among the numbers given, leaving out missing
+  ones: ``max(first_score, second_score)``.
+* A missing field is ``null``, and text joined with ``null`` is ``null`` too;
+  ``default(value, fallback)`` gives the fallback for a missing or empty value:
+  ``title + default(" (" + region + ")", "")``. Ordering comparisons with ``null`` are false.
 """
 
 from __future__ import annotations
@@ -220,7 +224,7 @@ class _Parser:
         self.expect(")")
         expected = _ARITY.get(function, (1,))
         if len(arguments) not in expected:
-            count = " or ".join(str(n) for n in expected)
+            count = " or ".join(str(n) for n in expected) if len(expected) < 3 else "1 or more"
             self.fail(f"{function}() takes {count} argument(s), got {len(arguments)}", pos)
         if function == "exists" and arguments[0][0] != "path":
             self.fail("exists() takes a field name", pos)
@@ -372,8 +376,19 @@ _FUNCTIONS: dict[str, Callable[..., Any]] = {
     "short": short_number,
     "commas": _commas,
     "exists": lambda v: v is not MISSING,
+    "default": lambda v, fallback: fallback if v is None or v == "" else v,
+    "max": lambda *v: max((n for x in v if (n := _as_number(x)) is not None), default=None),
+    "min": lambda *v: min((n for x in v if (n := _as_number(x)) is not None), default=None),
 }
-_ARITY = {"replace": (3,), "round": (1, 2), "commas": (1, 2)}
+_MANY = tuple(range(1, 21))
+_ARITY = {
+    "replace": (3,),
+    "round": (1, 2),
+    "commas": (1, 2),
+    "default": (2,),
+    "max": _MANY,
+    "min": _MANY,
+}
 
 
 def _evaluate(node: Node, event: Event) -> Any:

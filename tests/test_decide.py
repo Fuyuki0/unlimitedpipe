@@ -30,3 +30,9 @@ def test_the_answer_is_written_from_the_picked_sources_only():
         "The sources do not answer this. The closest is: Bitget: $387.0M lost (key compromise) [1]."
     )
     assert write("แฮกคริปโต", SOURCES, [1, 2]).startswith("มีดังนี้: ")
+
+
+def test_an_answer_about_a_named_period_says_so():
+    sources = [{"title": "CVE-2023-4966: Citrix Bleed"}, {"title": "CVE-2023-3519: Citrix"}]
+    answer = write("which citrix flaws were exploited in 2023?", sources, [1, 2])
+    assert answer == "From 2023: CVE-2023-4966: Citrix Bleed [1]; CVE-2023-3519: Citrix [2]."

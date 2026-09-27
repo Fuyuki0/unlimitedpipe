@@ -79,4 +79,13 @@ def write(question: str, sources: list[dict[str, Any]], picked: list[int]) -> st
     parts = "; ".join(f"{short(sources[n - 1].get('title'))} [{n}]" for n in picked)
     if thai:
         return f"มีดังนี้: {parts}."
-    return ("Yes: " if _YES_NO.match(question) else "Latest: ") + parts + "."
+    if _YES_NO.match(question):
+        return f"Yes: {parts}."
+    from datetime import UTC, datetime
+
+    from unlimitedpipe.archive import named_period
+
+    named = named_period(question, datetime.now(UTC).isoformat())
+    if named:  # "which citrix flaws were exploited in 2023?" is not about the latest
+        return f"From {named[0] if named[0] == named[1] else named[0][:4]}: {parts}."
+    return f"Latest: {parts}."

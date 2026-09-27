@@ -18,16 +18,18 @@
 Relative paths (``path``, ``state``) are resolved from the pipeline file's directory.
 ``${NAME}`` in a value is replaced by the environment variable NAME, so secrets such as
 webhook URLs stay out of the file. ``${TODAY}`` and ``${DAYS_AGO_30}`` are dates (UTC,
-YYYY-MM-DD), for APIs that take a date range. Every error names the file, line and option at
-fault.
+YYYY-MM-DD) and ``${YEAR}`` the year, for APIs that take a date range; with them,
+`unlimited backfill` can fill the archive with a feed's past items. Every error names the file,
+line and option at fault.
 """
 
 from __future__ import annotations
 
 import os
 import re
+from contextvars import ContextVar
 from dataclasses import dataclass, field
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -42,7 +44,10 @@ TOP_LEVEL = {"name", "description", "sources", "operators", "outputs", "settings
 SETTINGS = {"errors_as_events"}
 PATH_OPTIONS = {"path", "state"}
 ENV_REFERENCE = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
-DATE_REFERENCE = re.compile(r"TODAY|DAYS_AGO_(\d+)")
+DATE_REFERENCE = re.compile(r"TODAY|YEAR|DAYS_AGO_(\d+)")
+# `unlimited backfill` loads a pipeline once per window of the past: `${TODAY}` and `${YEAR}` are
+# then the window's last day and its year, and every `${DAYS_AGO_N}` is its first day.
+WINDOW: ContextVar[tuple[date, date] | None] = ContextVar("window", default=None)
 
 
 def env_references(text: str) -> list[str]:
@@ -52,11 +57,18 @@ def env_references(text: str) -> list[str]:
 
 
 def _date(name: str) -> str | None:
-    """``TODAY`` and ``DAYS_AGO_N`` as dates (UTC, YYYY-MM-DD); None for other names."""
+    """``TODAY`` and ``DAYS_AGO_N`` as dates (UTC, YYYY-MM-DD) and ``YEAR`` as a year; None for
+    other names."""
     match = DATE_REFERENCE.fullmatch(name)
     if match is None:
         return None
-    return (datetime.now(UTC).date() - timedelta(days=int(match.group(1) or 0))).isoformat()
+    window = WINDOW.get()
+    today = window[1] if window else datetime.now(UTC).date()
+    if name == "YEAR":
+        return str(today.year)
+    if window and match.group(1):
+        return window[0].isoformat()
+    return (today - timedelta(days=int(match.group(1) or 0))).isoformat()
 
 
 def _interpolate(value: Any) -> Any:
