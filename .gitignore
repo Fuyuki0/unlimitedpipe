@@ -17,3 +17,5 @@ research/ask/real/test.jsonl
 research/data-fr/
 research/ask/real/extra.jsonl
 research/ask/real/blind.jsonl
+research/ask/data-decide/
+research/ask/real/*-decide.jsonl

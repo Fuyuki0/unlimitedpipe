@@ -23,6 +23,8 @@ import json
 import random
 import re
 
+from decide_sets import written
+
 from unlimitedpipe.sources.ask import unsupported_numbers
 
 PER_KIND = 20
@@ -81,6 +83,10 @@ def main() -> None:
     parser.add_argument("--real", required=True)
     parser.add_argument("--real-extra")
     parser.add_argument("--real-blind")
+    parser.add_argument(
+        "--decide-sets", help="folder with test-, extra- and blind-decide.jsonl (decisions)"
+    )
+    parser.add_argument("--build-decide", help="the decision-format build test set")
     parser.add_argument("--build4")
     parser.add_argument("--build3", required=True)
     parser.add_argument("--build2-public", required=True)
@@ -94,6 +100,12 @@ def main() -> None:
         sets["real blind"] = rows(args.real_blind)
     if args.build4:
         sets["build 4"] = sample(rows(args.build4))
+    if args.decide_sets:
+        for name, file in (("real", "test"), ("real extra", "extra"), ("real blind", "blind")):
+            path = f"{args.decide_sets}/{file}-decide.jsonl"
+            sets[f"{name} decide"] = rows(path)
+    if args.build_decide:
+        sets["build decide"] = sample(rows(args.build_decide))
     sets["build 3"] = sample(rows(args.build3))
     sets["build 2 public"] = sample(rows(args.build2_public))
     sets["build 2 news"] = sample(rows(args.build2_news))
@@ -112,7 +124,10 @@ def main() -> None:
         passed, fails, recall = 0, collections.Counter(), []
         kinds = collections.defaultdict(lambda: [0, 0])
         for example, a in zip(examples, given, strict=True):
-            checks = check(example, a["answer"])
+            answer = a["answer"]
+            if name.endswith("decide"):  # a decision: grade the answer the code writes from it
+                answer = written(example, answer)
+            checks = check(example, answer)
             ok = all(checks.values())
             passed += ok
             kinds[example["kind"]][0] += ok
@@ -120,7 +135,7 @@ def main() -> None:
             fails.update(k for k, v in checks.items() if not v)
             if example["kind"] == "listing":
                 gold = set(example["gold"])
-                recall.append(min(1, len(cited(a["answer"]) & gold) / min(3, len(gold))))
+                recall.append(min(1, len(cited(answer) & gold) / min(3, len(gold))))
         report.setdefault(model, {})[name] = {
             "passed": passed,
             "of": len(examples),

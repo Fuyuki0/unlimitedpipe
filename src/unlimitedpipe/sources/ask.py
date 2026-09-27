@@ -36,6 +36,8 @@ OLLAMA = "http://127.0.0.1:11434"
 ANTHROPIC = "https://api.anthropic.com/v1/messages"
 ANTHROPIC_MODEL = "claude-haiku-4-5"
 # Small local models that summarize well, best first; any installed model works with --model.
+# The decision model: it picks the sources that answer and the code writes the answer.
+DECIDER = "hf.co/unlimitedpipe/decide-0.5b-GGUF:latest"
 PREFERRED = (
     # Trained for ask with research/ask: on questions typed the way people type it passes more
     # answers than general models eight times its size (research/ask), so it goes first.
@@ -317,6 +319,7 @@ class Ask(Source):
         ]
         period = f" from the last {days} days" if days else ""
         check: list[str] = []
+        confidence: float | None = None
         if not items:
             answer = (
                 f"Nothing in the catalog{period} matches this question. Try other words, "
@@ -353,7 +356,13 @@ class Ask(Source):
                     sentences=sentences,
                 )
 
-            answer, model, prompt = await self._answer(ctx, prompt_for)
+            decided = None
+            if self.provider != "anthropic" and self.model in (None, DECIDER):
+                decided = await self._decide(ctx, question, items)
+            if decided is not None:
+                answer, model, prompt, confidence = decided
+            else:
+                answer, model, prompt = await self._answer(ctx, prompt_for)
             check = unsupported_numbers(answer, prompt)
         yield Event(
             source=self.name,
@@ -366,8 +375,52 @@ class Ask(Source):
                 "sources": found,
                 **({"unsupported": check} if check else {}),
                 **({"found_by": "meaning"} if by_meaning else {}),
+                **({"confidence": confidence} if confidence is not None else {}),
             },
         )
+
+    async def _decide(
+        self, ctx: Context, question: str, items: list[dict[str, Any]]
+    ) -> tuple[str, str, str, float] | None:
+        """With the decision model installed: it picks the sources that answer (or none), the
+        code writes the answer from them, and how sure it was comes with it. None when the model
+        is missing or gave no decision, so a writing model answers instead."""
+        from unlimitedpipe import decide
+
+        host = os.environ.get("OLLAMA_HOST", OLLAMA)
+        host = host if host.startswith("http") else f"http://{host}"
+        prompt = decide.PROMPT.format(
+            today=datetime.now(UTC).strftime("%A %d %B %Y"),
+            most=decide.MOST,
+            sources=source_lines(items),
+            question=question,
+        )
+        async with httpx.AsyncClient(timeout=self.timeout, transport=ctx.transport) as client:
+            models = await _ollama_models(client, host) or []
+            if DECIDER not in models and DECIDER.removesuffix(":latest") not in models:
+                return None
+            ctx.notice(f"ask: {len(prompt)} characters of sources to {DECIDER} (decides)")
+            try:
+                response = await client.post(
+                    f"{host}/api/generate",
+                    json={
+                        "model": DECIDER,
+                        "prompt": prompt,
+                        "stream": False,
+                        "logprobs": True,
+                        "options": {"temperature": 0, "num_predict": 16},
+                    },
+                )
+                response.raise_for_status()
+                body = response.json()
+            except (httpx.HTTPError, ValueError):
+                return None
+        picked = decide.parse(str(body.get("response", "")), len(items))
+        if picked is None:
+            return None
+        first = (body.get("logprobs") or [{}])[0].get("logprob")
+        confidence = round(math.exp(first), 2) if isinstance(first, (int, float)) else 1.0
+        return decide.write(question, items, picked), DECIDER, prompt, confidence
 
     async def _by_meaning(
         self, ctx: Context, question: str, document: dict[str, Any], after: str | None
@@ -415,7 +468,7 @@ class Ask(Source):
                     )
                 from unlimitedpipe.meaning import is_embedding
 
-                chat = [m for m in models if not is_embedding(m)] or models
+                chat = [m for m in models if not is_embedding(m) and m != DECIDER] or models
                 model = self.model or next((m for m in PREFERRED if m in chat), chat[0])
                 if model not in models and f"{model}:latest" not in models:
                     raise UsageError(

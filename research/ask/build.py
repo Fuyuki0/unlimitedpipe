@@ -41,6 +41,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import corpus
 
+from unlimitedpipe import decide
 from unlimitedpipe.operators.extract import STOPWORDS
 from unlimitedpipe.sources.ask import (
     PROMPT,
@@ -51,7 +52,7 @@ from unlimitedpipe.sources.ask import (
     source_lines,
     terms,
 )
-from unlimitedpipe.sources.search import IRREGULAR, STORY_UPDATES, stem, story, word_pattern
+from unlimitedpipe.sources.search import IRREGULAR, SAME, STORY_UPDATES, stem, story, word_pattern
 
 SOURCE_COUNTS = (10,) * 7 + (5,) * 2 + (3,)  # `ask` gives 10 unless --sources says otherwise
 LISTED = 5  # a listing names at most this many sources
@@ -184,7 +185,7 @@ class Tokens:
 
     def find(self, word: str) -> set[int]:
         forms = None
-        if word.isascii():
+        if word.isascii() and not (SAME.get(stem(word)) or SAME.get(word.casefold())):
             base = stem(word)
             forms = [f.casefold() for f in (base, *IRREGULAR.get(base, ()))]
             if not all(re.fullmatch(r"\w+", f) for f in forms):
@@ -296,9 +297,10 @@ class World:
 
 
 class Builder:
-    def __init__(self, world: World, seed: int = 0) -> None:
+    def __init__(self, world: World, seed: int = 0, decide: bool = False) -> None:
         self.world = world
         self.rng = random.Random(seed)
+        self.decide = decide  # decisions (USE 2 5 / NONE) instead of written answers
         documents = collections.Counter()
         for item in world.items:
             documents.update(set(self.words(item["title"])))
@@ -360,6 +362,14 @@ class Builder:
             question=question,
             sentences=SENTENCES,
         )
+        if self.decide:
+            prompt = decide.PROMPT.format(
+                today=today.strftime("%A %d %B %Y"),
+                most=decide.MOST,
+                sources=source_lines(sources),
+                question=question,
+            )
+            answer = "USE " + " ".join(map(str, gold[: decide.MOST])) if gold else "NONE"
         return {
             "messages": [
                 {"role": "user", "content": prompt},
@@ -417,13 +427,41 @@ class Builder:
         answer = opening + "; ".join(parts) + "."
         return self.example("listing", lang, style, question, sources, answer, gold, today)
 
+    def subset(self, feed: str, lang: str, today: datetime) -> list[dict]:
+        """Decisions over a feed that mixes two kinds of item under one name ("food drug
+        recalls"): asked for one kind ("drug recalls"), every item matches by the feed's name,
+        and only the items of that kind answer."""
+        made = []
+        for topic, kind in MIXED_FEEDS.get(feed, {}).items():
+            question, style = self.question("listing", lang, topic=topic)
+            sources = self.ask(question, today)
+            if not sources:
+                continue
+            gold = [
+                n
+                for n, s in enumerate(sources, 1)
+                if kind(f"{s['title']} {s.get('summary') or ''}")
+            ]
+            if 1 <= len(gold) < len(sources):
+                made.append(
+                    self.example("listing", lang, style, question, sources, "", gold, today)
+                )
+        return made
+
     def refusal(self, item: dict, lang: str) -> dict | None:
         """A three-word question whose rarest word no source has: `ask` still passes it to
         the model (two of three words match), which must say what is missing."""
         words = self.keywords(item, 3)
         if not words:
             return None
-        missing, *kept = words
+        made = self._refusal(item, lang, words[0], words[1:])
+        if made is None and self.decide and len(self.keywords(item, 4) or []) == 4:
+            # Decisions need more "not covered": try the next rarest word as the missing one.
+            four = self.keywords(item, 4) or []
+            made = self._refusal(item, lang, four[1], [four[0], four[2]])
+        return made
+
+    def _refusal(self, item: dict, lang: str, missing: str, kept: list[str]) -> dict | None:
         question, style = self.question("refusal", lang, a=kept[0], b=kept[1], c=missing)
         today = self.after(item)
         sources = self.ask(question, today, leave_out=item)
@@ -453,6 +491,20 @@ class Builder:
         good = [w for w, n in counts.items() if 2 <= n <= 15 and self.documents[w] <= limit]
         self.rng.shuffle(good)
         return good[:count]
+
+
+_DRUG = re.compile(
+    r"\b(drug|tablets?|capsules?|injection|pharma\w*|dose|dosage|mg|vials?|syringes?|"
+    r"prescription|medication|ointment|inhaler)\b",
+    re.IGNORECASE,
+)
+# Feeds that mix kinds of item under one name, and how to tell each kind by its own words.
+MIXED_FEEDS = {
+    "food-drug-recalls": {
+        "drug recalls": lambda text: bool(_DRUG.search(text)),
+        "food recalls": lambda text: not _DRUG.search(text),
+    },
+}
 
 
 # Feeds whose items may be republished, for a model that can be public: works of the US
@@ -579,10 +631,20 @@ def build_world(builder: Builder, items: list[dict], days: list[datetime], per_d
             made = builder.listing(word, builder.lang(), today)
             if made:
                 split["test" if held(f"{name}|topic|{word.casefold()}") else "train"].append(made)
+        if builder.decide:
+            for feed in sorted(feeds):
+                part = "test" if held(f"{name}|subset|{feed}") else "train"
+                split[part] += builder.subset(feed, builder.lang(), today)
     return split
 
 
-def main(catalog: str, out: str, public: bool = False, fr_folder: str | None = None) -> None:
+def main(
+    catalog: str,
+    out: str,
+    public: bool = False,
+    fr_folder: str | None = None,
+    decide: bool = False,
+) -> None:
     rng = random.Random(0)
     feeds = json.loads((Path(catalog) / "feeds.json").read_text(encoding="utf-8"))["feeds"]
     items = corpus.load(catalog)
@@ -596,7 +658,7 @@ def main(catalog: str, out: str, public: bool = False, fr_folder: str | None = N
     split: dict[str, list[dict]] = {"train": [], "test": []}
     for name, world_items, world_feeds in worlds:
         world = World(world_items, world_feeds)
-        builder = Builder(world, seed=len(split["train"]))
+        builder = Builder(world, seed=len(split["train"]), decide=decide)
         last = datetime.fromisoformat(world.dates[-1][:19].replace("Z", ""))
         sample = [" ".join(builder.keywords(i, 2) or ["x"]) for i in world_items[:60]]
         world.check(
@@ -643,8 +705,10 @@ def main(catalog: str, out: str, public: bool = False, fr_folder: str | None = N
 
 
 if __name__ == "__main__":
-    # build.py CATALOG OUT [--public [FEDERAL_REGISTER_FOLDER]]
+    # build.py CATALOG OUT [--public [FEDERAL_REGISTER_FOLDER]] [--decide]
     args = sys.argv[1:]
+    decide_mode = "--decide" in args
+    args = [a for a in args if a != "--decide"]
     public = "--public" in args
     fr = (
         args[args.index("--public") + 1]
@@ -657,4 +721,5 @@ if __name__ == "__main__":
         rest[1] if len(rest) > 1 else "research/ask/data",
         public=public,
         fr_folder=fr,
+        decide=decide_mode,
     )

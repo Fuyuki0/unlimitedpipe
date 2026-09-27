@@ -267,3 +267,26 @@ def test_items_that_mean_the_same_are_found_when_none_has_the_words(web, make_ct
     assert answer.data["found_by"] == "meaning"
     assert [s["link"] for s in answer.data["sources"]] == ["d"]
     assert answer.data["model"] == "qwen2.5:3b"  # never the embedding model
+
+
+def test_a_decision_model_picks_the_sources_and_the_answer_is_written_from_them(catalog, make_ctx):
+    from unlimitedpipe.sources.ask import DECIDER
+
+    catalog.add(
+        "http://127.0.0.1:11434/api/tags",
+        json.dumps({"models": [{"name": DECIDER}, {"name": "qwen2.5:3b"}]}),
+        content_type="application/json",
+    )
+    asked = []
+
+    def generate(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        asked.append(body["model"])
+        assert body["prompt"].startswith("Decide which numbered sources answer the question.")
+        return httpx.Response(200, json={"response": "USE 1", "logprobs": [{"logprob": -0.05}]})
+
+    catalog.pages["http://127.0.0.1:11434/api/generate"] = generate
+    [answer] = run_source(Ask(question=["weather in Bangkok?"], catalog=URL), make_ctx())
+    assert asked == [DECIDER]  # one short decision, no writing model
+    assert answer.data["answer"].startswith("Bangkok: rain, 24°C now (2026-09-26) [1].")
+    assert answer.data["model"] == DECIDER and answer.data["confidence"] == 0.95

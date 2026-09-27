@@ -51,6 +51,17 @@ case "${1:-}" in
     upload unlimitedpipe-ask-real "unlimitedpipe ask real" "$here/../real/test.jsonl" \
       "$here/../real/extra.jsonl" "$here/../real/blind.jsonl"
     ;;
+  decide)
+    upload unlimitedpipe-ask-decide "unlimitedpipe ask decide" \
+      "$here/../data-decide/train.jsonl" "$here/../data-decide/test.jsonl"
+    upload unlimitedpipe-ask-real "unlimitedpipe ask real" "$here/../real/test.jsonl" \
+      "$here/../real/extra.jsonl" "$here/../real/blind.jsonl" "$here/../real/test-decide.jsonl" \
+      "$here/../real/extra-decide.jsonl" "$here/../real/blind-decide.jsonl"
+    ;;
+  train-decide)
+    push unlimitedpipe-ask-decide-train "unlimitedpipe ask decide train" "$here/train.py" \
+      "\"$user/unlimitedpipe-ask-decide\"" ""
+    ;;
   train4)
     push unlimitedpipe-ask-v4-train "unlimitedpipe ask v4 train" "$here/train.py" \
       "\"$user/unlimitedpipe-ask-sft-public-v4\"" ""

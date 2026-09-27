@@ -111,6 +111,10 @@ SETS = [
     ("real", "unlimitedpipe-ask-real", "test.jsonl", False),
     ("real extra", "unlimitedpipe-ask-real", "extra.jsonl", False),
     ("real blind", "unlimitedpipe-ask-real", "blind.jsonl", False),
+    ("real decide", "unlimitedpipe-ask-real", "test-decide.jsonl", False),
+    ("real extra decide", "unlimitedpipe-ask-real", "extra-decide.jsonl", False),
+    ("real blind decide", "unlimitedpipe-ask-real", "blind-decide.jsonl", False),
+    ("build decide", "unlimitedpipe-ask-decide", "test.jsonl", True),
     ("build 4", "unlimitedpipe-ask-sft-public-v4", "test.jsonl", True),
     ("build 3", "unlimitedpipe-ask-sft-public-v3", "test.jsonl", True),
     ("build 2 public", "unlimitedpipe-ask-sft-public", "test.jsonl", True),
@@ -197,8 +201,13 @@ for label, source in MODELS.items():
     params = sum(p.numel() for p in model.parameters())
     scores[label] = {"parameters": params, "source": source}
     for set_name, examples in sets.items():
+        # "|sets=decide" after a source: only the sets whose name has that word.
+        if "|sets=" in source and source.split("|sets=")[1].split("|")[0] not in set_name:
+            continue
+        if "|sets=" not in source and "decide" in set_name:
+            continue  # decision prompts are for decision models
         try:
-            size = int(source.split("|batch=")[1]) if "|batch=" in source else BATCH
+            size = int(source.split("|batch=")[1].split("|")[0]) if "|batch=" in source else BATCH
             answers = generate(tok, model, [e["messages"][0]["content"] for e in examples], size)
         except Exception as exc:
             print(f"{label} | {set_name}: failed ({exc})", flush=True)
