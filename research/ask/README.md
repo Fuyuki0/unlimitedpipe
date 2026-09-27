@@ -169,3 +169,31 @@ were written after, with more of it. A fresh set is the next honest check.
 
 Build 4 is published as [unlimitedpipe/ask-0.5b-GGUF](https://huggingface.co/unlimitedpipe/ask-0.5b-GGUF)
 (builds 3 and 2 on the `build-3` and `build-2` branches).
+
+## Build 5: a decision model (2026-09-27)
+
+The misses of builds 3 and 4 were wrong decisions (do the sources answer? which ones?), not
+wrong writing, and their answers were mostly the sources' own headlines. So build 5 only
+decides: `USE 2 5` or `NONE`, and `ask` writes the answer from the picked sources
+(`unlimitedpipe.decide`). Same recipe and data as build 4 in that format (`build.py --decide`),
+with "not covered" examples counted twice and examples that pick some items of a feed that
+mixes two kinds ("drug recalls" among food recalls). 135 minutes on the T4.
+
+Graded by the answer the code writes, on the same questions (`decide_sets.py`, `grade.py
+--decide-sets`), through Ollama on this 2-CPU server:
+
+| Model | Real (70) | More English (45) | Blind (40) | Median time |
+| --- | --- | --- | --- | --- |
+| **decide-0.5b (build 5)** | 66 (94%) | 45 (100%) | 35 (87%) | **4.6 s** |
+| ask-0.5b build 4 | 67 (95%) | 45 (100%) | 35 (87%) | about 13 s |
+
+The same answers, three times faster, with nothing the sources do not say. The decision's
+first-token probability helps a little: at 95% or more (150 of 155 answers) it was right 144
+times, below that 2 of 5. It did not fix "not covered": 10 of 16 such questions right, mostly
+with high confidence ("tsunami warning?" answered with a "Himalayan tsunami" story). That needs
+examples where the sources are about the topic but not the question, which the templates do not
+make yet.
+
+Published as [unlimitedpipe/decide-0.5b-GGUF](https://huggingface.co/unlimitedpipe/decide-0.5b-GGUF)
+with [unlimitedpipe/decide-sft-public](https://huggingface.co/datasets/unlimitedpipe/decide-sft-public);
+`unlimited setup` installs it.

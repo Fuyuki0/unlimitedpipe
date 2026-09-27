@@ -4,7 +4,7 @@
 [![Python](https://img.shields.io/pypi/pyversions/unlimitedpipe)](https://pypi.org/project/unlimitedpipe/)
 [![CI](https://github.com/Fuyuki0/unlimitedpipe/actions/workflows/ci.yml/badge.svg)](https://github.com/Fuyuki0/unlimitedpipe/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/Fuyuki0/unlimitedpipe/blob/main/LICENSE)
-[![Model](https://img.shields.io/badge/%F0%9F%A4%97%20model-ask--0.5b-yellow)](https://huggingface.co/unlimitedpipe/ask-0.5b-GGUF)
+[![Model](https://img.shields.io/badge/%F0%9F%A4%97%20model-decide--0.5b-yellow)](https://huggingface.co/unlimitedpipe/decide-0.5b-GGUF)
 [![Dataset](https://img.shields.io/badge/%F0%9F%A4%97%20dataset-2.85B%20tokens-yellow)](https://huggingface.co/datasets/unlimitedpipe/public-records)
 [![Feeds](https://img.shields.io/badge/live%20feeds-82-brightgreen)](https://feeds.daemonfill.dev/)
 
@@ -363,7 +363,7 @@ Yes: DoubleLine Yield Opportunities Fund (DLY): Jeffrey J. Sherman (Vice Preside
 10,000 shares at $13.03 ($130.3K) [1]; CEMEX SAB DE CV (CX): Lozano Rogelio Zambrano
 (director) bought 400,800 shares at $17.28 ($6.9M) [2].
 
-Sources (answered by hf.co/unlimitedpipe/ask-0.5b-GGUF:latest)
+Sources (decided by hf.co/unlimitedpipe/decide-0.5b-GGUF:latest)
 [1] DoubleLine Yield Opportunities Fund (DLY): Jeffrey J. Sherman (Vice President) bought...
     https://www.sec.gov/Archives/edgar/data/1788399/000090445426000490/0000904454-26-000490-index.htm
 [2] CEMEX SAB DE CV (CX): Lozano Rogelio Zambrano (director) bought 400,800 shares...
@@ -374,28 +374,34 @@ nothing leaves your machine), otherwise Claude when `ANTHROPIC_API_KEY` is set. 
 itself never needs a model.
 
 The model `unlimited setup` installs is
-[unlimitedpipe/ask-0.5b](https://huggingface.co/unlimitedpipe/ask-0.5b-GGUF), a 0.5B model
-(531 MB) trained for this one job: cite the sources it uses, list every match when asked what
-is new, invent nothing, and say plainly when the sources do not cover the question, in English
-and Thai. It was trained on public data only, and graded with other small open models on 70
+[unlimitedpipe/decide-0.5b](https://huggingface.co/unlimitedpipe/decide-0.5b-GGUF), a 0.5B
+decision model (531 MB): given the numbered sources and the question, it replies only with the
+sources that answer it (`USE 2 5`) or `NONE`, and `ask` writes the answer from those sources'
+own titles, dates and summaries. So the answer holds no word or number the sources do not, it
+comes in a few seconds on a small computer, and the decision's probability says how sure it
+was. It was trained on public data only, and graded with other small open models on 155
 questions typed the way people type ("microsoft news", "whats new with bitget"), through
-`ask`'s own search, labelled by hand. They are not blind: they showed where earlier builds fell
-short, and this one was made to fix that.
+`ask`'s own search, labelled by hand:
 
-| Model | Size | Answers that pass (115 questions) |
-| --- | --- | --- |
-| **unlimitedpipe/ask-0.5b** | **0.5B** | **112 (97%)** |
-| Qwen3.5 4B | 4.2B | 95 (82%) |
-| Phi-4 mini | 3.8B | 76 (66%) |
-| Qwen3.5 2B | 1.9B | 74 (64%) |
-| Llama 3.2 3B | 3.2B | 66 (57%) |
+| Model | Size | Real (115) | Blind (40) |
+| --- | --- | --- | --- |
+| **unlimitedpipe/decide-0.5b** (decides; the code writes) | **0.5B** | **111 (97%)** | **35 (87%)** |
+| unlimitedpipe/ask-0.5b (writes its answers) | 0.5B | 112 (97%) | 35 (87%) |
+| Qwen3.5 4B | 4.2B | 95 (82%) | |
+| Phi-4 mini | 3.8B | 76 (66%) | |
+| Qwen3.5 2B | 1.9B | 74 (64%) | |
+| Llama 3.2 3B | 3.2B | 66 (57%) | |
+
+The 115 are not blind: they showed where earlier builds fell short. The 40 blind questions
+were written after both 0.5B models were trained. Its weak spot: saying "the sources do not
+answer this" when they are about something related.
 
 ```bash
-ollama pull hf.co/unlimitedpipe/ask-0.5b-GGUF     # or let unlimited setup do it
+ollama pull hf.co/unlimitedpipe/decide-0.5b-GGUF     # or let unlimited setup do it
 ```
 
-It answers with its sources' own words, which is what keeps it honest; a larger general model
-explains more. How it was built and graded, with all the models: [research/ask](research/ask).
+The answers read as lists of headlines; a larger general model explains more (`--model`). How
+it was built and graded, with all the models: [research/ask](research/ask).
 
 ## History and offline
 

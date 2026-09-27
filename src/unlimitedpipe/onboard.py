@@ -32,7 +32,8 @@ def memory_gb() -> float | None:
 # The model trained for `ask` on public data (research/ask): 0.5B parameters, about 530 MB,
 # so it fits any machine that runs Ollama, and it cites and declines far better than general
 # models of its size.
-ASK_MODEL = "hf.co/unlimitedpipe/ask-0.5b-GGUF"
+# The decision model: it picks the sources that answer, and ask writes the answer from them.
+ASK_MODEL = "hf.co/unlimitedpipe/decide-0.5b-GGUF"
 
 
 def model_for(memory: float | None) -> str:
@@ -199,8 +200,8 @@ class Setup:
                 self.sh(["ollama", "pull", EMBED_MODEL])
             return self.ok("the ask model is ready (it answers from sources, with citations)")
         if "ai" in self.skip or not self.ask(
-            "Download the ask model (about 0.5 GB), trained to answer from sources with "
-            "citations, and a small model (46 MB) that finds items by meaning?"
+            "Download the ask model (about 0.5 GB), trained to pick the sources that answer, "
+            "and a small model (46 MB) that finds items by meaning?"
         ):
             self.skipped.append("ai")
             return self.note(f"later: ollama pull {ASK_MODEL}; ollama pull {EMBED_MODEL}")

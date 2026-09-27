@@ -3,6 +3,13 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.7 - 2026-09-27
+
+- `unlimited setup` installs the decision model, unlimitedpipe/decide-0.5b: it picks the
+  sources that answer (or none) and `ask` writes the answer from their own words. As accurate
+  as the writing model on 155 hand-labelled questions, three times faster, and it cannot put a
+  word in an answer that its sources do not have.
+
 ## 0.10.6 - 2026-09-27
 
 - `unlimited check FEED.yml` tries a pipeline before it joins a catalog: it must load, run,

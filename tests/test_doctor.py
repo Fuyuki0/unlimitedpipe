@@ -49,9 +49,9 @@ def test_doctor_says_when_a_newer_ask_model_is_out(monkeypatch):
             return {"lastModified": "2026-09-27T12:00:00.000Z"}
 
     monkeypatch.setattr(httpx, "get", lambda url, **kw: Answer())
-    tags = [
-        {"name": "hf.co/unlimitedpipe/ask-0.5b-GGUF:latest", "modified_at": "2026-09-27T01:00:00Z"}
-    ]
+    from unlimitedpipe.onboard import ASK_MODEL
+
+    tags = [{"name": f"{ASK_MODEL}:latest", "modified_at": "2026-09-27T01:00:00Z"}]
     assert newer_ask_model(tags) == "2026-09-27"
     tags[0]["modified_at"] = "2026-09-27T13:00:00Z"
     assert newer_ask_model(tags) is None  # pulled after it came out
