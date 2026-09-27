@@ -665,6 +665,58 @@ def setup_command(yes: bool, skip: tuple[str, ...], catalog: str | None) -> None
     Setup(yes=yes, skip=steps, catalog=catalog)()
 
 
+@cli.command("check")
+@click.argument(
+    "pipelines",
+    nargs=-1,
+    required=True,
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+)
+@click.option("--markdown", "as_markdown", is_flag=True, help="Print a Markdown report.")
+@click.option(
+    "--readme",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    default=None,
+    help="Warn when a pipeline is not listed in this file.",
+)
+def check_command(pipelines: tuple[Path, ...], as_markdown: bool, readme: Path | None) -> None:
+    """Try pipelines before they join a catalog: each must load, run, write a JSON feed of
+    items with a title and a web link, and find nothing new on a second run moments later (so
+    its items keep their identity). Runs each twice with a state folder of its own. Exits 1
+    when any has a problem; warnings are for whoever reviews it.
+
+    \b
+    Examples:
+      unlimited check feeds/volcanoes.yml
+      unlimited check feeds/*.yml --markdown --readme README.md   # in a pull request check
+    """
+    from unlimitedpipe.check import check, markdown
+
+    listed = readme.read_text(encoding="utf-8") if readme else None
+    results = [check(path, listed) for path in pipelines]
+    if as_markdown:
+        click.echo(markdown(results))
+    else:
+        for r in results:
+            verdict = (
+                click.style("passed", fg="green", bold=True)
+                if r.ok
+                else click.style("failed", fg="red", bold=True)
+            )
+            click.echo(
+                f"{r.path}: {verdict} ({r.items} item(s), {r.new_on_second_run} new on a "
+                f"second run, {r.seconds} s)"
+            )
+            for problem in r.problems:
+                click.echo(f"  {click.style('problem', fg='red')}: {problem}")
+            for warning in r.warnings:
+                click.echo(f"  {click.style('warning', fg='yellow')}: {warning}")
+            for sample in r.samples[:3]:
+                click.echo(f"  - {str(sample['date'] or '')[:10]} {sample['title']}")
+    if not all(r.ok for r in results):
+        sys.exit(1)
+
+
 @cli.command("validate")
 @click.argument("catalog", required=False)
 @click.option("--deep", is_flag=True, help="Also read every feed file and archive month.")

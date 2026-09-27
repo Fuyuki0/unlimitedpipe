@@ -3,6 +3,18 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.6 - 2026-09-27
+
+- `unlimited check FEED.yml` tries a pipeline before it joins a catalog: it must load, run,
+  write a JSON feed of items with a title and a web link, and find nothing new on a second
+  run moments later. `--markdown` writes a report for a pull request.
+- A workflow made by `publish --express` takes a `lane` input: an outside timer starts it with
+  `express` (the express lane, the rest when due), because GitHub starts scheduled runs late
+  or not at all when it is busy. Started by hand, it still runs everything.
+- `ask` has a decision mode: when the decision model is installed it picks the sources that
+  answer (or none), and the answer is written by code from those sources' own words, with how
+  sure the model was.
+
 ## 0.10.5 - 2026-09-27
 
 - `search` and `ask` forgive the way people ask: a typo is searched as the catalog word one

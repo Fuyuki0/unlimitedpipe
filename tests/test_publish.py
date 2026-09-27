@@ -223,6 +223,9 @@ def test_express_lane_runs_its_pipelines_every_time_and_the_rest_when_due(repo):
     assert 'for pipeline in "feeds/quakes.yml"; do run "$pipeline"; done' in run
     assert 'for pipeline in "feeds/prices.yml"; do run "$pipeline"; done' in run
     assert '[ "$age" -ge 3300 ]' in run and "last-full-run" in run
+    assert 'lane="${{ inputs.lane }}"' in run and '[ "$lane" != express ]' in run
+    lane = yaml.safe_load(workflow(p))[True]["workflow_dispatch"]["inputs"]["lane"]
+    assert lane["options"] == ["all", "express"] and lane["default"] == "all"
     assert "express lane (quakes) every 15m" in index_page(p, "1h")
     with pytest.raises(UsageError, match="names no pipeline"):
         plan(items, 3600, express=["volcanoes"])
