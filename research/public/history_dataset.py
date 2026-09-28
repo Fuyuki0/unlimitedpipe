@@ -32,6 +32,11 @@ FEEDS = {
     "exploited-vulnerabilities": ("CISA Known Exploited Vulnerabilities catalog", "public domain"),
     "earthquakes": ("US Geological Survey earthquake catalog", "public domain"),
     "drug-approvals": ("FDA novel drug approvals", "public domain"),
+    "fda-recalls": ("FDA enforcement reports (openFDA), Class I recalls", "public domain (CC0)"),
+    "court-rulings": (
+        "Supreme Court (supremecourt.gov) and federal appeals court opinions (CourtListener)",
+        "public domain",
+    ),
     "us-indicators": ("BLS, Labor Department and Federal Reserve series via FRED", "public domain"),
     "data-breaches": ("Have I Been Pwned (haveibeenpwned.com)", "CC BY 4.0"),
     "crypto-hacks": ("DefiLlama hacks database", "open data, attribution to DefiLlama"),
