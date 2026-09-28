@@ -30,6 +30,8 @@ from unlimitedpipe.sources.search import (
     corrected,
     items_by_words,
     items_since,
+    lowered,
+    matches_in,
     open_catalog,
     story,
     word_pattern,
@@ -191,30 +193,38 @@ def rank(
     ]
     # Rare words say more than common ones: "bitcoin" picks items out, "price" hardly does.
     texts = [text_of(item, feeds.get(item.get("feed"), ("", ""))[0]) for item in items]
-    rarity = {
-        word: 1
-        + math.log((len(texts) + 1) / (1 + sum(1 for t in texts if word_pattern(word).search(t))))
-        for word in words
-    }
+    heads = [
+        f"{item.get('title') or ''} {feeds.get(item.get('feed'), ('', ''))[0]}" for item in items
+    ]
+    bodies = [item.get("summary") or "" for item in items]
+    low_texts, low_heads, low_bodies = (
+        [lowered(t) for t in texts],
+        [lowered(t) for t in heads],
+        [lowered(t) for t in bodies],
+    )
+    everywhere = {w: matches_in(texts, low_texts, w) for w in words}
+    in_head = {w: matches_in(heads, low_heads, w) for w in words}
+    in_body = {w: matches_in(bodies, low_bodies, w) - in_head[w] for w in words}
+    rarity = {w: 1 + math.log((len(texts) + 1) / (1 + len(everywhere[w]))) for w in words}
+    described: dict[Any, bool] = {}
     scored = []
-    for item in items:
-        date = str(item.get("date") or "")
-        title, summary = item.get("title") or "", item.get("summary") or ""
-        name, about = feeds.get(item.get("feed"), ("", ""))
+    for n in sorted(set().union(*in_head.values(), *in_body.values()) if words else set()):
+        item = items[n]
         covered, score = set(), 0.0
         for word in words:
-            pattern = word_pattern(word)
             # A feed's name is as telling as a title: the feed exists for that topic.
-            weight = (
-                2 if pattern.search(title + " " + name) else 1 if pattern.search(summary) else 0
-            )
+            weight = 2 if n in in_head[word] else 1 if n in in_body[word] else 0
             if weight:
                 covered.add(word)
                 score += weight * rarity[word]
-        if covered and any(word_pattern(w).search(about) for w in words):
+        feed = item.get("feed")
+        if feed not in described:
+            about = feeds.get(feed, ("", ""))[1]
+            described[feed] = any(word_pattern(w).search(about) for w in words)
+        if covered and described[feed]:
             score += 0.5
         if covered:
-            scored.append((len(covered), score, date, item, covered))
+            scored.append((len(covered), score, str(item.get("date") or ""), item, covered))
     if not scored:
         return [], set()
     scored.sort(key=lambda s: (s[0], s[1], s[2]), reverse=True)
@@ -232,7 +242,9 @@ def rank(
         updates[story(s[3])] += 1
         if updates[story(s[3])] <= STORY_UPDATES:
             chosen.append(s[3])
-    return chosen[:limit], scored[0][4]
+            if len(chosen) == limit:
+                break
+    return chosen, scored[0][4]
 
 
 def text_of(item: dict[str, Any], feed_name: str = "") -> str:

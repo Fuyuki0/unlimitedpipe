@@ -148,6 +148,32 @@ def word_pattern(word: str) -> re.Pattern[str]:
     return re.compile("|".join(parts), re.IGNORECASE)
 
 
+@lru_cache(maxsize=256)
+def word_forms(word: str) -> tuple[str, ...]:
+    """Text a match of ``word_pattern(word)`` always contains, lowercased: a quick check that
+    spares the pattern most texts."""
+    if word.isascii():
+        base = stem(word)
+        same = SAME.get(base) or SAME.get(word.casefold()) or ()
+        return tuple(f.lower() for f in (base, *IRREGULAR.get(base, ()), *same))
+    return tuple((stem(form) if form.isascii() else form).lower() for form in thai.forms(word))
+
+
+def lowered(text: str) -> str:
+    """``text`` as ``word_forms`` are compared with it ("İstanbul" as "istanbul")."""
+    return text.lower().replace("i\u0307", "i")
+
+
+def matches_in(texts: list[str], low: list[str], word: str) -> set[int]:
+    """The positions of the texts that ``word`` matches."""
+    forms, pattern = word_forms(word), word_pattern(word)
+    return {
+        n
+        for n, (text, quick) in enumerate(zip(texts, low, strict=True))
+        if any(form in quick for form in forms) and pattern.search(text)
+    }
+
+
 def _start(form: str) -> str:
     """A word's start: longer words match any ending ("hack" finds "hacker"), words of three
     letters or fewer only their plural and verb endings ("sec" is not "security", "ai" not
