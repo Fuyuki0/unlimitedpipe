@@ -128,7 +128,9 @@ def main(out: str, quarters: list[str]) -> None:
         for quarter in quarters:
             path = folder / f"{quarter}_form345.zip"
             if not path.exists():
-                response = httpx.get(BULK.format(quarter), headers={"User-Agent": agent}, timeout=300)
+                response = httpx.get(
+                    BULK.format(quarter), headers={"User-Agent": agent}, timeout=300
+                )
                 response.raise_for_status()
                 path.write_bytes(response.content)
             with zipfile.ZipFile(path) as archive:
