@@ -234,3 +234,18 @@ def test_a_csv_file_becomes_one_record_per_row(web, ctx):
         {"observation_date": "2026-09-25", "SP500": "7743.41"},
     ]
     assert events[0].metadata["method"] == "csv"
+
+
+def test_json_pages_are_followed_with_next_page(web, ctx):
+    first = "https://api.example.com/filings/?amount_min=1000000"
+    second = "https://api.example.com/filings/?amount_min=1000000&page=2"
+    web.add(
+        first, json.dumps({"results": [{"id": 1}], "next": second}), content_type="application/json"
+    )
+    web.add(
+        second, json.dumps({"results": [{"id": 2}], "next": None}), content_type="application/json"
+    )
+    events = run_source(Web(url=[first], records="results", next_page="next"), ctx)
+    assert [e.data["id"] for e in events] == [1, 2]
+    only_one = run_source(Web(url=[first], records="results", next_page="next", pages=1), ctx)
+    assert [e.data["id"] for e in only_one] == [1]

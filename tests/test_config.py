@@ -135,11 +135,13 @@ def test_a_backfill_window_sets_the_dates(tmp_path):
 name: recent
 sources:
   - type: web
-    url: https://example.com/${YEAR}?from=${DAYS_AGO_30}&to=${TODAY}
+    url: https://example.com/${YEAR}?from=${DAYS_AGO_30}&to=${TODAY}&before=${TOMORROW}
 """
     token = WINDOW.set((date(2019, 3, 1), date(2019, 3, 31)))
     try:
         pipeline = load_pipeline(write(tmp_path, text))
     finally:
         WINDOW.reset(token)
-    assert pipeline.sources[0].url == ["https://example.com/2019?from=2019-03-01&to=2019-03-31"]
+    assert pipeline.sources[0].url == [
+        "https://example.com/2019?from=2019-03-01&to=2019-03-31&before=2019-04-01"
+    ]

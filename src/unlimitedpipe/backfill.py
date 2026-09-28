@@ -28,7 +28,7 @@ from unlimitedpipe.event import Event, utcnow
 
 EVERY = re.compile(r"[1-9]\d*d|week|month|quarter|year")
 LEFT_OUT = {"diff", "limit"}  # what keeps a feed to what is new and short
-USES_DATES = re.compile(r"\$\{(TODAY|YEAR|DAYS_AGO_\d+)\}")
+USES_DATES = re.compile(r"\$\{(TODAY|TOMORROW|YEAR|DAYS_AGO_\d+)\}")
 
 
 def parse_every(text: str) -> str:

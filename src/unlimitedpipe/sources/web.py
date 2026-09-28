@@ -99,8 +99,17 @@ class Web(Source):
         default=None,
         metavar="PATH",
     )
+    next_page: str | None = opt(
+        "For JSON responses that come a page at a time: path to the next page's URL, e.g. "
+        "`next`; followed up to --pages pages",
+        default=None,
+        metavar="PATH",
+    )
+    pages: int = opt("With --next-page: the most pages to read per URL", default=10)
 
     def __post_init__(self) -> None:
+        if self.pages < 1:
+            raise ValueError("--pages must be at least 1")
         if self.screenshot and not self.browser:
             raise ValueError("--screenshot needs --browser")
         self._fields = [parse_field_spec(spec) for spec in self.field]
@@ -169,21 +178,17 @@ class Web(Source):
                 meta["screenshot"] = shot
 
         if "json" in response.content_type or _looks_like_json(response.content):
-            value = response.json()
-            if self.records:
-                from unlimitedpipe.fields import MISSING, get_path, split_path
+            from unlimitedpipe.fields import get_path, split_path
 
-                value = get_path(value, split_path(self.records))
-                if value is MISSING:
-                    raise FetchError(f"{url}: the JSON has no field {self.records!r}", url=url)
-                if isinstance(value, dict):
-                    # An object keyed by id ({"coingecko:bitcoin": {...}}): one record per
-                    # entry, its key kept as `key`.
-                    value = [
-                        {"key": k, **v} if isinstance(v, dict) else {"key": k, "value": v}
-                        for k, v in value.items()
-                    ]
-            return self._json_records(url, value, meta)
+            document = response.json()
+            events = self._json_records(url, self._records_in(url, document), meta)
+            for _ in range(self.pages - 1 if self.next_page else 0):
+                following = get_path(document, split_path(str(self.next_page)))
+                if not isinstance(following, str) or not following.startswith("http"):
+                    break  # the last page
+                document = (await self._get(following, ctx)).json()
+                events += self._json_records(following, self._records_in(following, document), meta)
+            return events
         if "csv" in response.content_type or urlsplit(page).path.endswith(".csv"):
             # A CSV file (statistics offices, FRED): one record per row, named by the header.
             import csv
@@ -240,6 +245,23 @@ class Web(Source):
                 ctx.warn(f"no product data found on {url}")
                 return []
         return [self._document(url, page, soup, meta)]
+
+    def _records_in(self, url: str, value: Any) -> Any:
+        if not self.records:
+            return value
+        from unlimitedpipe.fields import MISSING, get_path, split_path
+
+        value = get_path(value, split_path(self.records))
+        if value is MISSING:
+            raise FetchError(f"{url}: the JSON has no field {self.records!r}", url=url)
+        if isinstance(value, dict):
+            # An object keyed by id ({"coingecko:bitcoin": {...}}): one record per entry, its
+            # key kept as `key`.
+            value = [
+                {"key": k, **v} if isinstance(v, dict) else {"key": k, "value": v}
+                for k, v in value.items()
+            ]
+        return value
 
     def _json_records(self, url: str, value: Any, meta: dict[str, Any]) -> list[Event]:
         items = value if isinstance(value, list) else [value]
