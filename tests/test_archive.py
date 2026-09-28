@@ -214,3 +214,52 @@ def test_the_word_index_leads_undated_questions_to_their_months(tmp_path):
         "Tonga tsunami warning",
     ]
     assert asyncio.run(find(["mars"])) == []
+
+
+def test_a_word_naming_a_feed_narrows_the_others_to_that_feed(tmp_path):
+    import asyncio
+
+    from unlimitedpipe.archive import WORDS
+    from unlimitedpipe.sources.search import items_by_words
+
+    site = tmp_path / "site"
+    trades = [
+        {
+            "feed": "insider-trades",
+            "title": f"Acme Corp: a director sold shares {n}",
+            "link": f"https://t/{n}",
+            "date": f"2025-{n:02d}-03T00:00:00Z",
+        }
+        for n in range(1, 13)
+    ] + [
+        {
+            "feed": "insider-trades",
+            "title": "Acme Corp: the CEO sold shares",
+            "link": "https://t/13",
+            "date": "2024-12-03T00:00:00Z",
+        }
+    ]
+    ipo = {
+        "feed": "ipo-filings",
+        "title": "Acme Corp filed to go public (S-1)",
+        "link": "https://i/1",
+        "date": "2024-06-10T00:00:00Z",
+    }
+    append(site, [*trades, ipo], "2026-01-01T00:00:00Z")
+    table = json.loads((site / "archive" / WORDS).read_text())["words"]
+    assert table["acme@ipo-filings"] == ["2024-06"] and len(table["acme"]) == 14
+    document = {
+        "archive": "archive/index.json",
+        "feeds": [{"name": "insider-trades"}, {"name": "ipo-filings"}],
+        "items": [],
+    }
+    (site / "feeds.json").write_text(json.dumps(document))
+
+    async def find(words):
+        ctx = Context(quiet=True, state_dir=tmp_path / "s", cache_dir=tmp_path / "c")
+        try:
+            return await items_by_words(ctx, str(site / "feeds.json"), document, words)
+        finally:
+            await ctx.aclose()
+
+    assert [i["title"] for i in asyncio.run(find(["acme", "ipo"]))] == [ipo["title"]]

@@ -102,7 +102,9 @@ answer a question that names no date by reading only the months that can answer 
 ```
 
 Words are lowercased and stemmed as `search` stems them; numbers and words of one or two
-letters are left out.
+letters are left out. A word in more than 12 months also has keys by feed, `word@feed`, when it
+appears in fewer months in that feed ("reddit@sec-ipo-filings": ["2024-02"]), for up to 120
+months; a question word that names a feed ("ipo") then narrows the others to that feed.
 
 ## 4. Events
 

@@ -8,6 +8,7 @@ end, which keeps them cheap to store in Git and to serve.
 
 from __future__ import annotations
 
+import collections
 import hashlib
 import json
 import re
@@ -94,30 +95,40 @@ def title_words(title: Any) -> set[str]:
     return {stem(w) for w in words if len(w) > 2 and not w.isdigit()}
 
 
+# Words in more months than this also get keys by feed ("reddit@sec-ipo-filings"), up to
+# FEED_WORDS months: "reddit ipo" then reads the month of Reddit's IPO filing, not the many
+# months of its insiders' trades.
+RARE = 12
+FEED_WORDS = 120
+
+
 def write_words(folder: Path, fresh: list[tuple[str, dict[str, Any]]] | None = None) -> None:
-    """Add the fresh items' title words to the word index, or build it from every month when
-    it is missing (or ``fresh`` is None)."""
+    """Write the word index from every month (``fresh``, the items just added, is in them):
+    the months each title word appears in, and for words that are not rare, the months it
+    appears in each feed."""
+    del fresh  # a whole rebuild takes a few seconds and keeps the keys by feed exact
+    words: dict[str, set[str]] = collections.defaultdict(set)
+    by_feed: dict[tuple[str, str], set[str]] = collections.defaultdict(set)
+    for month in sorted(folder.glob("*.jsonl")):
+        if not _MONTH.match(month.stem):
+            continue
+        for line in month.read_text(encoding="utf-8").splitlines():
+            try:
+                entry = json.loads(line)
+            except ValueError:
+                continue
+            if not isinstance(entry, dict):
+                continue
+            feed = str(entry.get("feed") or "")
+            for word in title_words(entry.get("title")):
+                words[word].add(month.stem)
+                by_feed[(word, feed)].add(month.stem)
+    table = {w: sorted(m) for w, m in words.items()}
+    for (word, feed), months in by_feed.items():
+        if RARE < len(words[word]) <= FEED_WORDS and len(months) < len(words[word]):
+            table[f"{word}@{feed}"] = sorted(months)
+    index = {"schema": WORDS_SCHEMA, "words": dict(sorted(table.items()))}
     path = folder / WORDS
-    words: dict[str, set[str]] = {}
-    try:
-        document = json.loads(path.read_text(encoding="utf-8")) if fresh is not None else None
-    except (OSError, ValueError):
-        document = None
-    if isinstance(document, dict) and isinstance(document.get("words"), dict):
-        words = {w: set(m) for w, m in document["words"].items() if isinstance(m, list)}
-        entries = iter(fresh or [])
-    else:
-        entries = (
-            (month.stem, json.loads(line))
-            for month in sorted(folder.glob("*.jsonl"))
-            if _MONTH.match(month.stem)
-            for line in month.read_text(encoding="utf-8").splitlines()
-            if line.strip()
-        )
-    for month, entry in entries:
-        for word in title_words(entry.get("title") if isinstance(entry, dict) else None):
-            words.setdefault(word, set()).add(month)
-    index = {"schema": WORDS_SCHEMA, "words": {w: sorted(m) for w, m in sorted(words.items())}}
     path.write_text(json.dumps(index, ensure_ascii=False, separators=(",", ":")) + "\n")
 
 

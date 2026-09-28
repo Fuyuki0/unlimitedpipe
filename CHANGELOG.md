@@ -3,6 +3,13 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.17 - 2026-09-28
+
+- The archive's word index also has keys by feed for words that are not rare
+  ("reddit@sec-ipo-filings"): a question word naming a feed narrows the others to that feed,
+  so `ask` and the index page find "reddit ipo" (its S-1 of 2024), "hertz bankruptcy" and
+  both Ronin hacks. The index is rebuilt whole on every run to keep those keys exact.
+
 ## 0.10.16 - 2026-09-28
 
 - A catalog's index page, redesigned: its numbers up front (feeds, live feeds, records in the

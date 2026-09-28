@@ -395,7 +395,20 @@ async def items_by_words(
         months = {m for form in forms if isinstance(table.get(form), list) for m in table[form]}
         if months:
             per_word.append(months)
-    anchors = [months for months in per_word if len(months) <= RARE_MONTHS * 5]
+    # A word naming a feed ("ipo" for sec-ipo-filings, "hack" for crypto-hacks) narrows the
+    # others to the months they appear in that feed ("reddit@sec-ipo-filings").
+    named = [
+        str(f.get("name"))
+        for f in document.get("feeds", [])
+        if any(word_pattern(w).search(str(f.get("name", "")).replace("-", " ")) for w in words)
+    ]
+    in_feed = [
+        set(table[key])
+        for word in words
+        for feed in named
+        if isinstance(table.get(key := f"{stem(word)}@{feed}"), list)
+    ]
+    anchors = in_feed + [months for months in per_word if len(months) <= RARE_MONTHS * 5]
     if not anchors:
         return []
     anchor = min(anchors, key=len)

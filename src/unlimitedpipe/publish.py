@@ -199,7 +199,10 @@ def plan(
             description=pipeline.description,
             files=[f.relative_to(site_dir) for i, f in outputs if i == index],
             group=pipeline.group,
-            title=next((str(o.title) for o in pipeline.outputs if getattr(o, "title", None)), None),
+            title=next(
+                (str(title) for o in pipeline.outputs if (title := getattr(o, "title", None))),
+                None,
+            ),
         )
         for index, (path, pipeline) in enumerate(items)
     ]
@@ -622,14 +625,23 @@ SEARCH_SCRIPT = r"""    <script>
         let chosen = months.filter(period || (() => false)).sort().reverse();
         if (!period) {
           if (!words) words = (await (await fetch(base + "words.json")).json()).words;
-          const keys = Object.keys(words);
+          const keys = Object.keys(words).filter((k) => !k.includes("@"));
           const sets = terms.filter((t) => t.length > 2).map((t) => {
             const s = stem(t), found = new Set();
             for (const k of keys) if (k.startsWith(s)) for (const m of words[k]) found.add(m);
             return found;
           }).filter((set) => set.size);
-          if (!sets.length) return [];
-          const anchor = sets.reduce((a, b) => (b.size < a.size ? b : a));
+          // A word naming a feed ("ipo", "hack") narrows the others to that feed's months.
+          const named = catalog.feeds.map((f) => f.name).filter((name) =>
+            terms.some((t) => word(t).test(name.replaceAll("-", " "))));
+          const inFeed = [];
+          for (const t of terms) for (const name of named) {
+            const months = words[stem(t) + "@" + name];
+            if (months) inFeed.push(new Set(months));
+          }
+          const candidates = [...inFeed, ...sets.filter((set) => set.size <= 60)];
+          if (!candidates.length) return [];
+          const anchor = candidates.reduce((a, b) => (b.size < a.size ? b : a));
           chosen = [...anchor].sort((a, b) =>
             sets.filter((x) => x.has(b)).length - sets.filter((x) => x.has(a)).length
             || (a < b ? 1 : -1));
