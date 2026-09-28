@@ -11,6 +11,7 @@ import json
 import sys
 import time
 from datetime import UTC, datetime
+from itertools import pairwise
 
 import httpx
 
@@ -43,7 +44,7 @@ def main(out: str) -> None:
                 key=lambda p: int(p[0]),
             )
             count = 0
-            for (_, before), (day, now) in zip(points, points[1:]):
+            for (_, before), (day, now) in pairwise(points):
                 change = now - before
                 if now < 1e9 or abs(change) < 1e8:
                     continue
@@ -56,7 +57,8 @@ def main(out: str) -> None:
                     f"supply now ${short_number(now)}",
                     "summary": f"{asset['name']} ({symbol}): supply {verb} "
                     f"${short_number(abs(change))} in 24 hours, from DefiLlama.",
-                    "link": f"https://defillama.com/stablecoin/{asset.get('gecko_id') or asset['id']}",
+                    "link": "https://defillama.com/stablecoin/"
+                    + str(asset.get("gecko_id") or asset["id"]),
                     "date": date,
                 }
                 lines.write(json.dumps(item, ensure_ascii=False) + "\n")
