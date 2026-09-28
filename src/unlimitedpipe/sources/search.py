@@ -479,20 +479,30 @@ async def _read_months(
     """The items of some archive months: of the wanted feeds only where the archive is split
     by feed, else (or when a feed file cannot be read) the whole month."""
     items: list[dict[str, Any]] = []
+    missing: list[str] = []
     for month in months:
         name = str(month.get("month"))
         split = month.get("feeds")
         # a split that does not add up to the month (being written, or half done) is not used
         whole = not isinstance(split, dict) or sum(split.values()) != month.get("items")
         feeds = None if wanted is None or whole else wanted.get(name, set())
-        if feeds is None:
-            items += await _read_items(ctx, [join(index_url, str(month.get("file")))])
-            continue
+        if feeds is not None:
+            try:
+                files = [join(index_url, f"{name}/{feed}.jsonl") for feed in sorted(feeds)]
+                items += await _read_items(ctx, files)
+                continue
+            except FetchError:
+                pass  # read the whole month instead
         try:
-            files = [join(index_url, f"{name}/{feed}.jsonl") for feed in sorted(feeds)]
-            items += await _read_items(ctx, files)
-        except FetchError:
             items += await _read_items(ctx, [join(index_url, str(month.get("file")))])
+        except FetchError:
+            missing.append(name)  # a copy made with fewer months, or one not reachable now
+    if missing:
+        span = missing[0] if len(missing) == 1 else f"{min(missing)} to {max(missing)}"
+        ctx.warn(
+            f"{len(missing)} archive month(s) could not be read ({span}) and are left out; "
+            "for an offline copy: unlimited mirror --since " + min(missing)
+        )
     return items
 
 
@@ -582,7 +592,8 @@ async def items_by_words(
     )
     chosen = set(ranked[:MOST_MONTHS])
     if not isinstance(index, dict):
-        return await _read_items(ctx, [join(index_url, f"{m}.jsonl") for m in sorted(chosen)])
+        whole = [{"month": m, "file": f"{m}.jsonl"} for m in sorted(chosen)]
+        return await _read_months(ctx, index_url, whole, None)
     months = [m for m in index.get("months", []) if str(m.get("month")) in chosen]
     wanted = await _wanted_feeds(ctx, index_url, index, document, words, months)
     return await _read_months(ctx, index_url, months, wanted)

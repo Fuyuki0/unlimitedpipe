@@ -54,16 +54,20 @@ async def mirror(
     if index:
         archive_dir = str(PurePosixPath(index_path).parent)
         listed = json.loads(index)
-        if isinstance(listed, dict) and listed.pop("shards", None) is not None:
-            # the copy keeps the one-file word index, not its many small files
-            (folder / _safe(index_path)).write_text(
-                json.dumps(listed, indent=1) + "\n", encoding="utf-8"
-            )
+        kept = []
         for month in listed.get("months", []):
             if since and str(month.get("month", "")) < since[:7]:
                 continue
             await copy(f"{archive_dir}/{month.get('file')}")
             copied["months"] += 1
+            # the copy has whole months, not their files by feed
+            kept.append({k: v for k, v in month.items() if k != "feeds"})
+        # The copy's index lists only the months it holds, and keeps the one-file word index,
+        # not its many small files.
+        listed = {k: v for k, v in listed.items() if k != "shards"} | {"months": kept}
+        (folder / _safe(index_path)).write_text(
+            json.dumps(listed, indent=1) + "\n", encoding="utf-8"
+        )
         await copy(f"{archive_dir}/{WORDS}", required=False)  # for questions without a date
     if feeds:
         for feed in document.get("feeds", []):

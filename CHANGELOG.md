@@ -3,6 +3,13 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.24 - 2026-09-28
+
+- An offline copy's archive index lists only the months it holds (`unlimited setup` copies
+  three), so a question about an older month no longer stops with "cannot read
+  .../2024-12.jsonl". Months that cannot be read, in older copies or when a site is out of
+  reach, are left out with one warning that says how to copy them.
+
 ## 0.10.23 - 2026-09-28
 
 - `ask` without any model (no Ollama, no ANTHROPIC_API_KEY) lists the best matches with their

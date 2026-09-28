@@ -140,6 +140,41 @@ def test_mirror_copies_a_catalog_for_offline_use(tmp_path):
         env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "UNLIMITEDPIPE_FORMAT": "jsonl"},
     )
     assert json.loads(search.stdout)["data"]["title"] == "M7.0 Loyalty Islands"
+    # the copy's index lists only the months it holds, so older ones are not looked for
+    index = json.loads((copy / "archive" / "index.json").read_text())
+    assert [m["month"] for m in index["months"]] == ["2026-09"] and "shards" not in index
+    older = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "unlimitedpipe",
+            "search",
+            "quakes",
+            "--since",
+            "2026-01",
+            "--catalog",
+            str(copy),
+        ],
+        capture_output=True,
+        text=True,
+        env={"PATH": "/usr/bin:/bin", "HOME": str(tmp_path), "UNLIMITEDPIPE_FORMAT": "jsonl"},
+    )
+    assert older.returncode == 0, older.stderr
+
+
+def test_a_month_missing_from_a_copy_is_left_out_with_a_warning(tmp_path):
+    import asyncio
+
+    from unlimitedpipe.sources.search import items_since
+
+    site = local_catalog(tmp_path)
+    for month in site.glob("archive/2026-08*"):
+        if month.is_file():
+            month.unlink()
+    document = json.loads((site / "feeds.json").read_text())
+    ctx = Context(quiet=True, state_dir=tmp_path / "s", cache_dir=tmp_path / "c")
+    found = asyncio.run(items_since(ctx, str(site / "feeds.json"), document, "2026-01"))
+    assert found  # the months still there, not an error
 
 
 def test_mirror_refuses_paths_that_leave_the_folder(tmp_path):
