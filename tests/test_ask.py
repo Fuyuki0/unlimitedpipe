@@ -43,6 +43,7 @@ def test_terms_keep_the_words_worth_searching():
     assert terms("Any big insider buys?") == ["insider", "buys"]
     assert terms("update on crypto hacks lately?") == ["crypto", "hacks"]
     assert terms("show hn today") == ["hn"]
+    assert terms("significant epa rules in 2024") == ["epa", "rules", "2024"]
 
 
 def links(items):

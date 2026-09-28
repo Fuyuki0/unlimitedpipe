@@ -131,6 +131,44 @@ SAME = {
     "flaws": ("vulnerabilit",),  # stem() keeps words ending in -ws whole, as "news"
     "bug": ("vulnerabilit",),
 }
+# US agencies by the names the Federal Register gives them ("Environmental Protection Agency:
+# ..."). Acronyms that are also common words (doe, dot, va) are left out; the rest match whole
+# words only ("fema" is not "female", "nasa" not "nasal").
+AGENCIES = {
+    "epa": ("environmental protection agency",),
+    "hhs": ("health and human services",),
+    "usda": ("agriculture department", "department of agriculture"),
+    "dod": ("defense department", "department of defense", "pentagon"),
+    "pentagon": ("defense department", "department of defense"),
+    "dhs": ("homeland security",),
+    "hud": ("housing and urban development",),
+    "dol": ("labor department", "department of labor"),
+    "opm": ("personnel management",),
+    "sba": ("small business administration",),
+    "ssa": ("social security administration",),
+    "cftc": ("commodity futures trading commission",),
+    "nrc": ("nuclear regulatory commission",),
+    "gsa": ("general services administration",),
+    "fhfa": ("federal housing finance agency",),
+    "cfpb": ("consumer financial protection bureau",),
+    "nasa": ("national aeronautics and space administration",),
+    "nlrb": ("national labor relations board",),
+    "eeoc": ("equal employment opportunity commission",),
+    "usaid": ("agency for international development",),
+    "ftc": ("federal trade commission",),
+    "fdic": ("federal deposit insurance corporation",),
+    "ncua": ("national credit union administration",),
+    "faa": ("federal aviation administration",),
+    "irs": ("internal revenue service",),
+    "osha": ("occupational safety and health administration",),
+    "fcc": ("federal communications commission",),
+    "fema": ("federal emergency management agency",),
+    "nhtsa": ("national highway traffic safety administration",),
+    "cdc": ("centers for disease control",),
+    "nih": ("national institutes of health",),
+}
+SAME.update(AGENCIES)
+WHOLE_WORDS = frozenset(AGENCIES)
 
 
 @lru_cache(maxsize=256)
@@ -176,9 +214,9 @@ def matches_in(texts: list[str], low: list[str], word: str) -> set[int]:
 
 def _start(form: str) -> str:
     """A word's start: longer words match any ending ("hack" finds "hacker"), words of three
-    letters or fewer only their plural and verb endings ("sec" is not "security", "ai" not
-    "aid", "us" not "user")."""
-    if len(form) <= 3:
+    letters or fewer and acronyms only their plural and verb endings ("sec" is not "security",
+    "ai" not "aid", "us" not "user")."""
+    if len(form) <= 3 or form in WHOLE_WORDS:
         return r"(?<!\w)" + re.escape(form) + r"(?:s|es|'s|ed|ing)?(?!\w)"
     return r"(?<!\w)" + re.escape(form)
 

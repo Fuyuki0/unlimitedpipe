@@ -335,6 +335,8 @@ def test_words_people_use_match_the_words_sources_use():
     assert word_pattern("purchase").search("a director bought 10,000 shares")
     assert word_pattern("ipos").search("TCGX Acquisition Corp. filed to go public")
     assert not word_pattern("fed").search("fedora")
+    assert word_pattern("epa").search("Environmental Protection Agency: Carbon Tetrachloride")
+    assert word_pattern("pentagon").search("Defense Department: Acquisition Regulation")
 
 
 def test_typos_are_searched_as_the_catalog_word_one_letter_away():

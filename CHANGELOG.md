@@ -3,6 +3,16 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.20 - 2026-09-28
+
+- `ask` and `search` know the acronyms of US agencies as the Federal Register names them
+  ("epa" finds "Environmental Protection Agency: ...", also hhs, usda, dod, dhs, irs, ftc,
+  fcc, fema, nasa and 20 more); they match whole words only ("fema" is not "female").
+- `ask` leaves out words that only say how much something matters ("significant", "major",
+  "important", "notable"): "significant epa rules in 2024" now lists EPA rules, not the one
+  rule whose summary says "significant" and two of the Transportation Department. Of 310 real
+  questions, only the two that use these words get other sources.
+
 ## 0.10.19 - 2026-09-28
 
 - The archive's word indexes are also split by the first two letters of their words
