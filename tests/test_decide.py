@@ -20,7 +20,8 @@ def test_a_decision_is_a_few_numbers_or_none():
 
 def test_the_answer_is_written_from_the_picked_sources_only():
     assert write("any crypto hacks?", SOURCES, [1, 2]) == (
-        "Yes: Bitget: $387.0M lost (key compromise) [1]; Duelbits: $7.0M lost (key compromise) [2]."
+        "Found: Bitget: $387.0M lost (key compromise) [1]; "
+        "Duelbits: $7.0M lost (key compromise) [2]."
     )
     assert write("bitcoin price", SOURCES, [3]) == (
         "Bitcoin (BTC) price: $84,292.16 (2026-09-27) [3]. "

@@ -3,6 +3,12 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.26 - 2026-09-28
+
+- A listing that answers a yes-or-no question starts with "Found:", not "Yes:": "is there a
+  tsunami warning?" can find information bulletins that say there is no threat, and "Yes"
+  would claim a warning.
+
 ## 0.10.25 - 2026-09-28
 
 From 45 new questions asked the way a first-day user would, answers that were wrong or

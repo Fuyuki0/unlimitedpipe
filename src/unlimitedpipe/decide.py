@@ -91,7 +91,8 @@ def write(question: str, sources: list[dict[str, Any]], picked: list[int]) -> st
     if thai:
         return f"มีดังนี้: {parts}."
     if _YES_NO.match(question):
-        return f"Yes: {parts}."
+        # not "Yes": "is there a tsunami warning?" may find bulletins that say there is none
+        return f"Found: {parts}."
     from datetime import UTC, datetime, timedelta
 
     from unlimitedpipe.archive import EVER, named_period

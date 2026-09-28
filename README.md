@@ -368,14 +368,14 @@ setup`) finds the items that mean the same ("delisted stocks" finds delisting no
 
 ```text
 $ unlimited ask "any big insider buys this week?"
-Yes: DoubleLine Yield Opportunities Fund (DLY): Jeffrey J. Sherman (Vice President) bought
-10,000 shares at $13.03 ($130.3K) [1]; CEMEX SAB DE CV (CX): Lozano Rogelio Zambrano
-(director) bought 400,800 shares at $17.28 ($6.9M) [2].
+Found: CEMEX SAB DE CV (CX): Lozano Rogelio Zambrano (director) bought 400,800 shares at
+$17.28 ($6.9M) [1]; DoubleLine Yield Opportunities Fund (DLY): Jeffrey J. Sherman (Vice
+President) bought 10,000 shares at $13.03 ($130.3K) [2].
 
 Sources (decided by hf.co/unlimitedpipe/decide-0.5b-GGUF:latest)
-[1] DoubleLine Yield Opportunities Fund (DLY): Jeffrey J. Sherman (Vice President) bought...
+[1] CEMEX SAB DE CV (CX): Lozano Rogelio Zambrano (director) bought 400,800 shares...
+[2] DoubleLine Yield Opportunities Fund (DLY): Jeffrey J. Sherman (Vice President) bought...
     https://www.sec.gov/Archives/edgar/data/1788399/000090445426000490/0000904454-26-000490-index.htm
-[2] CEMEX SAB DE CV (CX): Lozano Rogelio Zambrano (director) bought 400,800 shares...
 ```
 
 It uses a local model through [Ollama](https://ollama.com) when it is running (free, and

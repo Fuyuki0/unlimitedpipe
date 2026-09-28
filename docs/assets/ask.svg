@@ -19,133 +19,133 @@
         font-weight: 700;
     }
 
-    .terminal-883848835-matrix {
+    .terminal-1763931982-matrix {
         font-family: Fira Code, monospace;
         font-size: 20px;
         line-height: 24.4px;
         font-variant-east-asian: full-width;
     }
 
-    .terminal-883848835-title {
+    .terminal-1763931982-title {
         font-size: 18px;
         font-weight: bold;
         font-family: arial;
     }
 
-    .terminal-883848835-r1 { fill: #c5c8c6;font-weight: bold }
-.terminal-883848835-r2 { fill: #c5c8c6 }
-.terminal-883848835-r3 { fill: #868887 }
+    .terminal-1763931982-r1 { fill: #c5c8c6;font-weight: bold }
+.terminal-1763931982-r2 { fill: #c5c8c6 }
+.terminal-1763931982-r3 { fill: #868887 }
     </style>
 
     <defs>
-    <clipPath id="terminal-883848835-clip-terminal">
+    <clipPath id="terminal-1763931982-clip-terminal">
       <rect x="0" y="0" width="1341.0" height="584.5999999999999" />
     </clipPath>
-    <clipPath id="terminal-883848835-line-0">
+    <clipPath id="terminal-1763931982-line-0">
     <rect x="0" y="1.5" width="1342" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-883848835-line-1">
+<clipPath id="terminal-1763931982-line-1">
     <rect x="0" y="25.9" width="1342" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-883848835-line-2">
+<clipPath id="terminal-1763931982-line-2">
     <rect x="0" y="50.3" width="1342" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-883848835-line-3">
+<clipPath id="terminal-1763931982-line-3">
     <rect x="0" y="74.7" width="1342" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-883848835-line-4">
+<clipPath id="terminal-1763931982-line-4">
     <rect x="0" y="99.1" width="1342" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-883848835-line-5">
+<clipPath id="terminal-1763931982-line-5">
     <rect x="0" y="123.5" width="1342" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-883848835-line-6">
+<clipPath id="terminal-1763931982-line-6">
     <rect x="0" y="147.9" width="1342" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-883848835-line-7">
+<clipPath id="terminal-1763931982-line-7">
     <rect x="0" y="172.3" width="1342" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-883848835-line-8">
+<clipPath id="terminal-1763931982-line-8">
     <rect x="0" y="196.7" width="1342" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-883848835-line-9">
+<clipPath id="terminal-1763931982-line-9">
     <rect x="0" y="221.1" width="1342" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-883848835-line-10">
+<clipPath id="terminal-1763931982-line-10">
     <rect x="0" y="245.5" width="1342" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-883848835-line-11">
+<clipPath id="terminal-1763931982-line-11">
     <rect x="0" y="269.9" width="1342" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-883848835-line-12">
+<clipPath id="terminal-1763931982-line-12">
     <rect x="0" y="294.3" width="1342" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-883848835-line-13">
+<clipPath id="terminal-1763931982-line-13">
     <rect x="0" y="318.7" width="1342" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-883848835-line-14">
+<clipPath id="terminal-1763931982-line-14">
     <rect x="0" y="343.1" width="1342" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-883848835-line-15">
+<clipPath id="terminal-1763931982-line-15">
     <rect x="0" y="367.5" width="1342" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-883848835-line-16">
+<clipPath id="terminal-1763931982-line-16">
     <rect x="0" y="391.9" width="1342" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-883848835-line-17">
+<clipPath id="terminal-1763931982-line-17">
     <rect x="0" y="416.3" width="1342" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-883848835-line-18">
+<clipPath id="terminal-1763931982-line-18">
     <rect x="0" y="440.7" width="1342" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-883848835-line-19">
+<clipPath id="terminal-1763931982-line-19">
     <rect x="0" y="465.1" width="1342" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-883848835-line-20">
+<clipPath id="terminal-1763931982-line-20">
     <rect x="0" y="489.5" width="1342" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-883848835-line-21">
+<clipPath id="terminal-1763931982-line-21">
     <rect x="0" y="513.9" width="1342" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-883848835-line-22">
+<clipPath id="terminal-1763931982-line-22">
     <rect x="0" y="538.3" width="1342" height="24.65"/>
             </clipPath>
     </defs>
 
-    <rect fill="#292929" stroke="rgba(255,255,255,0.35)" stroke-width="1" x="1" y="1" width="1358" height="633.6" rx="8"/><text class="terminal-883848835-title" fill="#c5c8c6" text-anchor="middle" x="679" y="27">unlimited&#160;ask&#160;&quot;any&#160;big&#160;crypto&#160;hacks&#160;this&#160;week?&quot;</text>
+    <rect fill="#292929" stroke="rgba(255,255,255,0.35)" stroke-width="1" x="1" y="1" width="1358" height="633.6" rx="8"/><text class="terminal-1763931982-title" fill="#c5c8c6" text-anchor="middle" x="679" y="27">unlimited&#160;ask&#160;&quot;any&#160;big&#160;crypto&#160;hacks&#160;this&#160;week?&quot;</text>
             <g transform="translate(26,22)">
             <circle cx="0" cy="0" r="7" fill="#ff5f57"/>
             <circle cx="22" cy="0" r="7" fill="#febc2e"/>
             <circle cx="44" cy="0" r="7" fill="#28c840"/>
             </g>
         
-    <g transform="translate(9, 41)" clip-path="url(#terminal-883848835-clip-terminal)">
+    <g transform="translate(9, 41)" clip-path="url(#terminal-1763931982-clip-terminal)">
     
-    <g class="terminal-883848835-matrix">
-    <text class="terminal-883848835-r1" x="0" y="20" textLength="744.2" clip-path="url(#terminal-883848835-line-0)">$&#160;unlimited&#160;ask&#160;&quot;any&#160;big&#160;crypto&#160;hacks&#160;this&#160;week?&quot;&#160;--sources&#160;3</text><text class="terminal-883848835-r2" x="1342" y="20" textLength="12.2" clip-path="url(#terminal-883848835-line-0)">
-</text><text class="terminal-883848835-r2" x="0" y="44.4" textLength="1268.8" clip-path="url(#terminal-883848835-line-1)">Yes:&#160;Bitget&#160;CEO&#160;says&#160;$388M&#160;hack&#160;exploited&#160;third-party&#160;security&#160;vulnerability&#160;[1];&#160;⚡&#160;Weekly&#160;Recap:&#160;$387M&#160;</text><text class="terminal-883848835-r2" x="1342" y="44.4" textLength="12.2" clip-path="url(#terminal-883848835-line-1)">
-</text><text class="terminal-883848835-r2" x="0" y="68.8" textLength="1073.6" clip-path="url(#terminal-883848835-line-2)">Crypto&#160;Hack,&#160;Citrix&#160;Exploits,&#160;AI&#160;Agents…&#160;[2];&#160;Bitget:&#160;$387.0M&#160;lost&#160;(key&#160;compromise)&#160;[3].</text><text class="terminal-883848835-r2" x="1342" y="68.8" textLength="12.2" clip-path="url(#terminal-883848835-line-2)">
-</text><text class="terminal-883848835-r2" x="1342" y="93.2" textLength="12.2" clip-path="url(#terminal-883848835-line-3)">
-</text><text class="terminal-883848835-r3" x="0" y="117.6" textLength="793" clip-path="url(#terminal-883848835-line-4)">Sources&#160;(answered&#160;by&#160;hf.co/unlimitedpipe/decide-0.5b-GGUF:latest)</text><text class="terminal-883848835-r2" x="1342" y="117.6" textLength="12.2" clip-path="url(#terminal-883848835-line-4)">
-</text><text class="terminal-883848835-r1" x="0" y="142" textLength="48.8" clip-path="url(#terminal-883848835-line-5)">[1]&#160;</text><text class="terminal-883848835-r2" x="48.8" y="142" textLength="866.2" clip-path="url(#terminal-883848835-line-5)">Bitget&#160;CEO&#160;says&#160;$388M&#160;hack&#160;exploited&#160;third-party&#160;security&#160;vulnerability</text><text class="terminal-883848835-r3" x="915" y="142" textLength="317.2" clip-path="url(#terminal-883848835-line-5)">&#160;&#160;crypto-news&#160;·&#160;2026-09-28</text><text class="terminal-883848835-r2" x="1342" y="142" textLength="12.2" clip-path="url(#terminal-883848835-line-5)">
-</text><text class="terminal-883848835-r3" x="0" y="166.4" textLength="1049.2" clip-path="url(#terminal-883848835-line-6)">&#160;&#160;&#160;&#160;https://cointelegraph.com/news/bitget-388m-hack-third-party-security-vulnerability</text><text class="terminal-883848835-r2" x="1342" y="166.4" textLength="12.2" clip-path="url(#terminal-883848835-line-6)">
-</text><text class="terminal-883848835-r1" x="0" y="190.8" textLength="48.8" clip-path="url(#terminal-883848835-line-7)">[2]&#160;</text><text class="terminal-883848835-r2" x="48.8" y="190.8" textLength="1134.6" clip-path="url(#terminal-883848835-line-7)">⚡&#160;Weekly&#160;Recap:&#160;$387M&#160;Crypto&#160;Hack,&#160;Citrix&#160;Exploits,&#160;AI&#160;Agents&#160;Go&#160;Off-Script,&#160;and&#160;More&#160;Threats</text><text class="terminal-883848835-r2" x="1342" y="190.8" textLength="12.2" clip-path="url(#terminal-883848835-line-7)">
-</text><text class="terminal-883848835-r3" x="0" y="215.2" textLength="317.2" clip-path="url(#terminal-883848835-line-8)">security-news&#160;·&#160;2026-09-28</text><text class="terminal-883848835-r2" x="1342" y="215.2" textLength="12.2" clip-path="url(#terminal-883848835-line-8)">
-</text><text class="terminal-883848835-r3" x="0" y="239.6" textLength="963.8" clip-path="url(#terminal-883848835-line-9)">&#160;&#160;&#160;&#160;https://thehackernews.com/2026/09/weekly-recap-387m-crypto-hack-citrix.html</text><text class="terminal-883848835-r2" x="1342" y="239.6" textLength="12.2" clip-path="url(#terminal-883848835-line-9)">
-</text><text class="terminal-883848835-r1" x="0" y="264" textLength="48.8" clip-path="url(#terminal-883848835-line-10)">[3]&#160;</text><text class="terminal-883848835-r2" x="48.8" y="264" textLength="451.4" clip-path="url(#terminal-883848835-line-10)">Bitget:&#160;$387.0M&#160;lost&#160;(key&#160;compromise)</text><text class="terminal-883848835-r3" x="500.2" y="264" textLength="329.4" clip-path="url(#terminal-883848835-line-10)">&#160;&#160;crypto-hacks&#160;·&#160;2026-09-24</text><text class="terminal-883848835-r2" x="1342" y="264" textLength="12.2" clip-path="url(#terminal-883848835-line-10)">
-</text><text class="terminal-883848835-r3" x="0" y="288.4" textLength="378.2" clip-path="url(#terminal-883848835-line-11)">&#160;&#160;&#160;&#160;https://defillama.com/hacks</text><text class="terminal-883848835-r2" x="1342" y="288.4" textLength="12.2" clip-path="url(#terminal-883848835-line-11)">
-</text><text class="terminal-883848835-r2" x="1342" y="312.8" textLength="12.2" clip-path="url(#terminal-883848835-line-12)">
-</text><text class="terminal-883848835-r1" x="0" y="337.2" textLength="707.6" clip-path="url(#terminal-883848835-line-13)">$&#160;unlimited&#160;ask&#160;&quot;earthquakes&#160;in&#160;japan&#160;in&#160;2024&quot;&#160;--sources&#160;3</text><text class="terminal-883848835-r2" x="1342" y="337.2" textLength="12.2" clip-path="url(#terminal-883848835-line-13)">
-</text><text class="terminal-883848835-r2" x="0" y="361.6" textLength="1305.4" clip-path="url(#terminal-883848835-line-14)">From&#160;2024:&#160;M&#160;7.5&#160;-&#160;2024&#160;Noto&#160;Peninsula,&#160;Japan&#160;Earthquake&#160;[1];&#160;M&#160;7.1&#160;-&#160;2024&#160;Hyuganada&#160;Sea,&#160;Japan&#160;Earthquake&#160;</text><text class="terminal-883848835-r2" x="1342" y="361.6" textLength="12.2" clip-path="url(#terminal-883848835-line-14)">
-</text><text class="terminal-883848835-r2" x="0" y="386" textLength="549" clip-path="url(#terminal-883848835-line-15)">[2];&#160;M&#160;6.5&#160;-&#160;Bonin&#160;Islands,&#160;Japan&#160;region&#160;[3].</text><text class="terminal-883848835-r2" x="1342" y="386" textLength="12.2" clip-path="url(#terminal-883848835-line-15)">
-</text><text class="terminal-883848835-r2" x="1342" y="410.4" textLength="12.2" clip-path="url(#terminal-883848835-line-16)">
-</text><text class="terminal-883848835-r3" x="0" y="434.8" textLength="793" clip-path="url(#terminal-883848835-line-17)">Sources&#160;(answered&#160;by&#160;hf.co/unlimitedpipe/decide-0.5b-GGUF:latest)</text><text class="terminal-883848835-r2" x="1342" y="434.8" textLength="12.2" clip-path="url(#terminal-883848835-line-17)">
-</text><text class="terminal-883848835-r1" x="0" y="459.2" textLength="48.8" clip-path="url(#terminal-883848835-line-18)">[1]&#160;</text><text class="terminal-883848835-r2" x="48.8" y="459.2" textLength="549" clip-path="url(#terminal-883848835-line-18)">M&#160;7.5&#160;-&#160;2024&#160;Noto&#160;Peninsula,&#160;Japan&#160;Earthquake</text><text class="terminal-883848835-r3" x="597.8" y="459.2" textLength="317.2" clip-path="url(#terminal-883848835-line-18)">&#160;&#160;earthquakes&#160;·&#160;2024-01-01</text><text class="terminal-883848835-r2" x="1342" y="459.2" textLength="12.2" clip-path="url(#terminal-883848835-line-18)">
-</text><text class="terminal-883848835-r3" x="0" y="483.6" textLength="780.8" clip-path="url(#terminal-883848835-line-19)">&#160;&#160;&#160;&#160;https://earthquake.usgs.gov/earthquakes/eventpage/us6000m0xl</text><text class="terminal-883848835-r2" x="1342" y="483.6" textLength="12.2" clip-path="url(#terminal-883848835-line-19)">
-</text><text class="terminal-883848835-r1" x="0" y="508" textLength="48.8" clip-path="url(#terminal-883848835-line-20)">[2]&#160;</text><text class="terminal-883848835-r2" x="48.8" y="508" textLength="536.8" clip-path="url(#terminal-883848835-line-20)">M&#160;7.1&#160;-&#160;2024&#160;Hyuganada&#160;Sea,&#160;Japan&#160;Earthquake</text><text class="terminal-883848835-r3" x="585.6" y="508" textLength="317.2" clip-path="url(#terminal-883848835-line-20)">&#160;&#160;earthquakes&#160;·&#160;2024-08-08</text><text class="terminal-883848835-r2" x="1342" y="508" textLength="12.2" clip-path="url(#terminal-883848835-line-20)">
-</text><text class="terminal-883848835-r3" x="0" y="532.4" textLength="780.8" clip-path="url(#terminal-883848835-line-21)">&#160;&#160;&#160;&#160;https://earthquake.usgs.gov/earthquakes/eventpage/us6000nith</text><text class="terminal-883848835-r2" x="1342" y="532.4" textLength="12.2" clip-path="url(#terminal-883848835-line-21)">
-</text><text class="terminal-883848835-r1" x="0" y="556.8" textLength="48.8" clip-path="url(#terminal-883848835-line-22)">[3]&#160;</text><text class="terminal-883848835-r2" x="48.8" y="556.8" textLength="427" clip-path="url(#terminal-883848835-line-22)">M&#160;6.5&#160;-&#160;Bonin&#160;Islands,&#160;Japan&#160;region</text><text class="terminal-883848835-r3" x="475.8" y="556.8" textLength="317.2" clip-path="url(#terminal-883848835-line-22)">&#160;&#160;earthquakes&#160;·&#160;2024-04-27</text><text class="terminal-883848835-r2" x="1342" y="556.8" textLength="12.2" clip-path="url(#terminal-883848835-line-22)">
-</text><text class="terminal-883848835-r3" x="0" y="581.2" textLength="780.8" clip-path="url(#terminal-883848835-line-23)">&#160;&#160;&#160;&#160;https://earthquake.usgs.gov/earthquakes/eventpage/us6000mu8k</text><text class="terminal-883848835-r2" x="1342" y="581.2" textLength="12.2" clip-path="url(#terminal-883848835-line-23)">
+    <g class="terminal-1763931982-matrix">
+    <text class="terminal-1763931982-r1" x="0" y="20" textLength="744.2" clip-path="url(#terminal-1763931982-line-0)">$&#160;unlimited&#160;ask&#160;&quot;any&#160;big&#160;crypto&#160;hacks&#160;this&#160;week?&quot;&#160;--sources&#160;3</text><text class="terminal-1763931982-r2" x="1342" y="20" textLength="12.2" clip-path="url(#terminal-1763931982-line-0)">
+</text><text class="terminal-1763931982-r2" x="0" y="44.4" textLength="1293.2" clip-path="url(#terminal-1763931982-line-1)">Found:&#160;Bitget&#160;CEO&#160;says&#160;$388M&#160;hack&#160;exploited&#160;third-party&#160;security&#160;vulnerability&#160;[1];&#160;⚡&#160;Weekly&#160;Recap:&#160;$387M&#160;</text><text class="terminal-1763931982-r2" x="1342" y="44.4" textLength="12.2" clip-path="url(#terminal-1763931982-line-1)">
+</text><text class="terminal-1763931982-r2" x="0" y="68.8" textLength="1073.6" clip-path="url(#terminal-1763931982-line-2)">Crypto&#160;Hack,&#160;Citrix&#160;Exploits,&#160;AI&#160;Agents…&#160;[2];&#160;Bitget:&#160;$387.0M&#160;lost&#160;(key&#160;compromise)&#160;[3].</text><text class="terminal-1763931982-r2" x="1342" y="68.8" textLength="12.2" clip-path="url(#terminal-1763931982-line-2)">
+</text><text class="terminal-1763931982-r2" x="1342" y="93.2" textLength="12.2" clip-path="url(#terminal-1763931982-line-3)">
+</text><text class="terminal-1763931982-r3" x="0" y="117.6" textLength="793" clip-path="url(#terminal-1763931982-line-4)">Sources&#160;(answered&#160;by&#160;hf.co/unlimitedpipe/decide-0.5b-GGUF:latest)</text><text class="terminal-1763931982-r2" x="1342" y="117.6" textLength="12.2" clip-path="url(#terminal-1763931982-line-4)">
+</text><text class="terminal-1763931982-r1" x="0" y="142" textLength="48.8" clip-path="url(#terminal-1763931982-line-5)">[1]&#160;</text><text class="terminal-1763931982-r2" x="48.8" y="142" textLength="866.2" clip-path="url(#terminal-1763931982-line-5)">Bitget&#160;CEO&#160;says&#160;$388M&#160;hack&#160;exploited&#160;third-party&#160;security&#160;vulnerability</text><text class="terminal-1763931982-r3" x="915" y="142" textLength="317.2" clip-path="url(#terminal-1763931982-line-5)">&#160;&#160;crypto-news&#160;·&#160;2026-09-28</text><text class="terminal-1763931982-r2" x="1342" y="142" textLength="12.2" clip-path="url(#terminal-1763931982-line-5)">
+</text><text class="terminal-1763931982-r3" x="0" y="166.4" textLength="1049.2" clip-path="url(#terminal-1763931982-line-6)">&#160;&#160;&#160;&#160;https://cointelegraph.com/news/bitget-388m-hack-third-party-security-vulnerability</text><text class="terminal-1763931982-r2" x="1342" y="166.4" textLength="12.2" clip-path="url(#terminal-1763931982-line-6)">
+</text><text class="terminal-1763931982-r1" x="0" y="190.8" textLength="48.8" clip-path="url(#terminal-1763931982-line-7)">[2]&#160;</text><text class="terminal-1763931982-r2" x="48.8" y="190.8" textLength="1134.6" clip-path="url(#terminal-1763931982-line-7)">⚡&#160;Weekly&#160;Recap:&#160;$387M&#160;Crypto&#160;Hack,&#160;Citrix&#160;Exploits,&#160;AI&#160;Agents&#160;Go&#160;Off-Script,&#160;and&#160;More&#160;Threats</text><text class="terminal-1763931982-r2" x="1342" y="190.8" textLength="12.2" clip-path="url(#terminal-1763931982-line-7)">
+</text><text class="terminal-1763931982-r3" x="0" y="215.2" textLength="317.2" clip-path="url(#terminal-1763931982-line-8)">security-news&#160;·&#160;2026-09-28</text><text class="terminal-1763931982-r2" x="1342" y="215.2" textLength="12.2" clip-path="url(#terminal-1763931982-line-8)">
+</text><text class="terminal-1763931982-r3" x="0" y="239.6" textLength="963.8" clip-path="url(#terminal-1763931982-line-9)">&#160;&#160;&#160;&#160;https://thehackernews.com/2026/09/weekly-recap-387m-crypto-hack-citrix.html</text><text class="terminal-1763931982-r2" x="1342" y="239.6" textLength="12.2" clip-path="url(#terminal-1763931982-line-9)">
+</text><text class="terminal-1763931982-r1" x="0" y="264" textLength="48.8" clip-path="url(#terminal-1763931982-line-10)">[3]&#160;</text><text class="terminal-1763931982-r2" x="48.8" y="264" textLength="451.4" clip-path="url(#terminal-1763931982-line-10)">Bitget:&#160;$387.0M&#160;lost&#160;(key&#160;compromise)</text><text class="terminal-1763931982-r3" x="500.2" y="264" textLength="329.4" clip-path="url(#terminal-1763931982-line-10)">&#160;&#160;crypto-hacks&#160;·&#160;2026-09-24</text><text class="terminal-1763931982-r2" x="1342" y="264" textLength="12.2" clip-path="url(#terminal-1763931982-line-10)">
+</text><text class="terminal-1763931982-r3" x="0" y="288.4" textLength="378.2" clip-path="url(#terminal-1763931982-line-11)">&#160;&#160;&#160;&#160;https://defillama.com/hacks</text><text class="terminal-1763931982-r2" x="1342" y="288.4" textLength="12.2" clip-path="url(#terminal-1763931982-line-11)">
+</text><text class="terminal-1763931982-r2" x="1342" y="312.8" textLength="12.2" clip-path="url(#terminal-1763931982-line-12)">
+</text><text class="terminal-1763931982-r1" x="0" y="337.2" textLength="707.6" clip-path="url(#terminal-1763931982-line-13)">$&#160;unlimited&#160;ask&#160;&quot;earthquakes&#160;in&#160;japan&#160;in&#160;2024&quot;&#160;--sources&#160;3</text><text class="terminal-1763931982-r2" x="1342" y="337.2" textLength="12.2" clip-path="url(#terminal-1763931982-line-13)">
+</text><text class="terminal-1763931982-r2" x="0" y="361.6" textLength="1305.4" clip-path="url(#terminal-1763931982-line-14)">From&#160;2024:&#160;M&#160;7.5&#160;-&#160;2024&#160;Noto&#160;Peninsula,&#160;Japan&#160;Earthquake&#160;[1];&#160;M&#160;7.1&#160;-&#160;2024&#160;Hyuganada&#160;Sea,&#160;Japan&#160;Earthquake&#160;</text><text class="terminal-1763931982-r2" x="1342" y="361.6" textLength="12.2" clip-path="url(#terminal-1763931982-line-14)">
+</text><text class="terminal-1763931982-r2" x="0" y="386" textLength="549" clip-path="url(#terminal-1763931982-line-15)">[2];&#160;M&#160;6.5&#160;-&#160;Bonin&#160;Islands,&#160;Japan&#160;region&#160;[3].</text><text class="terminal-1763931982-r2" x="1342" y="386" textLength="12.2" clip-path="url(#terminal-1763931982-line-15)">
+</text><text class="terminal-1763931982-r2" x="1342" y="410.4" textLength="12.2" clip-path="url(#terminal-1763931982-line-16)">
+</text><text class="terminal-1763931982-r3" x="0" y="434.8" textLength="793" clip-path="url(#terminal-1763931982-line-17)">Sources&#160;(answered&#160;by&#160;hf.co/unlimitedpipe/decide-0.5b-GGUF:latest)</text><text class="terminal-1763931982-r2" x="1342" y="434.8" textLength="12.2" clip-path="url(#terminal-1763931982-line-17)">
+</text><text class="terminal-1763931982-r1" x="0" y="459.2" textLength="48.8" clip-path="url(#terminal-1763931982-line-18)">[1]&#160;</text><text class="terminal-1763931982-r2" x="48.8" y="459.2" textLength="549" clip-path="url(#terminal-1763931982-line-18)">M&#160;7.5&#160;-&#160;2024&#160;Noto&#160;Peninsula,&#160;Japan&#160;Earthquake</text><text class="terminal-1763931982-r3" x="597.8" y="459.2" textLength="317.2" clip-path="url(#terminal-1763931982-line-18)">&#160;&#160;earthquakes&#160;·&#160;2024-01-01</text><text class="terminal-1763931982-r2" x="1342" y="459.2" textLength="12.2" clip-path="url(#terminal-1763931982-line-18)">
+</text><text class="terminal-1763931982-r3" x="0" y="483.6" textLength="780.8" clip-path="url(#terminal-1763931982-line-19)">&#160;&#160;&#160;&#160;https://earthquake.usgs.gov/earthquakes/eventpage/us6000m0xl</text><text class="terminal-1763931982-r2" x="1342" y="483.6" textLength="12.2" clip-path="url(#terminal-1763931982-line-19)">
+</text><text class="terminal-1763931982-r1" x="0" y="508" textLength="48.8" clip-path="url(#terminal-1763931982-line-20)">[2]&#160;</text><text class="terminal-1763931982-r2" x="48.8" y="508" textLength="536.8" clip-path="url(#terminal-1763931982-line-20)">M&#160;7.1&#160;-&#160;2024&#160;Hyuganada&#160;Sea,&#160;Japan&#160;Earthquake</text><text class="terminal-1763931982-r3" x="585.6" y="508" textLength="317.2" clip-path="url(#terminal-1763931982-line-20)">&#160;&#160;earthquakes&#160;·&#160;2024-08-08</text><text class="terminal-1763931982-r2" x="1342" y="508" textLength="12.2" clip-path="url(#terminal-1763931982-line-20)">
+</text><text class="terminal-1763931982-r3" x="0" y="532.4" textLength="780.8" clip-path="url(#terminal-1763931982-line-21)">&#160;&#160;&#160;&#160;https://earthquake.usgs.gov/earthquakes/eventpage/us6000nith</text><text class="terminal-1763931982-r2" x="1342" y="532.4" textLength="12.2" clip-path="url(#terminal-1763931982-line-21)">
+</text><text class="terminal-1763931982-r1" x="0" y="556.8" textLength="48.8" clip-path="url(#terminal-1763931982-line-22)">[3]&#160;</text><text class="terminal-1763931982-r2" x="48.8" y="556.8" textLength="427" clip-path="url(#terminal-1763931982-line-22)">M&#160;6.5&#160;-&#160;Bonin&#160;Islands,&#160;Japan&#160;region</text><text class="terminal-1763931982-r3" x="475.8" y="556.8" textLength="317.2" clip-path="url(#terminal-1763931982-line-22)">&#160;&#160;earthquakes&#160;·&#160;2024-04-27</text><text class="terminal-1763931982-r2" x="1342" y="556.8" textLength="12.2" clip-path="url(#terminal-1763931982-line-22)">
+</text><text class="terminal-1763931982-r3" x="0" y="581.2" textLength="780.8" clip-path="url(#terminal-1763931982-line-23)">&#160;&#160;&#160;&#160;https://earthquake.usgs.gov/earthquakes/eventpage/us6000mu8k</text><text class="terminal-1763931982-r2" x="1342" y="581.2" textLength="12.2" clip-path="url(#terminal-1763931982-line-23)">
 </text>
     </g>
     </g>
