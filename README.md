@@ -47,9 +47,9 @@ unlimited mirror && unlimited search flood --catalog offline    # works without 
   SEC filings, headlines) about every 2 minutes; the rest every hour. Each feed is a YAML file
   of about 15 lines; [fork them](https://github.com/Fuyuki0/unlimitedpipe-feeds).
 - **History, not only the latest.** Every item the feeds ever listed stays in a monthly
-  archive, 300,000 records back to 2000 (earthquakes, FDA recalls, federal rules, SEC filings
-  and more): ask about a year ("earthquakes in japan in 2024", "crypto hacks in 2022") and the
-  biggest come first, in about a second.
+  archive, 330,000 records back to 1990 (Fed rate decisions, federal rules, sanctions,
+  earthquakes, FDA recalls, SEC filings and more): ask about a year ("earthquakes in japan in
+  2024", "crypto hacks in 2022") and the biggest come first, in about a second.
 - **Answers that cite.** `ask` finds the facts with plain search, then a small local model
   trained for the job answers from them: on 40 blind questions typed the way people type, 90%
   of its answers pass (Qwen3.5 2B, four times its size, 87%), ahead of the 3 to 4B models we
