@@ -11,6 +11,7 @@ import asyncio
 import contextlib
 import hashlib
 import json
+import os
 import random
 import re
 import time
@@ -40,6 +41,13 @@ def normalize_url(url: str) -> str:
     if parts.scheme not in ("http", "https") or not parts.netloc:
         raise FetchError(f"not a web URL: {url!r}", url=url, hint="use an http:// or https:// URL")
     return url
+
+
+def _replace(path: Path, content: bytes) -> None:
+    """Write a file whole or not at all: pipelines run side by side share the cache."""
+    tmp = path.with_name(f"{path.name}.{os.getpid()}.tmp")
+    tmp.write_bytes(content)
+    os.replace(tmp, path)
 
 
 @dataclass
@@ -309,7 +317,7 @@ class HttpClient:
         meta_path, body_path = self._cache_files(response.url)
         try:
             self.cache_dir.mkdir(parents=True, exist_ok=True)
-            body_path.write_bytes(response.content)
+            _replace(body_path, response.content)
             meta = {
                 "url": response.url,
                 "final_url": response.final_url,
@@ -318,7 +326,7 @@ class HttpClient:
                 "encoding": response.encoding,
                 **validators,
             }
-            meta_path.write_text(json.dumps(meta), encoding="utf-8")
+            _replace(meta_path, json.dumps(meta).encode("utf-8"))
         except OSError:
             pass  # the cache is an optimization; never fail a fetch because of it
 

@@ -87,12 +87,16 @@ def test_generated_workflow_is_valid(repo):
     steps = document["jobs"]["run"]["steps"]
     assert steps[0]["with"]["ref"] == "${{ github.ref }}"  # the latest outputs, not a stale commit
     run_step = next(s for s in steps if s.get("name") == "Run the pipelines")
-    assert 'for pipeline in "feeds/prices.yml"' in run_step["run"]
+    assert 'each "feeds/prices.yml"' in run_step["run"]
+    assert "wait -n" in run_step["run"]  # pipelines run side by side, a few at a time
     save_step = next(s for s in steps if s.get("name") == "Save outputs and state")
     assert "git pull --rebase" in save_step["run"]
     assert run_step["env"]["UNLIMITEDPIPE_STATE_DIR"] == ".unlimitedpipe/state"
     assert steps[-1]["with"]["path"] == "public"
     assert document["jobs"]["deploy"]["needs"] == "run"
+    # a run with nothing new commits its state but publishes nothing
+    assert document["jobs"]["deploy"]["if"] == "needs.run.outputs.changed == 'true'"
+    assert steps[-1]["if"] == "steps.save.outputs.changed == 'true'"
     assert document["permissions"] == {"contents": "write", "pages": "write", "id-token": "write"}
 
 
@@ -203,7 +207,7 @@ def test_catalog_publishes_several_pipelines_with_one_workflow(repo):
     assert [i.name for i in p.pipelines] == ["prices", "news"]
     assert p.files == [Path("prices.xml"), Path("data/prices.json"), Path("news.xml")]
     run = yaml.safe_load(workflow(p))["jobs"]["run"]["steps"][3]["run"]
-    assert 'for pipeline in "feeds/prices.yml" "feeds/news.yml"' in run
+    assert 'each "feeds/prices.yml" "feeds/news.yml"' in run
     page = index_page(p, "1h")
     assert page.count('<article class="card"') == 2 and '<p class="desc">Headlines</p>' in page
 
@@ -220,8 +224,8 @@ def test_express_lane_runs_its_pipelines_every_time_and_the_rest_when_due(repo):
     assert p.express == ["feeds/quakes.yml"]
     assert p.cron.endswith("-59/15 * * * *")
     run = yaml.safe_load(workflow(p))["jobs"]["run"]["steps"][3]["run"]
-    assert 'for pipeline in "feeds/quakes.yml"; do run "$pipeline"; done' in run
-    assert 'for pipeline in "feeds/prices.yml"; do run "$pipeline"; done' in run
+    assert 'each "feeds/quakes.yml"\n' in run
+    assert 'each "feeds/prices.yml"\n' in run
     assert '[ "$age" -ge 3300 ]' in run and "last-full-run" in run
     assert 'lane="${{ inputs.lane }}"' in run and '[ "$lane" != express ]' in run
     lane = yaml.safe_load(workflow(p))[True]["workflow_dispatch"]["inputs"]["lane"]

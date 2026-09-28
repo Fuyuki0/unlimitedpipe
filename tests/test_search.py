@@ -240,7 +240,7 @@ def test_the_index_page_searches_the_catalog_in_the_browser(repo):
 
     page = index_page(repo_plan(repo), "1h")
     assert '<input id="q" type="search"' in page
-    assert 'fetch("feeds.json")' in page
+    assert 'fetch("feeds.json", FRESH)' in page
     assert "textContent" in page and "innerHTML" not in page  # feed text is never parsed as HTML
 
 
@@ -280,7 +280,7 @@ def test_workflow_records_results_and_installs_what_it_is_told(repo):
     p = repo_plan(repo)
     p.install = "git+https://github.com/Fuyuki0/unlimitedpipe@v0.5.0"
     text = workflow(p)
-    assert 'echo "$code $1" >> "$RUNNER_TEMP/unlimitedpipe-results"' in text
+    assert 'echo "$code $1" >> "$results"' in text
     assert 'unlimited catalog --results "$RUNNER_TEMP/unlimitedpipe-results"' in text
     assert 'pip install "git+https://github.com/Fuyuki0/unlimitedpipe@v0.5.0"' in text
 

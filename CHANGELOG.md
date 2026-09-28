@@ -3,6 +3,16 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.27 - 2026-09-28
+
+- `publish` workflows run their pipelines side by side, six at a time, so a lane takes as long
+  as its slowest source rather than the sum of all (the catalog's express lane: 1.5-3 minutes
+  down to under half a minute). Each pipeline's log is grouped under its name.
+- A run with nothing new commits its state but skips the Pages upload and deploy.
+- The HTTP cache writes its files whole (pipelines side by side share it).
+- The index page asks the server whether feeds.json and the archive index changed each time,
+  rather than keeping them 10 minutes.
+
 ## 0.10.26 - 2026-09-28
 
 - A listing that answers a yes-or-no question starts with "Found:", not "Yes:": "is there a

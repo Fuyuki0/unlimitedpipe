@@ -238,6 +238,9 @@ def plan(
     )
 
 
+AT_ONCE = 6  # pipelines a workflow run runs side by side
+
+
 def workflow(p: PublishPlan) -> str:
     install_browser = (
         'pip install "playwright>=1.45" && python -m playwright install --with-deps chromium'
@@ -262,17 +265,17 @@ def workflow(p: PublishPlan) -> str:
           # The express lane runs every time; the rest when it last ran {int(p.every)}s ago or
           # more (GitHub starts scheduled runs late or not at all when busy), or when this run
           # was started by hand with lane "all". An outside timer starts it with lane "express".
-          for pipeline in {express}; do run "$pipeline"; done
+          each {express}
           last=$(cat "{STATE_DIR}/last-full-run" 2>/dev/null || echo 0)
           age=$(( $(date +%s) - last ))
           event="${{{{ github.event_name }}}}" lane="${{{{ inputs.lane }}}}"
           {full_run}{browser_in_lane}
-            for pipeline in {rest}; do run "$pipeline"; done
+            each {rest}
             mkdir -p "{STATE_DIR}" && date +%s > "{STATE_DIR}/last-full-run"
           fi"""
     else:
         lanes = f"""
-          for pipeline in {pipelines}; do run "$pipeline"; done"""
+          each {pipelines}"""
     dispatch = "workflow_dispatch:"
     if p.express:
         dispatch = """workflow_dispatch:
@@ -319,33 +322,48 @@ jobs:
           UNLIMITEDPIPE_STATE_DIR: {STATE_DIR}
           GITHUB_TOKEN: ${{{{ secrets.GITHUB_TOKEN }}}}{secrets}
         run: |
-          ok=0
+          results="$RUNNER_TEMP/unlimitedpipe-results"
           run() {{
+            log="$RUNNER_TEMP/$(basename "$1").log"
             set +e
-            unlimited run "$1"
+            unlimited run "$1" > "$log" 2>&1
             code=$?
             set -e
-            echo "$code $1" >> "$RUNNER_TEMP/unlimitedpipe-results"
-            if [ "$code" -eq 0 ]; then
-              ok=$((ok + 1))
-            elif [ "$code" -eq 1 ]; then
-              ok=$((ok + 1))
+            echo "$code $1" >> "$results"
+            {{ echo "::group::$1 (exit $code)"; cat "$log"; echo "::endgroup::"; }}
+            if [ "$code" -eq 1 ]; then
               echo "::warning::$1: some sources failed; publishing the rest"
-            else
+            elif [ "$code" -gt 1 ]; then
               echo "::error::$1 failed (exit $code); publishing the others"
             fi
+          }}
+          # Pipelines read different sources, so they run side by side, {AT_ONCE} at a time:
+          # a lane takes as long as its slowest source, not the sum of them all.
+          each() {{
+            for pipeline in "$@"; do
+              run "$pipeline" &
+              while [ "$(jobs -rp | wc -l)" -ge {AT_ONCE} ]; do wait -n; done
+            done
+            wait
           }}{lanes}
-          [ "$ok" -gt 0 ]  # fail only when nothing could run
+          # fail only when nothing could run
+          [ "$(awk '$1 <= 1' "$results" 2>/dev/null | wc -l)" -gt 0 ]
       - name: Index the feeds for search
         run: >-
           unlimited catalog --results "$RUNNER_TEMP/unlimitedpipe-results" {pipelines}
           || echo "::warning::could not update {site}/{CATALOG}"
       - name: Save outputs and state
+        id: save
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add "{site}"
           if [ -d "{STATE_DIR}" ]; then git add "{STATE_DIR}"; fi
+          if git diff --cached --quiet -- "{site}"; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"  # nothing new to publish
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
           if git diff --cached --quiet; then exit 0; fi
           git commit -m "Update {p.name}"
           for attempt in 1 2 3; do
@@ -354,11 +372,15 @@ jobs:
           done
           exit 1
       - uses: {ACTIONS["upload-pages-artifact"]}
+        if: steps.save.outputs.changed == 'true'
         with:
           path: "{site}"
+    outputs:
+      changed: ${{{{ steps.save.outputs.changed }}}}
 
   deploy:
     needs: run
+    if: needs.run.outputs.changed == 'true'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
@@ -500,6 +522,9 @@ def write_catalog(
 
 SEARCH_SCRIPT = r"""    <script>
       // Searches feeds.json in the browser: no server, no tracking.
+      // The live data asks the server each time whether it changed (GitHub Pages lets browsers
+      // keep it 10 minutes otherwise); an unchanged file costs a 304.
+      const FRESH = { cache: "no-cache" };
       const q = document.getElementById("q"), list = document.getElementById("results"),
         status = document.getElementById("status");
       let catalog = null, response = null;
@@ -511,7 +536,7 @@ SEARCH_SCRIPT = r"""    <script>
       const day = (iso) => (iso || "").slice(0, 10);
       async function load() {
         if (!catalog) {
-          response = await fetch("feeds.json");
+          response = await fetch("feeds.json", FRESH);
           catalog = await response.json();
         }
       }
@@ -566,7 +591,7 @@ SEARCH_SCRIPT = r"""    <script>
             : Math.round(minutes / 60) + " h ago";
         }
         if (!catalog.archive) return;
-        return fetch(catalog.archive).then((r) => r.json()).then((index) => {
+        return fetch(catalog.archive, FRESH).then((r) => r.json()).then((index) => {
           const total = index.months.reduce((n, m) => n + (m.items || 0), 0);
           const months = index.months.map((m) => m.month).sort();
           const stat = document.getElementById("stat-archive");
@@ -621,7 +646,7 @@ SEARCH_SCRIPT = r"""    <script>
       async function searchArchive() {
         const base = catalog.archive.replace(/[^/]*$/, "");
         if (!months) {
-          const index = await (await fetch(catalog.archive)).json();
+          const index = await (await fetch(catalog.archive, FRESH)).json();
           entries = index.months;
           months = entries.map((m) => m.month);
           if (Array.isArray(index.shards)) shards = new Set(index.shards);
