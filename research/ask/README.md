@@ -208,8 +208,13 @@ minutes on the T4.
 
 | Model | Blind (40) | Blind 2 (42) | Real (70) | More English (45) | Not covered (28) |
 | --- | --- | --- | --- | --- | --- |
-| **decide-0.5b build 6** | **36 (90%)** | **32 (76%)** | 67 (95%) | 44 (97%) | **21** |
-| decide-0.5b build 5 | 35 (87%) | 30 (71%) | 66 (94%) | 45 (100%) | 14 |
+| **decide-0.5b build 6** | **36 (90%)** | 28 (67%) | 66 (94%) | 44 (97%) | **21** |
+| decide-0.5b build 5 | 35 (87%) | 29 (69%) | 65 (93%) | 45 (100%) | 14 |
+
+Corrected 2026-09-28: `grade.py` now fails a decision that says "not covered" when the
+sources answer, although the written answer cites the right source as "the closest"; first
+graded, build 6 had 32 of 42 on blind set 2 and build 5 30. With the stricter grading build 6
+calls more answered questions not covered, and is one question behind build 5 there.
 
 Seven more "not covered" questions right, three listings now wrongly called not covered
 ("stablecoin supply change", "cyber attack disclosed to sec", a Thai typhoon question) and one
@@ -233,4 +238,4 @@ same way (other models on Kaggle, 16-bit; ours through Ollama, 8-bit):
 The leads on the earlier sets (95% against Qwen3.5 4B's 80%) were mostly from questions that
 shaped our models; on blind questions the 0.5B model ties with a 2B one and is ahead of the 3
 to 4B ones. On the second blind set, build 5 passes 30 of 42 (71%), and only 4 of the 12
-questions the sources do not answer; build 6 passes 32 (76%), and 7 of the 12.
+questions the sources do not answer; build 6 passes 28 (67%, graded strictly), and 7 of the 12.

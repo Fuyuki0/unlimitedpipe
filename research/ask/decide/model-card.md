@@ -31,12 +31,16 @@ their answers:
 
 | Model | Blind (40) | Blind 2 (42) | Real (70) | More English (45) | Median time on 2 CPUs |
 | --- | --- | --- | --- | --- | --- |
-| **unlimitedpipe/decide-0.5b, build 6 (this model)** | **36 (90%)** | **32 (76%)** | 67 (95%) | 44 (97%) | 3 to 5 s |
-| unlimitedpipe/decide-0.5b, build 5 | 35 (87%) | 30 (71%) | 66 (94%) | 45 (100%) | 3 to 5 s |
+| **unlimitedpipe/decide-0.5b, build 6 (this model)** | **36 (90%)** | 28 (67%) | 66 (94%) | 44 (97%) | 3 to 5 s |
+| unlimitedpipe/decide-0.5b, build 5 | 35 (87%) | 29 (69%) | 65 (93%) | 45 (100%) | 3 to 5 s |
 | unlimitedpipe/ask-0.5b, build 4 (writes its answers) | 35 (87%) | | 67 (95%) | 45 (100%) | about 13 s |
 | Qwen3.5 2B (writes its answers) | 35 (87%) | | 45 (64%) | 29 (64%) | |
 | Phi-4 mini (writes its answers) | 34 (85%) | | 42 (60%) | 34 (75%) | |
 | Qwen3.5 4B (writes its answers) | 31 (77%) | | 56 (80%) | 39 (86%) | |
+
+Graded strictly (corrected 2026-09-28): an answer that says the sources do not answer fails
+when they do, even though it cites the right source as "the closest". The first version of this
+card counted those, and gave build 6 32 of 42 on blind set 2.
 
 Read the blind columns first: those questions were written before the model was trained and
 never used to build or tune it. The real and English sets shaped these models and flatter them.

@@ -44,7 +44,11 @@ def cited(answer: str) -> set[int]:
     return {int(n) for group in CITE.findall(answer) for n in group.split(",")}
 
 
-def check(example: dict, answer: str) -> dict[str, bool]:
+# How the code writes a "none of the sources answers" decision; it still cites the closest.
+REFUSED = ("The sources do not answer", "Nothing in the sources", "แหล่งข่าวไม่ได้ตอบ", "ไม่พบข้อมูล")
+
+
+def check(example: dict, answer: str, decided: bool = False) -> dict[str, bool]:
     prompt = example["messages"][0]["content"]
     found, gold = cited(answer), set(example["gold"])
     checks = {"answered": bool(answer.strip())}
@@ -53,6 +57,8 @@ def check(example: dict, answer: str) -> dict[str, bool]:
     else:
         need = 1 if example["kind"] == "lookup" else min(3, len(gold))
         checks["cites the right source"] = len(found & gold) >= need
+        if decided:  # "not covered, the closest is [1]" cites [1] and still refuses
+            checks["does not refuse"] = not answer.startswith(REFUSED)
     checks["cites a few, not all"] = len(found - gold) <= 2
     checks["invents no number"] = not unsupported_numbers(re.sub(CITE, " ", answer), prompt)
     checks["cites only real sources"] = all(1 <= n <= example["sources"] for n in found)
@@ -133,9 +139,10 @@ def main() -> None:
         kinds = collections.defaultdict(lambda: [0, 0])
         for example, a in zip(examples, given, strict=True):
             answer = a["answer"]
-            if name.endswith("decide"):  # a decision: grade the answer the code writes from it
+            decided = name.endswith("decide")
+            if decided:  # a decision: grade the answer the code writes from it
                 answer = written(example, answer)
-            checks = check(example, answer)
+            checks = check(example, answer, decided)
             ok = all(checks.values())
             passed += ok
             kinds[example["kind"]][0] += ok
