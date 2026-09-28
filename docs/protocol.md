@@ -64,6 +64,7 @@ with one request.
 | `health` | `status`: `ok` (the last run worked), `partial` (some sources failed) or `failing`; `since`: when that status began; `latest`: the newest item's date. |
 | `items` | MUST be a list of the latest items of every feed, newest first. Each has `feed` (a feed's `name`), `title` (MUST), `link` (SHOULD, an absolute URL of the original), `date` (ISO 8601, UTC, or null) and `summary` (text or null). A catalog SHOULD list the same story once per feed. |
 | `archive` | MAY point to the archive index (section 3). |
+| `live` | MAY be the absolute URL of another catalog document holding newer items of some of these feeds (a server polling them every minute). Readers SHOULD merge its `items` in, once per story, when it answers within a few seconds, and use this catalog alone otherwise. |
 
 ## 2. Feed files
 

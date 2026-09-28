@@ -144,3 +144,42 @@ def test_pipeline_file_is_reloaded_and_bad_edits_are_ignored(tmp_path, capsys):
     rows = [json.loads(line)["n"] for line in out.read_text().splitlines()]
     assert rows == [1, 2, 2, 1]  # the invalid third edit kept the second version running
     assert "still running the previous version" in capsys.readouterr().err
+
+
+def test_several_pipelines_run_side_by_side_and_write_a_live_catalog(tmp_path, monkeypatch):
+    import subprocess
+
+    from unlimitedpipe.watch import WatchMany
+
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    monkeypatch.setenv("UNLIMITEDPIPE_STATE_DIR", str(tmp_path / "state"))
+    (tmp_path / "feeds").mkdir()
+    for name in ("quakes", "storms"):
+        data = tmp_path / f"{name}.json"
+        data.write_text(
+            json.dumps(
+                [
+                    {
+                        "title": f"{name} one",
+                        "link": f"https://x/{name}/1",
+                        "date": "2026-09-28T10:00:00Z",
+                    }
+                ]
+            )
+        )
+        (tmp_path / "feeds" / f"{name}.yml").write_text(
+            f"""name: {name}
+sources:
+  - {{type: file, path: {data}}}
+operators:
+  - {{type: map, assign: ['published_at=date']}}
+outputs:
+  - {{type: feed, path: ../public/{name}.json, title: {name}}}
+"""
+        )
+    paths = [tmp_path / "feeds" / "quakes.yml", tmp_path / "feeds" / "storms.yml"]
+    WatchMany(paths, catalog=True, every=60, times=1, quiet=True, sleep=lambda s: None).run()
+    document = json.loads((tmp_path / "public" / "feeds.json").read_text())
+    assert sorted(f["name"] for f in document["feeds"]) == ["quakes", "storms"]
+    assert sorted(i["title"] for i in document["items"]) == ["quakes one", "storms one"]
+    assert not (tmp_path / "public" / "archive").exists()  # a live copy keeps no archive

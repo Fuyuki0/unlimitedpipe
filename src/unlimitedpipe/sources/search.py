@@ -340,7 +340,32 @@ async def load_catalog(ctx: Context, url: str) -> dict[str, Any]:
             url=url,
             hint="point --catalog at a site made by `unlimited publish` (it serves feeds.json)",
         )
-    return document
+    return await with_live(ctx, document)
+
+
+LIVE_TIMEOUT = 3.0  # a live copy that is slow to answer is skipped, not waited for
+
+
+async def with_live(ctx: Context, document: dict[str, Any]) -> dict[str, Any]:
+    """The catalog with the newer items of its live copy merged in (a server polling its
+    time-sensitive feeds every minute), when it names one that answers quickly; as it is
+    otherwise."""
+    live = document.get("live")
+    if not (isinstance(live, str) and _is_web(live)):
+        return document
+    try:
+        response = await ctx.http.get(
+            live, timeout=LIVE_TIMEOUT, retries=0, interval=CATALOG_INTERVAL, cache=False
+        )
+        items = json.loads(response.content).get("items") or []
+    except (FetchError, ValueError, AttributeError):
+        return document
+    merged = {item_key(i): i for i in document.get("items", []) if isinstance(i, dict)}
+    for item in items:
+        if isinstance(item, dict):
+            merged.setdefault(item_key(item), item)
+    ordered = sorted(merged.values(), key=lambda i: str(i.get("date") or ""), reverse=True)
+    return {**document, "items": ordered}
 
 
 async def items_since(

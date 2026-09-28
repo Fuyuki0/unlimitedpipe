@@ -3,6 +3,15 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.28 - 2026-09-28
+
+- A live lane: `unlimited watch --every 1m --catalog a.yml b.yml ...` runs several pipelines
+  side by side each round in one process, and writes feeds.json for them next to their
+  outputs (no archive). `publish --live URL` names such a copy in the catalog (`live`, see the
+  protocol), and `search`, `ask` and the index page merge its newer items in when it answers
+  within 3 seconds, and use the catalog alone otherwise.
+- Feed files are written whole (a web server may serve them while they change).
+
 ## 0.10.27 - 2026-09-28
 
 - `publish` workflows run their pipelines side by side, six at a time, so a lane takes as long

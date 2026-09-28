@@ -64,6 +64,9 @@ class PublishPlan:
     about: str | None = None  # a sentence under the title on the index page
     groups: list[str] = field(default_factory=list)  # the order of the index page's topics
     links: list[tuple[str, str]] = field(default_factory=list)  # (label, url) in its header
+    # A live copy of part of the catalog (`unlimited watch --catalog` on a server), newer than
+    # this one: readers merge its items in when they can reach it.
+    live: str | None = None
     # The express lane: pipelines run by every scheduled run (every `express_every`); the
     # others run when `every` seconds have passed since they last did.
     express: list[str] = field(default_factory=list)
@@ -464,6 +467,7 @@ def catalog(
         # A catalog keeps its title between runs: the hourly `unlimited catalog` has none.
         "title": p.title or (previous or {}).get("title") or p.name,
         "archive": "archive/index.json",  # every item ever listed, by month
+        **({"live": live} if (live := p.live or (previous or {}).get("live")) else {}),
         "feeds": feeds,
         "items": items,
     }
@@ -538,7 +542,21 @@ SEARCH_SCRIPT = r"""    <script>
         if (!catalog) {
           response = await fetch("feeds.json", FRESH);
           catalog = await response.json();
+          if (catalog.live) await withLive();
         }
+      }
+      // A live copy of the time-sensitive feeds, polled every minute on a server: its newer
+      // items are merged in when it answers within 3 seconds.
+      async function withLive() {
+        try {
+          const live = await fetch(catalog.live,
+            { cache: "no-cache", signal: AbortSignal.timeout(3000) }).then((r) => r.json());
+          const key = (i) => i.feed + "\n" + i.link + "\n" + (i.title || "").toLowerCase();
+          const seen = new Set(catalog.items.map(key));
+          const newer = (live.items || []).filter((i) => !seen.has(key(i)));
+          catalog.items = newer.concat(catalog.items)
+            .sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+        } catch (e) { /* the catalog as GitHub serves it */ }
       }
       const names = () => Object.fromEntries(catalog.feeds.map((f) => [f.name,
         f.title || f.name.replaceAll("-", " ")]));

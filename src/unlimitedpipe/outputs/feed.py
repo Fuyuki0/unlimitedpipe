@@ -7,6 +7,7 @@ feed with ``unlimited rss`` gets the original events back, provenance included.
 from __future__ import annotations
 
 import json
+import os
 import re
 import xml.etree.ElementTree as ET
 from datetime import UTC, datetime
@@ -194,12 +195,17 @@ class Feed(Output):
         if existing is not None and not self._events:
             return  # nothing new: leave the file (and its build date) exactly as it was
         text = builder(self._meta(existing), existing)
-        stream, is_stdout = open_target(self.path)
-        stream.write(text)
-        if is_stdout:
+        if self.path in (None, "-"):
+            stream, _ = open_target(self.path)
+            stream.write(text)
             stream.flush()
-        else:
-            stream.close()
+            return
+        # Whole or not at all: a web server may be serving the file while it is rewritten.
+        target = Path(self.path).expanduser()
+        target.parent.mkdir(parents=True, exist_ok=True)
+        tmp = target.with_name(f".{target.name}.{os.getpid()}.tmp")
+        tmp.write_text(text, encoding="utf-8", newline="")
+        os.replace(tmp, target)
 
     def _rss(self, meta: dict[str, str], existing: str | None) -> str:
         rss = ET.Element("rss", {"version": "2.0"})

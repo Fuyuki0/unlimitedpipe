@@ -257,3 +257,16 @@ def test_only_runs_that_run_a_browser_pipeline_install_the_browser(repo):
     assert lanes.index("playwright install") > lanes.index('[ "$age" -ge 3300 ]')
     first = yaml.safe_load(workflow(plan(items, 3600, express=["bank"], express_every=900)))
     assert "playwright install" in first["jobs"]["run"]["steps"][3]["run"]  # a step of its own
+
+
+def test_the_live_copy_is_named_in_the_catalog_and_kept_between_runs(repo):
+    from unlimitedpipe.publish import catalog
+
+    path = repo / "feeds" / "prices.yml"
+    p = plan([(path, load_pipeline(path))], 3600)
+    p.live = "https://example.com/live/feeds.json"
+    first = catalog(p)
+    assert first["live"] == "https://example.com/live/feeds.json"
+    hourly = plan([(path, load_pipeline(path))], 3600)  # `unlimited catalog` knows no --live
+    assert catalog(hourly, previous=first)["live"] == first["live"]
+    assert "live" not in catalog(hourly)

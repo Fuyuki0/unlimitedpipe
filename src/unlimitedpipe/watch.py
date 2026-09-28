@@ -139,3 +139,105 @@ class Watch:
                 next_at = (datetime.now() + timedelta(seconds=wait)).strftime("%H:%M:%S")
                 self.say(f"{summary}; next run at {next_at}")
             self.sleep(wait)
+
+
+class WatchMany(Watch):
+    """Several pipeline files, run side by side each round in one process: a live lane for a
+    catalog's time-sensitive feeds on a small server. Each file is reloaded when it changes.
+    With ``catalog``, the round ends by writing feeds.json for these pipelines next to their
+    outputs (no archive), for readers that merge it into the full catalog."""
+
+    def __init__(self, paths: list[Path], *, catalog: bool = False, **options) -> None:
+        super().__init__(lambda: None, **options)  # type: ignore[arg-type, return-value]
+        self.paths = paths
+        self.catalog = catalog
+        self.loaded: dict[Path, tuple[float | None, Pipeline]] = {}
+
+    def _pipelines(self) -> list[tuple[Path, Pipeline]]:
+        from unlimitedpipe.config import load_pipeline
+
+        for path in self.paths:
+            try:
+                mtime = path.stat().st_mtime
+            except OSError:
+                mtime = None
+            known = self.loaded.get(path)
+            if known and known[0] == mtime:
+                continue
+            try:
+                self.loaded[path] = (mtime, load_pipeline(path))
+                if known:
+                    self.say(f"reloaded {path}")
+            except UnlimitedError as exc:
+                self.say(f"{path}: {exc.message}; still running the previous version", dim=False)
+        return [(path, self.loaded[path][1]) for path in self.paths if path in self.loaded]
+
+    async def _round(self, pipelines: list[tuple[Path, Pipeline]]) -> dict[str, int]:
+        from unlimitedpipe.context import Context
+        from unlimitedpipe.engine import run_pipeline
+
+        async def one(path: Path, pipeline: Pipeline) -> tuple[str, int, int]:
+            ctx = Context(errors_as_events=pipeline.errors_as_events, quiet=self.quiet)
+            try:
+                count = await run_pipeline(
+                    pipeline.sources, pipeline.operators, pipeline.outputs, ctx
+                )
+            except Exception as exc:  # one pipeline's failure never stops the others
+                message = exc.message if isinstance(exc, UnlimitedError) else repr(exc)
+                click.echo(
+                    click.style("error: ", fg="red", bold=True) + f"{path}: {message}", err=True
+                )
+                return str(path), 0, 2
+            finally:
+                await ctx.aclose()
+            return str(path), count, 1 if ctx.failures else 0
+
+        done = await asyncio.gather(*(one(path, pipeline) for path, pipeline in pipelines))
+        self.events = sum(count for _, count, _ in done)
+        return {path: code for path, _, code in done}
+
+    def _write_catalog(self, pipelines: list[tuple[Path, Pipeline]], codes: dict[str, int]) -> None:
+        import json
+        import os
+
+        from unlimitedpipe.publish import CATALOG, catalog, plan
+
+        p = plan(pipelines, 3600)
+        path = p.root / p.site_dir / CATALOG
+        try:
+            previous = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            previous = None
+        results = {str(Path(k).resolve().relative_to(p.root)): v for k, v in codes.items()}
+        text = json.dumps(catalog(p, results=results, previous=previous), ensure_ascii=False)
+        tmp = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+        tmp.write_text(text + "\n", encoding="utf-8")
+        os.replace(tmp, path)
+
+    def run(self) -> None:
+        every = format_duration(self.every)
+        self.say(f"watching {len(self.paths)} pipelines every {every}; Ctrl+C to stop")
+        while True:
+            self.runs += 1
+            started = time.monotonic()
+            pipelines = self._pipelines()
+            codes = asyncio.run(self._round(pipelines))
+            failed = sum(code > 0 for code in codes.values())
+            if self.catalog and pipelines:
+                try:
+                    self._write_catalog(pipelines, codes)
+                except (UnlimitedError, OSError, ValueError) as exc:
+                    self.say(f"feeds.json not written: {exc}", dim=False)
+            summary = f"run {self.runs}: {self.events} event(s) from {len(codes)} pipeline(s)"
+            if failed:
+                summary += f", {failed} with failures"
+            took = time.monotonic() - started
+            summary += f" in {took:.1f}s"
+            if self.times is not None and self.runs >= self.times:
+                self.say(summary)
+                return
+            wait = max(
+                0.0, started + self.every * (1 + random.uniform(0, self.jitter)) - time.monotonic()
+            )
+            self.say(summary)
+            self.sleep(wait)

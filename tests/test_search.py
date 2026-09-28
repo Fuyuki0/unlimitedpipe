@@ -367,3 +367,32 @@ def test_a_word_the_archive_knows_is_no_typo():
     document = {"feeds": [], "items": [{"title": "Reddio raises funds", "summary": ""}]}
     assert corrected(["reddit"], document) == (["reddio"], {"reddit": "reddio"})
     assert corrected(["reddit"], document, {"reddit"}) == (["reddit"], {})
+
+
+def test_a_catalog_merges_the_newer_items_of_its_live_copy(web, make_ctx):
+    import asyncio
+
+    from unlimitedpipe.sources.search import load_catalog
+
+    old = {"feed": "quakes", "title": "M 5.0 - old", "link": "q/1", "date": "2026-09-28T10:00:00Z"}
+    new = {"feed": "quakes", "title": "M 6.1 - new", "link": "q/2", "date": "2026-09-28T10:05:00Z"}
+    catalog = {
+        "schema": "unlimitedpipe.catalog/1",
+        "live": "https://live.example/feeds.json",
+        "feeds": [{"name": "quakes"}],
+        "items": [old],
+    }
+    web.add("https://c.example/feeds.json", json.dumps(catalog), content_type="application/json")
+    web.add(
+        "https://live.example/feeds.json",
+        json.dumps({"items": [new, old]}),
+        content_type="application/json",
+    )
+    ctx = make_ctx()
+    document = asyncio.run(load_catalog(ctx, "https://c.example/feeds.json"))
+    assert [i["title"] for i in document["items"]] == ["M 6.1 - new", "M 5.0 - old"]
+    # a live copy that cannot be reached leaves the catalog as it is
+    catalog["live"] = "https://down.example/feeds.json"
+    web.add("https://c2.example/feeds.json", json.dumps(catalog), content_type="application/json")
+    document = asyncio.run(load_catalog(make_ctx(), "https://c2.example/feeds.json"))
+    assert [i["title"] for i in document["items"]] == ["M 5.0 - old"]

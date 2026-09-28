@@ -261,22 +261,36 @@ def run_command(ctx: click.Context, target: tuple[str, ...], validate: bool) -> 
     show_default=True,
     help="Random extra delay, as a fraction of the interval.",
 )
+@click.option(
+    "--catalog",
+    "write_catalog",
+    is_flag=True,
+    help="With several pipeline files: after each round, write feeds.json for them next to "
+    "their outputs (a live copy of part of a catalog).",
+)
 @click.pass_context
 def watch_command(
-    ctx: click.Context, target: tuple[str, ...], every: str, times: int | None, jitter: float
+    ctx: click.Context,
+    target: tuple[str, ...],
+    every: str,
+    times: int | None,
+    jitter: float,
+    write_catalog: bool,
 ) -> None:
     """Run a pipeline repeatedly, in one process, until Ctrl+C.
 
     A failed run is reported and the watch continues. A pipeline file is reloaded when it
     changes. Outputs run once per round: `feed` keeps its history, and jsonl files need
     `append: true` to keep earlier rounds. Combine with `diff` to see only what changed.
+    Several pipeline files run side by side each round, in the same process.
 
     \b
     Examples:
       unlimited watch --every 1h pipeline.yml
       unlimited watch --every 30m web https://store.example/p -- diff -- feed prices.xml
+      unlimited watch --every 1m --catalog feeds/earthquakes.yml feeds/tsunami-alerts.yml
     """
-    from unlimitedpipe.watch import MIN_INTERVAL, Watch, parse_duration
+    from unlimitedpipe.watch import MIN_INTERVAL, Watch, WatchMany, parse_duration
 
     seconds = parse_duration(every)
     if seconds < MIN_INTERVAL:
@@ -288,8 +302,20 @@ def watch_command(
         raise UsageError("--times must be at least 1")
     if not 0 <= jitter <= 1:
         raise UsageError("--jitter must be between 0 and 1")
-    pipeline, path = _load(target)
     options = ctx.obj or {}
+    if len(target) > 1 and all(t.endswith((".yml", ".yaml")) for t in target):
+        WatchMany(
+            [Path(t) for t in target],
+            catalog=write_catalog,
+            every=seconds,
+            jitter=jitter,
+            times=times,
+            quiet=options.get("quiet", False),
+        ).run()
+        return
+    if write_catalog:
+        raise UsageError("--catalog needs several pipeline files")
+    pipeline, path = _load(target)
     if options.get("errors_as_events"):
         pipeline.errors_as_events = True
 
@@ -429,6 +455,12 @@ def _load_for_publishing(pipelines: tuple[Path, ...]):
     metavar="LABEL=URL",
     help="A link in the index page's header, e.g. GitHub=https://github.com/you/feeds.",
 )
+@click.option(
+    "--live",
+    metavar="URL",
+    help="The feeds.json of a live copy of some of these feeds (`unlimited watch --catalog` on "
+    "a server): search, ask and the index page merge its newer items in.",
+)
 @click.pass_context
 def publish_command(
     ctx: click.Context,
@@ -443,6 +475,7 @@ def publish_command(
     express_every: str,
     groups: tuple[str, ...],
     links: tuple[str, ...],
+    live: str | None,
 ) -> None:
     """Host pipelines' outputs for free: GitHub Actions runs them, GitHub Pages serves them.
 
@@ -476,6 +509,10 @@ def publish_command(
             raise UsageError("--install must be a pip requirement or URL without quotes")
         p.install = install
     p.title, p.about, p.groups = title, about, list(groups)
+    if live:
+        if not live.startswith(("https://", "http://")):
+            raise UsageError(f"--live takes the URL of a feeds.json, not {live!r}")
+        p.live = live
     for link in links:
         label, _, url = link.partition("=")
         if not (label.strip() and url.startswith(("https://", "http://"))):
