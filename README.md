@@ -42,8 +42,8 @@ unlimited mirror && unlimited search flood --catalog offline    # works without 
   Actions: SEC filings and insider trades, sanctions, new rules, rate decisions, economic data
   and market closes, disasters and solar storms, disease outbreaks, crypto, business and tech,
   and news from every region. Time-sensitive ones (disasters, security incidents, SEC filings)
-  are in an express lane that runs every 5 minutes, the rest every hour. Each feed is a YAML
-  file of about 15 lines; [fork them](https://github.com/Fuyuki0/unlimitedpipe-feeds).
+  are in an express lane that runs about every 2 minutes, the rest every hour. Each feed is a
+  YAML file of about 15 lines; [fork them](https://github.com/Fuyuki0/unlimitedpipe-feeds).
 - **History, not only the latest.** Every item the feeds ever listed stays in a monthly
   archive, 300,000 records back to 2000 (earthquakes, FDA recalls, federal rules, SEC filings
   and more): ask about a year ("earthquakes in japan in 2024", "crypto hacks in 2022") and the
