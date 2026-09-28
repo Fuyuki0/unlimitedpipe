@@ -3,6 +3,15 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.11 - 2026-09-28
+
+- `unlimited sec company-events`: 8-K filings that report a bankruptcy, a completed
+  acquisition, layoffs, an impairment, a delisting notice, an auditor change, a restatement,
+  a change in control or a cybersecurity incident.
+- `sec activist-stakes` and `sec company-events` take `--since` and `--until`: a period that
+  ends before today is read from EDGAR's full-text search, so `unlimited backfill` can fill an
+  archive with years of them, titled the same as the latest ones.
+
 ## 0.10.10 - 2026-09-28
 
 - `unlimited sec ipo-filings --since DATE --until DATE`: new S-1 and F-1 registrations by

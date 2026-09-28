@@ -171,6 +171,166 @@ def headline(trade: dict[str, Any]) -> str:
 _STAKE = re.compile(r"^SCHEDULE 13D(/A)? - (.*?) \((\d+)\) \((Subject|Filed by)\)$")
 
 
+def clean_name(display: str) -> str:
+    """A name as EDGAR's search shows it, without the CIK, today's ticker or a state tag:
+    "Reddit, Inc.  (RDDT)  (CIK 0001713445)" -> "Reddit, Inc."."""
+    name = re.sub(r"\s*\(CIK \d+\)\s*$", "", display)
+    name = re.sub(r"\s*\([A-Z0-9., -]{1,30}\)\s*$", "", name)
+    return re.sub(r"\s*/\s*[A-Z]{2,5}\s*/?\s*$", "", " ".join(name.split()))
+
+
+def stake_title(stake: dict[str, Any]) -> str:
+    who = " and ".join(stake["investors"]) or "An investor"
+    if stake["amendment"]:
+        return f"{stake['company']}: {who} updated a stake of 5% or more (Schedule 13D/A)"
+    return f"{stake['company']}: {who} disclosed a stake of 5% or more (Schedule 13D)"
+
+
+def searched_stake(hit: dict[str, Any]) -> dict[str, Any] | None:
+    """A Schedule 13D from EDGAR's full-text search: it names the company first, then the
+    investors."""
+    source = hit.get("_source") or {}
+    names, ciks = source.get("display_names") or [], source.get("ciks") or []
+    ident = str(hit.get("_id") or "")
+    if not (names and ciks and ":" in ident and source.get("file_date")):
+        return None
+    accession = ident.split(":", 1)[0]
+    cik = str(int(ciks[0]))
+    investors: list[str] = []
+    for name in names[1:]:
+        if (person := person_name(clean_name(name))) not in investors:
+            investors.append(person)
+    stake = {
+        "company": " ".join(_entity_word(w) for w in clean_name(names[0]).split()),
+        "investors": investors,
+        "amendment": str(source.get("form") or "").endswith("/A"),
+        "filed_at": f"{source['file_date']}T00:00:00Z",
+        "link": f"https://www.sec.gov/Archives/edgar/data/{cik}/{accession.replace('-', '')}/"
+        f"{accession}-index.htm",
+        "accession": accession,
+    }
+    return {"title": stake_title(stake), **stake}
+
+
+# The 8-K items a company-events feed follows, and how its titles name them.
+EVENTS = {
+    "1.03": "bankruptcy or receivership",
+    "1.05": "cybersecurity incident",
+    "2.01": "completed an acquisition or sale of assets",
+    "2.05": "layoffs or exit costs",
+    "2.06": "material impairment",
+    "3.01": "delisting notice or listing transfer",
+    "4.01": "auditor change",
+    "4.02": "past financial statements can no longer be relied on",
+    "5.01": "change in control",
+}
+ITEMS = {  # every 8-K item, by the name the form gives it
+    "1.01": "Entry into a Material Definitive Agreement",
+    "1.02": "Termination of a Material Definitive Agreement",
+    "1.03": "Bankruptcy or Receivership",
+    "1.04": "Mine Safety - Reporting of Shutdowns and Patterns of Violations",
+    "1.05": "Material Cybersecurity Incidents",
+    "2.01": "Completion of Acquisition or Disposition of Assets",
+    "2.02": "Results of Operations and Financial Condition",
+    "2.03": "Creation of a Direct Financial Obligation or an Obligation under an Off-Balance "
+    "Sheet Arrangement of a Registrant",
+    "2.04": "Triggering Events That Accelerate or Increase a Direct Financial Obligation or "
+    "an Obligation under an Off-Balance Sheet Arrangement",
+    "2.05": "Costs Associated with Exit or Disposal Activities",
+    "2.06": "Material Impairments",
+    "3.01": "Notice of Delisting or Failure to Satisfy a Continued Listing Rule or Standard; "
+    "Transfer of Listing",
+    "3.02": "Unregistered Sales of Equity Securities",
+    "3.03": "Material Modification to Rights of Security Holders",
+    "4.01": "Changes in Registrant's Certifying Accountant",
+    "4.02": "Non-Reliance on Previously Issued Financial Statements or a Related Audit Report "
+    "or Completed Interim Review",
+    "5.01": "Changes in Control of Registrant",
+    "5.02": "Departure of Directors or Certain Officers; Election of Directors; Appointment of "
+    "Certain Officers; Compensatory Arrangements of Certain Officers",
+    "5.03": "Amendments to Articles of Incorporation or Bylaws; Change in Fiscal Year",
+    "5.04": "Temporary Suspension of Trading Under Registrant's Employee Benefit Plans",
+    "5.05": "Amendments to the Registrant's Code of Ethics, or Waiver of a Provision of the "
+    "Code of Ethics",
+    "5.06": "Change in Shell Company Status",
+    "5.07": "Submission of Matters to a Vote of Security Holders",
+    "5.08": "Shareholder Director Nominations",
+    "7.01": "Regulation FD Disclosure",
+    "8.01": "Other Events",
+    "9.01": "Financial Statements and Exhibits",
+}
+
+
+def company_event(
+    company: str, items: list[str], filed_at: str, link: str, accession: str, lines: list[str]
+) -> dict[str, Any] | None:
+    """An 8-K as a company event, named after its first item the feed follows."""
+    event = next((EVENTS[i] for i in items if i in EVENTS), None)
+    if event is None:
+        return None
+    return {
+        "title": f"{company}: {event}",
+        "company": company,
+        "event": event,
+        "items": items,
+        "summary": "\n".join(lines),
+        "filed_at": filed_at,
+        "published_at": filed_at,
+        "link": link,
+        "accession": accession,
+    }
+
+
+def searched_event(hit: dict[str, Any]) -> dict[str, Any] | None:
+    source = hit.get("_source") or {}
+    names, ciks = source.get("display_names") or [], source.get("ciks") or []
+    ident = str(hit.get("_id") or "")
+    if not (names and ciks and ":" in ident and source.get("file_date")):
+        return None
+    items = sorted(str(i) for i in source.get("items") or [])
+    accession = ident.split(":", 1)[0]
+    cik = str(int(ciks[0]))
+    return company_event(
+        clean_name(names[0]),
+        items,
+        f"{source['file_date']}T00:00:00Z",
+        f"https://www.sec.gov/Archives/edgar/data/{cik}/{accession.replace('-', '')}/"
+        f"{accession}-index.htm",
+        accession,
+        [f"Item {i}: {ITEMS[i]}" for i in items if i in ITEMS],
+    )
+
+
+_8K = re.compile(r"^8-K(/A)? - (.*?) \((\d+)\) \(Filer\)$")
+_ITEM = re.compile(r"Item (\d\.\d\d):\s*(.+?)(?=\s*Item \d\.\d\d:|$)", re.DOTALL)
+
+
+def listed_events(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Company events from EDGAR's list of current 8-K filings, each filing once."""
+    from unlimitedpipe.sources.rss import strip_html
+
+    found: dict[str, dict[str, Any]] = {}
+    for entry in entries:
+        match = _8K.match(" ".join((entry.get("title") or "").split()))
+        link = entry.get("link") or ""
+        if not match or not link.endswith("-index.htm"):
+            continue
+        accession = link.rsplit("/", 1)[-1].removesuffix("-index.htm")
+        text = strip_html(entry.get("summary") or "")
+        pairs = [(m[1], " ".join(m[2].split())) for m in _ITEM.finditer(text)]
+        event = company_event(
+            match.group(2).strip(),
+            [number for number, _ in pairs],
+            entry.get("updated") or "",
+            link,
+            accession,
+            [f"Item {number}: {name}" for number, name in pairs],
+        )
+        if event and accession not in found:
+            found[accession] = event
+    return list(found.values())
+
+
 def stakes(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Schedule 13D filings from EDGAR's list of current filings. The list names each filing
     once per party, the company (Subject) and each investor (Filed by), so entries are joined
@@ -199,17 +359,7 @@ def stakes(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
             stake["link"] = link  # the company's copy of the filing
         elif name not in stake["investors"]:
             stake["investors"].append(person_name(name))
-    found = []
-    for stake in joined.values():
-        if not stake["company"]:
-            continue
-        who = " and ".join(stake["investors"]) or "An investor"
-        if stake["amendment"]:
-            title = f"{stake['company']}: {who} updated a stake of 5% or more (Schedule 13D/A)"
-        else:
-            title = f"{stake['company']}: {who} disclosed a stake of 5% or more (Schedule 13D)"
-        found.append({"title": title, **stake})
-    return found
+    return [{"title": stake_title(s), **s} for s in joined.values() if s["company"]]
 
 
 class Sec(Source):
@@ -218,9 +368,16 @@ class Sec(Source):
     `activist-stakes` lists the latest Schedule 13D filings: an investor that owns 5% or more
     of a company and may seek to influence it, with 13D/A when a stake changes.
 
+    `company-events` lists 8-K filings that report a bankruptcy, a completed acquisition,
+    layoffs, an impairment, a delisting notice, an auditor change, a restatement, a change in
+    control or a cybersecurity incident.
+
     `ipo-filings` lists new S-1 and F-1 registrations filed from --since to --until (the
     last week by default) by companies that were not public yet: a company that had already
     filed annual or quarterly reports is registering more shares, not going public.
+
+    With --until before today, `activist-stakes` and `company-events` read that period from
+    EDGAR's full-text search instead of its list of the latest filings, to fill an archive.
 
     `insider-trades` reads the latest Form 4 filings and turns each into readable trades:
     who (and their role) bought or sold how many shares of which company, at what price and
@@ -239,11 +396,14 @@ class Sec(Source):
         "unlimited sec insider-trades --code P    # purchases only",
         "unlimited sec activist-stakes              # who took 5%+ of which company",
         "unlimited sec ipo-filings --since 2024-02-01 --until 2024-02-29",
+        "unlimited sec company-events --since 2024-03-01 --until 2024-03-31",
     )
 
-    resource: Literal["insider-trades", "activist-stakes", "ipo-filings"] = arg("What to read")
-    since: str | None = opt("ipo-filings: first day (YYYY-MM-DD; default a week ago)", default=None)
-    until: str | None = opt("ipo-filings: last day (YYYY-MM-DD; default today)", default=None)
+    resource: Literal["insider-trades", "activist-stakes", "company-events", "ipo-filings"] = arg(
+        "What to read"
+    )
+    since: str | None = opt("First day filed (YYYY-MM-DD; default a week ago)", default=None)
+    until: str | None = opt("Last day filed (YYYY-MM-DD; default today)", default=None)
     contact: str | None = opt(
         "Contact email the SEC asks for (default: $SEC_CONTACT)", default=None, secret=True
     )
@@ -284,8 +444,16 @@ class Sec(Source):
             )
         # The SEC turns away User-Agents that carry a URL, so this one is name and email only.
         agent = f"UnlimitedPipe/{__version__} {contact}"
+        if self.resource in ("activist-stakes", "company-events") and self._past():
+            async for event in self._searched(ctx, agent):
+                yield event
+            return
         if self.resource == "activist-stakes":
             async for event in self._stakes(ctx, agent):
+                yield event
+            return
+        if self.resource == "company-events":
+            async for event in self._events(ctx, agent):
                 yield event
             return
         if self.resource == "ipo-filings":
@@ -376,12 +544,91 @@ class Sec(Source):
                 metadata={"method": "edgar-schedule-13d"},
             )
 
-    async def _ipos(self, ctx: Context, agent: str):
+    def _past(self) -> bool:
+        """A period that ends before today: the latest filings do not reach back to it."""
+        from datetime import UTC, datetime
+
+        return bool(self.until) and str(self.until) < datetime.now(UTC).date().isoformat()
+
+    def _period(self) -> tuple[str, str]:
         from datetime import UTC, datetime, timedelta
 
         today = datetime.now(UTC).date()
-        since = self.since or (today - timedelta(days=7)).isoformat()
-        until = self.until or today.isoformat()
+        return (
+            self.since or (today - timedelta(days=7)).isoformat(),
+            self.until or today.isoformat(),
+        )
+
+    async def _searched(self, ctx: Context, agent: str):
+        """Schedule 13Ds or company events of a past period, from EDGAR's full-text search."""
+        since, until = self._period()
+        if self.resource == "activist-stakes":
+            queries = [(form, None) for form in ("SC 13D", "SCHEDULE 13D")]
+            make = searched_stake
+            kind, method = "stake", "edgar-full-text-search"
+        else:
+            queries = [("8-K", f'"Item {item}"') for item in EVENTS]
+            make = searched_event
+            kind, method = "company-event", "edgar-full-text-search"
+        seen: set[str] = set()
+        for form, query in queries:
+            try:
+                hits = await self._search(ctx, agent, form, since, until, query)
+            except FetchError as exc:
+                if (error := ctx.fail(exc, source=self.name, url=SEARCH)) is not None:
+                    yield error
+                continue
+            for hit in hits:
+                found = make(hit)
+                if found is None or found["accession"] in seen:
+                    continue
+                if query and query.strip('"').removeprefix("Item ") not in found["items"]:
+                    continue  # the words appear in the filing, the item does not
+                seen.add(found["accession"])
+                yield Event(
+                    source=self.name,
+                    type=kind,
+                    source_url=found["link"],
+                    key=found["accession"],
+                    timestamp=found["filed_at"],
+                    data=found,
+                    metadata={"method": method},
+                )
+
+    async def _events(self, ctx: Context, agent: str):
+        import feedparser
+
+        entries: list[dict[str, Any]] = []
+        for start in ("0", "100"):
+            params = {
+                "action": "getcurrent",
+                "type": "8-K",
+                "count": "100",
+                "start": start,
+                "output": "atom",
+            }
+            try:
+                response = await ctx.http.get(
+                    LATEST, params=params, user_agent=agent, timeout=self.timeout, cache=False
+                )
+            except FetchError as exc:
+                if (error := ctx.fail(exc, source=self.name, url=LATEST)) is not None:
+                    yield error
+                return
+            entries += [dict(e) for e in feedparser.parse(response.content).entries]
+        for found in listed_events(entries):
+            yield Event(
+                source=self.name,
+                type="company-event",
+                source_url=found["link"],
+                key=found["accession"],
+                timestamp=found["filed_at"],
+                data=found,
+                metadata={"method": "edgar-current-8k"},
+            )
+
+    async def _ipos(self, ctx: Context, agent: str):
+        since, until = self._period()
         reported: dict[str, list[str]] = {}
         for form in IPO_FORMS:
             try:
@@ -414,11 +661,16 @@ class Sec(Source):
                     metadata={"method": "edgar-full-text-search"},
                 )
 
-    async def _search(self, ctx: Context, agent: str, form: str, since: str, until: str):
-        """Every search hit for one form filed in the period, 100 at a time."""
+    async def _search(
+        self, ctx: Context, agent: str, form: str, since: str, until: str, query: str | None = None
+    ):
+        """Every search hit for one form filed in the period (with the words of ``query``),
+        100 at a time."""
         hits: list[dict[str, Any]] = []
         while len(hits) < MOST_HITS:
             params = {"forms": form, "dateRange": "custom", "startdt": since, "enddt": until}
+            if query:
+                params = {"q": query, **params}
             if hits:
                 params["from"] = str(len(hits))
             response = await ctx.http.get(
@@ -523,9 +775,7 @@ def ipo_filing(hit: dict[str, Any]) -> dict[str, Any] | None:
         return None
     if NOT_IPO_SICS & set(source.get("sics") or []):
         return None
-    company = re.sub(r"\s*\(CIK \d+\)\s*$", "", names[0])
-    company = re.sub(r"\s*\([A-Z0-9., -]{1,30}\)\s*$", "", company)  # today's ticker
-    company = re.sub(r"\s*/\s*[A-Z]{2}\s*/?\s*$", "", " ".join(company.split()))
+    company = clean_name(names[0])
     accession = ident.split(":", 1)[0]
     cik = str(int(ciks[0]))
     form = str(source.get("form") or "")

@@ -254,3 +254,54 @@ def test_ipo_filings_leave_out_companies_that_were_public_already(web, make_ctx)
     assert [e.data["title"] for e in events] == ["Reddit, Inc. filed to go public (S-1)"]
     assert events[0].data["link"].endswith("/1713445/0001241/0001-24-1-index.htm")
     assert events[0].timestamp == "2024-02-22T00:00:00Z"
+
+
+def test_a_past_period_of_company_events_comes_from_full_text_search(web, make_ctx):
+    import json
+
+    from unlimitedpipe.sources.sec import EVENTS
+
+    base = "https://efts.sec.gov/LATEST/search-index?q=%22Item+{}%22&forms=8-K&dateRange=custom"
+    period = "&startdt=2024-03-01&enddt=2024-03-03"
+    bankrupt = hit("SILVER STAR PROPERTIES REIT, INC", 1402, "8-K", "2024-03-01", "0005-24-1")
+    bankrupt["_source"]["items"] = ["1.03", "9.01"]
+    mentions = hit("Other Corp  (OTH)", 1403, "8-K", "2024-03-01", "0006-24-1")
+    mentions["_source"]["items"] = ["8.01"]  # says "Item 1.03" in its text, files no such item
+    for item in EVENTS:
+        found = [bankrupt, mentions] if item == "1.03" else []
+        web.add(
+            base.format(item) + period,
+            json.dumps({"hits": {"hits": found}}),
+            content_type="application/json",
+        )
+    source = Sec(
+        resource="company-events", contact="me@example.com", since="2024-03-01", until="2024-03-03"
+    )
+    events = run_source(source, make_ctx())
+    assert [e.data["title"] for e in events] == [
+        "SILVER STAR PROPERTIES REIT, INC: bankruptcy or receivership"
+    ]
+    assert events[0].data["summary"] == (
+        "Item 1.03: Bankruptcy or Receivership\nItem 9.01: Financial Statements and Exhibits"
+    )
+
+
+def test_stakes_and_events_read_the_same_from_search_and_from_the_latest_list():
+    from unlimitedpipe.sources.sec import listed_events, searched_stake
+
+    stake = hit("ACME CORP  (ACME)", 11, "SC 13D", "2023-05-02", "0007-23-1")
+    stake["_source"]["display_names"].append("SMITH JOHN A  (CIK 0000000022)")
+    assert searched_stake(stake)["title"] == (
+        "Acme Corp: John A Smith disclosed a stake of 5% or more (Schedule 13D)"
+    )
+    entry = {
+        "title": "8-K - DYADIC INTERNATIONAL INC (0001213809) (Filer)",
+        "link": f"{FOLDER}/1213809/000121380926000030/0001213809-26-000030-index.htm",
+        "summary": "<b>Filed:</b> 2026-09-25 <b>AccNo:</b> 0001213809-26-000030 <b>Size:</b> 1 MB"
+        "<br>Item 3.01: Notice of Delisting or Failure to Satisfy a Continued Listing Rule or "
+        "Standard; Transfer of Listing<br>Item 9.01: Financial Statements and Exhibits",
+        "updated": "2026-09-25T16:05:00-04:00",
+    }
+    [event] = listed_events([entry, entry])
+    assert event["title"] == "DYADIC INTERNATIONAL INC: delisting notice or listing transfer"
+    assert event["items"] == ["3.01", "9.01"]
