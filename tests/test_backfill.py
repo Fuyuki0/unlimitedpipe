@@ -117,3 +117,23 @@ def test_backfill_command_reports_what_it_added(tmp_path):
     assert "quakes: added 2 item(s)" in result.output
     assert "1 undated item(s) left out" in result.output
     assert len(archived(tmp_path / "public")) == 2
+
+
+def test_a_source_without_dates_is_read_once(tmp_path):
+    path = quakes(tmp_path)
+    (tmp_path / "latest.json").write_text(
+        json.dumps(
+            [{"title": "M 5.5 near Lima", "link": "https://q.example/9", "date": "2025-01-05"}]
+        )
+    )
+    text = path.read_text().replace(
+        "sources: [{type: file, path: '../quakes-${YEAR}.json'}]",
+        "sources: [{type: file, path: '../quakes-${YEAR}.json'}, "
+        "{type: file, path: ../latest.json}]",
+    )
+    path.write_text(text)
+    result = backfill(
+        path, tmp_path / "public", date(2024, 1, 1), date(2025, 12, 31), "year", pause=0
+    )
+    assert [w.found for w in result.windows] == [3, 2]  # the latest list only in 2024's run
+    assert "M 5.5 near Lima" in [i["title"] for i in archived(tmp_path / "public")]

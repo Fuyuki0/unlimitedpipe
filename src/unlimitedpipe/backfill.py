@@ -3,12 +3,12 @@
 A feed follows what is new, but many of its sources can also be asked about the past: an API
 that takes a date range (the USGS, NVD, FRED, the Federal Register, SEC full-text search) or a
 list that keeps every item it ever had (CISA's exploited vulnerabilities, Have I Been Pwned).
-Backfill runs a feed's own sources and operators once per window of time, with ``${TODAY}``
-and ``${YEAR}`` as the window's last day and its year and every ``${DAYS_AGO_N}`` as its first
-day, and adds what they find to the archive the way a run does, so past items read exactly
-like new ones. The feed's `diff` and `limit` operators (which keep a feed to what is new and
-short) and its outputs are left out, and it runs with a state folder of its own: the feed's
-files and state stay as they are.
+Backfill runs a feed's own sources and operators once per window of time (a source that takes
+no dates only in the first), with ``${TODAY}`` and ``${YEAR}`` as the window's last day and its
+year and every ``${DAYS_AGO_N}`` as its first day, and adds what they find to the archive the
+way a run does, so past items read exactly like new ones. The feed's `diff` and `limit`
+operators (which keep a feed to what is new and short) and its outputs are left out, and it
+runs with a state folder of its own: the feed's files and state stay as they are.
 """
 
 from __future__ import annotations
@@ -85,6 +85,21 @@ def windows(start: date, end: date, every: str) -> list[tuple[date, date]]:
     return found
 
 
+def _dated_sources(path: Path) -> set[int]:
+    """The sources whose options change with the period (the others, such as an RSS feed of
+    the latest items, return the same whatever the period, so they are read once)."""
+    from unlimitedpipe.config import WINDOW, load_pipeline
+
+    loaded = []
+    for window in ((date(2000, 1, 1), date(2000, 1, 31)), (date(2001, 2, 1), date(2001, 2, 28))):
+        token = WINDOW.set(window)
+        try:
+            loaded.append([repr(source) for source in load_pipeline(path).sources])
+        finally:
+            WINDOW.reset(token)
+    return {n for n, (a, b) in enumerate(zip(*loaded, strict=True)) if a != b}
+
+
 class _Collect(Output):
     """Keeps the events a window's run produces."""
 
@@ -141,6 +156,7 @@ def backfill(
 
     text = path.read_text(encoding="utf-8")
     spans = windows(start, end, every) if USES_DATES.search(text) else [(start, end)]
+    dated = _dated_sources(path) if len(spans) > 1 else set()
     first, last = start.isoformat(), (end + timedelta(days=1)).isoformat()
     result: Backfill | None = None
     seen: set[str] = set()
@@ -153,6 +169,8 @@ def backfill(
                 WINDOW.reset(token)
             if result is None:
                 result = Backfill(feed=pipeline.name)
+            if index:  # a source that takes no dates gave all it has in the first period
+                pipeline.sources = [s for n, s in enumerate(pipeline.sources) if n in dated]
             collect = _Collect()
             ctx = Context(
                 quiet=quiet,
