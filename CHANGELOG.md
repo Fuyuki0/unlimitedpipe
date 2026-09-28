@@ -3,6 +3,16 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.10 - 2026-09-28
+
+- `unlimited sec ipo-filings --since DATE --until DATE`: new S-1 and F-1 registrations by
+  companies that had filed no annual or quarterly report yet, for any period. Public
+  companies registering more shares and life insurers' annuities are left out; past IPOs are
+  kept even though EDGAR now shows their ticker.
+- Searching by meaning compares a question with the newest 2,000 items at most (a year of
+  the archive took minutes on a small computer), and keeps up to 8,000 vectors between runs.
+- `mirror` also copies the archive's word index, for questions without a date offline.
+
 ## 0.10.9 - 2026-09-28
 
 - `ask` answers "strongest", "biggest", "highest", "lowest" questions by the numbers in the
