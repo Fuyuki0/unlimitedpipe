@@ -3,6 +3,17 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.16 - 2026-09-28
+
+- A catalog's index page, redesigned: its numbers up front (feeds, live feeds, records in the
+  archive, last update), the search, and the feeds as cards grouped by topic, each with its
+  readable name, a "Live" mark for the express lane, its latest item and RSS/JSON buttons;
+  light and dark, no third-party requests.
+- Pipelines can name their topic with `group:`; `publish --group NAME` orders the topics and
+  `publish --link LABEL=URL` adds links to the page's header. feeds.json lists each feed's
+  `title` and `group`.
+- Express runs install Chromium only when a pipeline in the lane needs it.
+
 ## 0.10.15 - 2026-09-28
 
 - Readable names: the SEC sources write companies listed in capitals as people write them

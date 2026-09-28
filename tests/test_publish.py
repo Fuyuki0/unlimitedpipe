@@ -205,7 +205,7 @@ def test_catalog_publishes_several_pipelines_with_one_workflow(repo):
     run = yaml.safe_load(workflow(p))["jobs"]["run"]["steps"][3]["run"]
     assert 'for pipeline in "feeds/prices.yml" "feeds/news.yml"' in run
     page = index_page(p, "1h")
-    assert page.count("<section id=") == 2 and "<p>Headlines</p>" in page
+    assert page.count('<article class="card"') == 2 and '<p class="desc">Headlines</p>' in page
 
 
 def test_express_lane_runs_its_pipelines_every_time_and_the_rest_when_due(repo):
@@ -226,7 +226,8 @@ def test_express_lane_runs_its_pipelines_every_time_and_the_rest_when_due(repo):
     assert 'lane="${{ inputs.lane }}"' in run and '[ "$lane" != express ]' in run
     lane = yaml.safe_load(workflow(p))[True]["workflow_dispatch"]["inputs"]["lane"]
     assert lane["options"] == ["all", "express"] and lane["default"] == "all"
-    assert "express lane (quakes) every 15m" in index_page(p, "1h")
+    page = index_page(p, "1h")
+    assert page.count('<span class="live"') == 1 and "live feeds: 15m" in page
     with pytest.raises(UsageError, match="names no pipeline"):
         plan(items, 3600, express=["volcanoes"])
     with pytest.raises(UsageError, match="shorter than --every"):

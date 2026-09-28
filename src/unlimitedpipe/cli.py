@@ -414,6 +414,21 @@ def _load_for_publishing(pipelines: tuple[Path, ...]):
     metavar="DURATION",
     help="How often the express lane runs; the rest run every --every.",
 )
+@click.option(
+    "--group",
+    "groups",
+    multiple=True,
+    metavar="NAME",
+    help="A topic of the index page, in the order given (repeatable); pipelines name theirs "
+    "with `group:`.",
+)
+@click.option(
+    "--link",
+    "links",
+    multiple=True,
+    metavar="LABEL=URL",
+    help="A link in the index page's header, e.g. GitHub=https://github.com/you/feeds.",
+)
 @click.pass_context
 def publish_command(
     ctx: click.Context,
@@ -426,6 +441,8 @@ def publish_command(
     about: str | None,
     express: tuple[str, ...],
     express_every: str,
+    groups: tuple[str, ...],
+    links: tuple[str, ...],
 ) -> None:
     """Host pipelines' outputs for free: GitHub Actions runs them, GitHub Pages serves them.
 
@@ -458,7 +475,12 @@ def publish_command(
         if '"' in install or "\n" in install:
             raise UsageError("--install must be a pip requirement or URL without quotes")
         p.install = install
-    p.title, p.about = title, about
+    p.title, p.about, p.groups = title, about, list(groups)
+    for link in links:
+        label, _, url = link.partition("=")
+        if not (label.strip() and url.startswith(("https://", "http://"))):
+            raise UsageError(f"--link takes LABEL=URL, not {link!r}")
+        p.links.append((label.strip(), url.strip()))
     workflow_path = p.root / p.workflow
     if workflow_path.exists() and not force:
         raise UsageError(f"{p.workflow} already exists", hint="pass --force to replace it")

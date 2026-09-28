@@ -41,6 +41,8 @@ class Published:
     name: str
     description: str | None
     files: list[Path]  # relative to the site folder
+    group: str | None = None  # the topic the index page lists it under
+    title: str | None = None  # a readable name: its feed's title ("IPO filings (SEC S-1 and F-1)")
 
 
 @dataclass
@@ -60,6 +62,8 @@ class PublishPlan:
     browser_pipelines: list[str] = field(default_factory=list)
     title: str | None = None  # the site's title (default: the workflow name)
     about: str | None = None  # a sentence under the title on the index page
+    groups: list[str] = field(default_factory=list)  # the order of the index page's topics
+    links: list[tuple[str, str]] = field(default_factory=list)  # (label, url) in its header
     # The express lane: pipelines run by every scheduled run (every `express_every`); the
     # others run when `every` seconds have passed since they last did.
     express: list[str] = field(default_factory=list)
@@ -194,6 +198,8 @@ def plan(
             name=pipeline.name,
             description=pipeline.description,
             files=[f.relative_to(site_dir) for i, f in outputs if i == index],
+            group=pipeline.group,
+            title=next((str(o.title) for o in pipeline.outputs if getattr(o, "title", None)), None),
         )
         for index, (path, pipeline) in enumerate(items)
     ]
@@ -404,7 +410,9 @@ def catalog(
                 latest = _newest(site / file) or latest
         entry = {
             "name": item.name,
+            **({"title": item.title} if item.title else {}),
             "description": item.description,
+            **({"group": item.group} if item.group else {}),
             "files": [f.as_posix() for f in item.files],
         }
         code = (results or {}).get(item.path.as_posix())
@@ -491,15 +499,21 @@ SEARCH_SCRIPT = r"""    <script>
       // Searches feeds.json in the browser: no server, no tracking.
       const q = document.getElementById("q"), list = document.getElementById("results"),
         status = document.getElementById("status");
-      let catalog = null;
+      let catalog = null, response = null;
       const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       // Words match at the start of a word; scripts without spaces (Thai) match anywhere.
       const word = (w) => /^[\x00-\x7f]+$/.test(w)
         ? new RegExp("(^|[^\\p{L}\\p{N}_])" + escape(w), "iu")
         : new RegExp(escape(w), "i");
+      const day = (iso) => (iso || "").slice(0, 10);
       async function load() {
-        if (!catalog) catalog = await (await fetch("feeds.json")).json();
+        if (!catalog) {
+          response = await fetch("feeds.json");
+          catalog = await response.json();
+        }
       }
+      const names = () => Object.fromEntries(catalog.feeds.map((f) => [f.name,
+        f.title || f.name.replaceAll("-", " ")]));
       function show() {
         const words = q.value.trim().split(/\s+/).filter(Boolean).map(word);
         list.replaceChildren();
@@ -508,33 +522,56 @@ SEARCH_SCRIPT = r"""    <script>
           catalog.feeds.map((f) => [f.name, f.name.replaceAll("-", " ")]));
         const hits = catalog.items.filter((i) => words.every((w) => w.test(
           (i.title || "") + " " + (i.summary || "") + " " + (about[i.feed] || "")))).slice(0, 50);
-        status.textContent = hits.length ? hits.length + " result(s)" : "Nothing matches.";
+        status.textContent = hits.length ? hits.length + " result(s) among the latest items"
+          : "Nothing among the latest items matches.";
+        const title = names();
         for (const i of hits) {
           const li = document.createElement("li"), a = document.createElement("a");
           a.href = i.link || "#"; a.textContent = i.title || i.link; a.rel = "noopener";
           const meta = document.createElement("small");
-          meta.textContent = "  " + i.feed + (i.date ? " · " + i.date.slice(0, 10) : "");
+          meta.textContent = (title[i.feed] || i.feed) + (i.date ? " · " + day(i.date) : "");
           li.append(a, meta);
-          if (i.summary) {
-            const p = document.createElement("div");
-            p.className = "muted"; p.textContent = i.summary.slice(0, 200); li.append(p);
-          }
           list.append(li);
         }
       }
-      // Say which feeds are failing, and how fresh each one is.
+      // Each feed's latest item and health, how fresh the catalog is, how far back it goes.
       load().then(() => {
-        for (const f of catalog.feeds) {
-          const section = document.getElementById("feed-" + f.name), h = f.health;
-          if (!section || !h) continue;
-          const note = document.createElement("p");
-          note.className = h.status === "ok" ? "muted" : "warn";
-          const latest = h.latest ? "latest item " + h.latest.slice(0, 10) : "no items yet";
-          note.textContent = h.status === "ok" ? latest
-            : (h.status === "partial" ? "⚠ some sources failing" : "⚠ failing")
-              + " since " + h.since.slice(0, 16).replace("T", " ") + " UTC · " + latest;
-          section.append(note);
+        const seen = new Set();
+        for (const i of catalog.items) {
+          if (seen.has(i.feed)) continue;
+          seen.add(i.feed);
+          const slot = document.querySelector('[data-latest="' + i.feed + '"]');
+          if (!slot) continue;
+          const a = document.createElement("a");
+          a.href = i.link || "#"; a.textContent = i.title || i.link; a.rel = "noopener";
+          const when = document.createElement("span");
+          when.textContent = " · " + day(i.date);
+          slot.replaceChildren(a, when);
         }
+        for (const f of catalog.feeds) {
+          const note = document.querySelector('[data-health="' + f.name + '"]'), h = f.health;
+          if (!note || !h || h.status === "ok") continue;
+          note.textContent = (h.status === "partial" ? "some sources failing" : "failing")
+            + " since " + day(h.since);
+          note.classList.add("warn");
+        }
+        const modified = response && response.headers.get("last-modified");
+        const updated = document.getElementById("stat-updated");
+        if (modified && updated) {
+          const minutes = Math.max(0, Math.round((Date.now() - Date.parse(modified)) / 60000));
+          updated.textContent = minutes < 60 ? minutes + " min ago"
+            : Math.round(minutes / 60) + " h ago";
+        }
+        if (!catalog.archive) return;
+        return fetch(catalog.archive).then((r) => r.json()).then((index) => {
+          const total = index.months.reduce((n, m) => n + (m.items || 0), 0);
+          const months = index.months.map((m) => m.month).sort();
+          const stat = document.getElementById("stat-archive");
+          if (stat && total) {
+            stat.textContent = total.toLocaleString("en-US");
+            document.getElementById("stat-since").textContent = " since " + months[0].slice(0, 4);
+          }
+        });
       }).catch(() => {});
       q.addEventListener("input", () => load().then(show).catch(() => {
         status.textContent = "Search starts working after the next run writes feeds.json.";
@@ -546,68 +583,183 @@ SEARCH_SCRIPT = r"""    <script>
 INDEX_MARKER = "<!-- generated by unlimited publish -->"
 
 
+def _format_label(file: Path) -> str:
+    return "RSS" if file.suffix == ".xml" else file.suffix.lstrip(".").upper() or file.name
+
+
+def _slug(text: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", text.casefold()).strip("-") or "feeds"
+
+
+def _readable(name: str) -> str:
+    small = {"ai": "AI", "sec": "SEC", "us": "US", "eu": "EU", "un": "UN", "hn": "HN"}
+    words = [small.get(w, w) for w in name.split("-")]
+    return " ".join([words[0][:1].upper() + words[0][1:], *words[1:]])
+
+
+INDEX_STYLE = """
+      :root { --bg: #f6f7f9; --card: #ffffff; --ink: #15181d; --muted: #5a6270;
+        --line: #e2e5ea; --accent: #0f766e; --accent-ink: #ffffff; --live: #b42318;
+        --pill: #eef1f4; color-scheme: light; }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme="light"]) { --bg: #0e1116; --card: #161a21; --ink: #e7e9ee;
+          --muted: #9aa3b2; --line: #262c36; --accent: #2dd4bf; --accent-ink: #062521;
+          --live: #f97066; --pill: #1f2530; color-scheme: dark; }
+      }
+      :root[data-theme="dark"] { --bg: #0e1116; --card: #161a21; --ink: #e7e9ee;
+        --muted: #9aa3b2; --line: #262c36; --accent: #2dd4bf; --accent-ink: #062521;
+        --live: #f97066; --pill: #1f2530; color-scheme: dark; }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--bg); color: var(--ink);
+        font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        padding-inline: 16px; }
+      a { color: var(--accent); }
+      .wrap { max-width: 72rem; margin: 0 auto; }
+      .top { display: flex; flex-wrap: wrap; gap: .5rem 1.5rem; align-items: center;
+        justify-content: space-between; padding-block: 1rem;
+        border-bottom: 1px solid var(--line); }
+      .brand { font-weight: 700; letter-spacing: -.01em; color: var(--ink); text-decoration: none; }
+      .top nav { display: flex; flex-wrap: wrap; gap: .25rem 1rem; font-size: .95rem; }
+      .top nav a { color: var(--muted); text-decoration: none; }
+      .top nav a:hover { color: var(--ink); }
+      .hero { padding-block: 2.5rem 1.5rem; max-width: 46rem; }
+      h1 { font-size: clamp(1.9rem, 4vw, 2.6rem); line-height: 1.15; margin: 0 0 .75rem;
+        letter-spacing: -.02em; text-wrap: balance; }
+      .lede { color: var(--muted); font-size: 1.1rem; margin: 0 0 1.25rem; }
+      .stats { display: flex; flex-wrap: wrap; gap: .5rem 1.75rem; list-style: none;
+        padding: 0; margin: 0 0 1.5rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+      .stats b { color: var(--ink); font-size: 1.15rem; }
+      #q { width: 100%; font: inherit; font-size: 1.05rem; padding: .8rem 1rem;
+        border: 1px solid var(--line); border-radius: 10px; background: var(--card);
+        color: var(--ink); }
+      #q:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+      #status { color: var(--muted); font-size: .9rem; min-height: 1.4em; margin: .5rem 0 0; }
+      #results { list-style: none; padding: 0; margin: .5rem 0 0; }
+      #results li { padding: .55rem 0; border-bottom: 1px solid var(--line); }
+      #results small { display: block; color: var(--muted); }
+      .toc { display: flex; flex-wrap: wrap; gap: .5rem; padding-block: 1rem 0; }
+      .toc a { background: var(--pill); color: var(--ink); text-decoration: none;
+        padding: .3rem .75rem; border-radius: 999px; font-size: .9rem; }
+      .group { padding-block: 2rem .5rem; }
+      .group h2 { font-size: 1.25rem; margin: 0 0 1rem; letter-spacing: -.01em; }
+      .grid { display: grid; gap: 1rem;
+        grid-template-columns: repeat(auto-fill, minmax(min(19rem, 100%), 1fr)); }
+      .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+        padding: 1rem 1.1rem; display: flex; flex-direction: column; gap: .5rem; min-width: 0; }
+      .card h3 { font-size: 1.02rem; margin: 0; display: flex; gap: .5rem; align-items: baseline;
+        justify-content: space-between; }
+      .live { color: var(--live); font-size: .72rem; font-weight: 700; letter-spacing: .06em;
+        text-transform: uppercase; white-space: nowrap; }
+      .desc { color: var(--muted); font-size: .93rem; margin: 0; }
+      .latest { font-size: .9rem; margin: 0; overflow-wrap: anywhere; }
+      .latest:empty { display: none; }
+      .latest span { color: var(--muted); }
+      .card footer { margin-top: auto; display: flex; flex-wrap: wrap; gap: .4rem;
+        align-items: center; font-size: .85rem; }
+      .pill { background: var(--pill); color: var(--ink); text-decoration: none;
+        padding: .15rem .6rem; border-radius: 6px; font-weight: 600; font-size: .8rem; }
+      .warn { color: var(--live); }
+      .use { display: grid; gap: 1rem 2rem;
+        grid-template-columns: repeat(auto-fit, minmax(min(16rem, 100%), 1fr));
+        padding-block: 2.5rem; border-top: 1px solid var(--line); margin-top: 2rem; }
+      .use h2 { font-size: 1rem; margin: 0 0 .4rem; }
+      .use p { margin: 0; color: var(--muted); font-size: .93rem; }
+      code { background: var(--pill); padding: .05rem .35rem; border-radius: 4px;
+        font-size: .88em; }
+      .foot { color: var(--muted); font-size: .85rem; padding-block: 1.5rem 3rem;
+        border-top: 1px solid var(--line); }
+"""
+
+
 def index_page(p: PublishPlan, every: str) -> str:
-    sections = []
+    esc = html.escape
+    order = list(dict.fromkeys([*p.groups, *sorted({i.group for i in p.pipelines if i.group})]))
+    grouped: dict[str, list[Published]] = {g: [] for g in order}
     for item in p.pipelines:
-        links = " · ".join(
-            f'<a href="{html.escape(f.as_posix())}">'
-            f"{html.escape(f.suffix.lstrip('.').upper() or f.name)}</a>"
-            for f in item.files
-        )
-        about = f"<p>{html.escape(item.description)}</p>" if item.description else ""
+        grouped.setdefault(item.group or "More feeds", []).append(item)
+    lanes = {Path(path).as_posix() for path in p.express}
+    sections, toc = [], []
+    for group, items in grouped.items():
+        if not items:
+            continue
+        cards = []
+        for item in items:
+            pills = "".join(
+                f'<a class="pill" href="{esc(f.as_posix())}">{esc(_format_label(f))}</a>'
+                for f in item.files
+            )
+            live = (
+                '<span class="live" title="Refreshed in the express lane">Live</span>'
+                if item.path.as_posix() in lanes
+                else ""
+            )
+            about = f'<p class="desc">{esc(item.description)}</p>' if item.description else ""
+            cards.append(
+                f'        <article class="card" id="feed-{esc(item.name)}">\n'
+                f"          <h3>{esc(item.title or _readable(item.name))}{live}</h3>\n"
+                f"          {about}\n"
+                f'          <p class="latest" data-latest="{esc(item.name)}"></p>\n'
+                f'          <footer>{pills}<span data-health="{esc(item.name)}"></span></footer>\n'
+                "        </article>"
+            )
+        slug = _slug(group)
+        toc.append(f'<a href="#{slug}">{esc(group)}</a>')
         sections.append(
-            f'    <section id="feed-{html.escape(item.name)}">\n'
-            f"      <h2>{html.escape(item.name)}</h2>\n"
-            f"      {about}\n      <p>{links}</p>\n    </section>"
+            f'    <section class="group" id="{slug}">\n      <h2>{esc(group)}</h2>\n'
+            f'      <div class="grid">\n' + "\n".join(cards) + "\n      </div>\n    </section>"
         )
-    title = html.escape(p.title or p.name)
-    about = f"\n    <p>{html.escape(p.about)}</p>" if p.about else ""
-    express = ""
+    title = esc(p.title or p.name)
+    about = f'\n      <p class="lede">{esc(p.about)}</p>' if p.about else ""
+    links = "".join(f'<a href="{esc(url)}">{esc(label)}</a>' for label, url in p.links)
+    fast = ""
     if p.express and p.express_every:
         from unlimitedpipe.watch import format_duration
 
-        lane = ", ".join(Path(path).stem for path in p.express)
-        express = f", and its express lane ({html.escape(lane)}) every " + format_duration(
-            p.express_every
-        )
-    body = "\n".join(sections)
+        fast = f"<li><b>{len(p.express)}</b> live feeds</li>"
+        every = f"{every} (live feeds: {format_duration(p.express_every)})"
     return f"""\
 <!doctype html>
 {INDEX_MARKER}
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <title>{title}</title>
-    <style>
-      body {{ font: 16px/1.5 system-ui, sans-serif; max-width: 44rem; margin: 3rem auto; }}
-      body {{ padding: 0 1rem; color: #1a1a1a; }}
-      section {{ border-top: 1px solid #ddd; padding-top: .5rem; }}
-      h2 {{ font-size: 1.1rem; margin-bottom: .2rem; }}
-      section p {{ margin: .2rem 0; }}
-      code {{ background: #f3f3f3; padding: 0 .3rem; }}
-      #q {{ width: 100%; font: inherit; padding: .5rem .7rem; border: 1px solid #bbb;
-            border-radius: 6px; box-sizing: border-box; }}
-      #results {{ list-style: none; padding: 0; }}
-      #results li {{ margin: .6rem 0; }}
-      #results small, .muted {{ color: #666; }}
-      .warn {{ color: #a33; }}
-    </style>
+    <meta name="description" content="{esc(p.about or title)}">
+    <link rel="alternate" type="application/json" href="feeds.json" title="Feed catalog">
+    <style>{INDEX_STYLE}    </style>
   </head>
   <body>
-    <h1>{title}</h1>{about}
-    <p>{len(p.pipelines)} feeds, refreshed by a GitHub Actions workflow scheduled every
-    {html.escape(every)}{express} (GitHub starts scheduled runs when it has room, so often
-    less often). Subscribe to any feed in a feed reader (XML), or read it as data
-    (JSON). From a terminal: <code>pip install unlimitedpipe</code>, then
-    <code>unlimited search WORDS</code> or <code>unlimited ask "QUESTION"</code>.</p>
-    <input id="q" type="search" placeholder="Search every feed, e.g. flood, bankruptcy, Bangkok"
-      autocomplete="off" aria-label="Search every feed">
-    <p id="status" class="muted"></p>
-    <ul id="results"></ul>
-{body}
-    <p>Built with <a href="https://github.com/Fuyuki0/unlimitedpipe">UnlimitedPipe</a>.
-    Make your own: <code>pip install unlimitedpipe</code>, then <code>unlimited publish</code>.</p>
+    <div class="wrap">
+    <header class="top"><a class="brand" href="./">{title}</a><nav>{links}</nav></header>
+    <section class="hero">
+      <h1>{title}</h1>{about}
+      <ul class="stats">
+        <li><b>{len(p.pipelines)}</b> feeds</li>{fast}
+        <li><b id="stat-archive">…</b> records<span id="stat-since"></span></li>
+        <li>updated <b id="stat-updated">…</b></li>
+      </ul>
+      <input id="q" type="search" placeholder="Search the latest items: flood, bankruptcy, Bangkok…"
+        autocomplete="off" aria-label="Search every feed">
+      <p id="status"></p>
+      <ul id="results"></ul>
+    </section>
+    <nav class="toc" aria-label="Topics">{"".join(toc)}</nav>
+{chr(10).join(sections)}
+    <section class="use">
+      <div><h2>Subscribe</h2><p>Every feed is RSS for any feed reader and JSON for code.
+        Each item links to the record it comes from.</p></div>
+      <div><h2>Search and ask</h2><p><code>pip install unlimitedpipe</code>, then
+        <code>unlimited search WORDS</code> or <code>unlimited ask "QUESTION"</code>, with a
+        local model and every answer cited.</p></div>
+      <div><h2>History</h2><p>Every item goes into a monthly archive,
+        <a href="{esc("archive/index.json")}">archive/index.json</a>, so questions about a year or a
+        month reach back. Runs every {esc(every)}.</p></div>
+    </section>
+    <footer class="foot">Built with <a href="https://github.com/Fuyuki0/unlimitedpipe">UnlimitedPipe</a>,
+      open source: no server, no account, no tracking. Items come from public records and news,
+      each with a link to its source; nothing here is investment, legal or medical advice.</footer>
+    </div>
 {SEARCH_SCRIPT}  </body>
 </html>
 """
