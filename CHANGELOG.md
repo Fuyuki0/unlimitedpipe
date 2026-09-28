@@ -3,6 +3,16 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.15 - 2026-09-28
+
+- Readable names: the SEC sources write companies listed in capitals as people write them
+  ("Hertz Global Holdings, Inc", keeping "BNSF", "AT&T", "REIT"), and pipelines get
+  `readable(name)` for the same.
+- Every feed's items: titles lose HTML entities, tags and extra spaces; links lose tracking
+  parameters (utm_*, fbclid, gclid).
+- `ask` ranks 3.5 times faster over large archives (a substring check before each word's
+  pattern), with exactly the same results.
+
 ## 0.10.14 - 2026-09-28
 
 - `ask` looks in the archive for a question without a date whenever the latest items miss

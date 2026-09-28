@@ -91,7 +91,7 @@ FORM4 = b"""<SEC-DOCUMENT>
         ("HUANG JEN HSUN", "Jen Hsun Huang"),
         ("SMITH FREDERICK G", "Frederick G Smith"),
         ("Berkshire Hathaway Inc", "Berkshire Hathaway Inc"),
-        ("AJB CAPITAL, LLC", "AJB Capital LLC"),
+        ("AJB CAPITAL, LLC", "AJB Capital, LLC"),
         ("MUSK", "Musk"),
     ],
 )
@@ -112,7 +112,7 @@ def test_a_form4_becomes_one_trade_per_transaction_code():
     assert summarize(filing, "P") is None
     trade = {**filing, **sale}
     assert headline(trade) == (
-        "NVIDIA CORP (NVDA): Jen Hsun Huang (President and CEO, director) "
+        "Nvidia Corp (NVDA): Jen Hsun Huang (President and CEO, director) "
         "sold 100,000 shares at $182.00 ($18.2M)"
     )
 
@@ -279,7 +279,7 @@ def test_a_past_period_of_company_events_comes_from_full_text_search(web, make_c
     )
     events = run_source(source, make_ctx())
     assert [e.data["title"] for e in events] == [
-        "SILVER STAR PROPERTIES REIT, INC: bankruptcy or receivership"
+        "Silver Star Properties REIT, Inc: bankruptcy or receivership"
     ]
     assert events[0].data["summary"] == (
         "Item 1.03: Bankruptcy or Receivership\nItem 9.01: Financial Statements and Exhibits"
@@ -303,5 +303,5 @@ def test_stakes_and_events_read_the_same_from_search_and_from_the_latest_list():
         "updated": "2026-09-25T16:05:00-04:00",
     }
     [event] = listed_events([entry, entry])
-    assert event["title"] == "DYADIC INTERNATIONAL INC: delisting notice or listing transfer"
+    assert event["title"] == "Dyadic International Inc: delisting notice or listing transfer"
     assert event["items"] == ["3.01", "9.01"]

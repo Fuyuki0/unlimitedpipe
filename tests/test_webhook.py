@@ -61,8 +61,8 @@ def test_discord_line_markers_do_not_become_headings():
 
 
 def test_slack_message_links_the_title_and_escapes():
-    message = slack_message(ev({"title": "A <b> & c", "link": "https://n/1"}))
-    assert message["text"] == "*<https://n/1|A &lt;b&gt; &amp; c>*"
+    message = slack_message(ev({"title": "A < b > & c", "link": "https://n/1"}))
+    assert message["text"] == "*<https://n/1|A &lt; b &gt; &amp; c>*"
     assert message["unfurl_links"] is False
 
 

@@ -17,6 +17,7 @@ from typing import Any, Literal
 from unlimitedpipe._version import PROJECT_URL, __version__
 from unlimitedpipe.component import Output, arg, opt
 from unlimitedpipe.event import SCHEMA, Event, content_hash, parse_time, utcnow
+from unlimitedpipe.names import clean_link, clean_title
 from unlimitedpipe.outputs import open_target
 
 ATOM_NS = "http://www.w3.org/2005/Atom"
@@ -123,8 +124,8 @@ def feed_item(event: Event) -> dict[str, Any]:
     )
     return {
         "id": event.id,
-        "title": title,
-        "link": link,
+        "title": clean_title(title) or title,
+        "link": clean_link(link),
         "summary": _shorten(summary, SUMMARY_CHARS),
         "date": dated or parse_time(event.observed_at) or datetime.now(UTC),
         "dated": dated is not None,  # False: the date is when the item was seen

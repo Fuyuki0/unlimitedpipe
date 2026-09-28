@@ -23,6 +23,8 @@ Rules:
   ``replace(summary, "^arXiv:\\S+ .*? Abstract: ", "")``.
 * ``date(value)`` reads ISO 8601, RFC 2822 or Unix time (seconds or milliseconds) and
   returns ISO 8601 UTC, so ``published_at=date(properties.time)`` dates feed items.
+* ``readable(name)`` writes a name given in capitals as people do ("HERTZ GLOBAL HOLDINGS, INC"
+  -> "Hertz Global Holdings, Inc"), keeping acronyms ("BNSF", "IBM", "AT&T").
 * ``max(a, b, ...)`` and ``min(a, b, ...)`` pick among the numbers given, leaving out missing
   ones: ``max(first_score, second_score)``.
 * A missing field is ``null``, and text joined with ``null`` is ``null`` too;
@@ -40,6 +42,7 @@ from typing import TYPE_CHECKING, Any
 from unlimitedpipe.errors import ExpressionError
 from unlimitedpipe.event import iso, parse_time
 from unlimitedpipe.fields import MISSING, resolve, split_path
+from unlimitedpipe.names import readable_name
 
 if TYPE_CHECKING:
     from unlimitedpipe.event import Event
@@ -377,6 +380,7 @@ _FUNCTIONS: dict[str, Callable[..., Any]] = {
     "commas": _commas,
     "exists": lambda v: v is not MISSING,
     "default": lambda v, fallback: fallback if v is None or v == "" else v,
+    "readable": lambda v: readable_name(v) if isinstance(v, str) else v,
     "max": lambda *v: max((n for x in v if (n := _as_number(x)) is not None), default=None),
     "min": lambda *v: min((n for x in v if (n := _as_number(x)) is not None), default=None),
 }

@@ -12,6 +12,7 @@ from unlimitedpipe.component import Source, arg, opt
 from unlimitedpipe.context import Context
 from unlimitedpipe.errors import FetchError, UsageError
 from unlimitedpipe.event import Event
+from unlimitedpipe.names import readable_name
 from unlimitedpipe.state import state_path, write_json_atomic
 
 LATEST = "https://www.sec.gov/cgi-bin/browse-edgar"
@@ -61,7 +62,7 @@ def person_name(name: str) -> str:
     Companies and funds keep their order."""
     words = name.replace(",", " ").split()
     if len(words) < 2 or _ENTITY.search(name):
-        return " ".join(_entity_word(w) for w in words)
+        return readable_name(name) or name
     last, *given = words
     return " ".join(w.title() if not (len(w) <= 2 and w.isupper()) else w for w in [*given, last])
 
@@ -157,7 +158,9 @@ def headline(trade: dict[str, Any]) -> str:
     """``NVIDIA (NVDA): Jensen Huang (CEO) sold 120,000 shares at $180.50 ($21.7M)``."""
     from unlimitedpipe.expr import short_number
 
-    company = trade["issuer"] + (f" ({trade['ticker']})" if trade.get("ticker") else "")
+    company = (readable_name(trade["issuer"]) or "") + (
+        f" ({trade['ticker']})" if trade.get("ticker") else ""
+    )
     who = trade["owner"] + (f" ({trade['role']})" if trade.get("role") else "")
     shares = f"{trade['shares']:,.0f}" if isinstance(trade["shares"], (int, float)) else "?"
     text = f"{company}: {who} {trade['action']} {shares} shares"
@@ -201,7 +204,7 @@ def searched_stake(hit: dict[str, Any]) -> dict[str, Any] | None:
         if (person := person_name(clean_name(name))) not in investors:
             investors.append(person)
     stake = {
-        "company": " ".join(_entity_word(w) for w in clean_name(names[0]).split()),
+        "company": readable_name(clean_name(names[0])),
         "investors": investors,
         "amendment": str(source.get("form") or "").endswith("/A"),
         "filed_at": f"{source['file_date']}T00:00:00Z",
@@ -268,6 +271,7 @@ def company_event(
     event = next((EVENTS[i] for i in items if i in EVENTS), None)
     if event is None:
         return None
+    company = readable_name(company) or company
     return {
         "title": f"{company}: {event}",
         "company": company,
@@ -355,7 +359,7 @@ def stakes(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
         )
         name = re.sub(r"\s*/[A-Z]{2,}/\s*$", "", match.group(2)).strip()
         if match.group(4) == "Subject":
-            stake["company"] = " ".join(_entity_word(w) for w in name.split())
+            stake["company"] = readable_name(name)
             stake["link"] = link  # the company's copy of the filing
         elif name not in stake["investors"]:
             stake["investors"].append(person_name(name))
@@ -775,7 +779,7 @@ def ipo_filing(hit: dict[str, Any]) -> dict[str, Any] | None:
         return None
     if NOT_IPO_SICS & set(source.get("sics") or []):
         return None
-    company = clean_name(names[0])
+    company = readable_name(clean_name(names[0])) or clean_name(names[0])
     accession = ident.split(":", 1)[0]
     cik = str(int(ciks[0]))
     form = str(source.get("form") or "")
