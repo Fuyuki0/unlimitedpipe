@@ -36,3 +36,12 @@ def test_an_answer_about_a_named_period_says_so():
     sources = [{"title": "CVE-2023-4966: Citrix Bleed"}, {"title": "CVE-2023-3519: Citrix"}]
     answer = write("which citrix flaws were exploited in 2023?", sources, [1, 2])
     assert answer == "From 2023: CVE-2023-4966: Citrix Bleed [1]; CVE-2023-3519: Citrix [2]."
+
+
+def test_abbreviations_do_not_end_a_sentence_and_dates_are_not_repeated():
+    from unlimitedpipe.decide import first_sentence
+
+    text = "Inflation from FRED (Federal Reserve Bank of St. Louis). Data, not advice."
+    assert first_sentence(text) == "Inflation from FRED (Federal Reserve Bank of St. Louis)"
+    source = {"title": "US inflation: 8.98% (2022-06)", "date": "2022-06-01", "summary": ""}
+    assert write("us inflation june 2022", [source], [1]) == "US inflation: 8.98% (2022-06) [1]."

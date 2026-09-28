@@ -17,6 +17,11 @@ from typing import Any
 ARCHIVE_DIR = "archive"
 INDEX = "index.json"
 SCHEMA = "unlimitedpipe.archive/1"
+# Which months each title word appears in, so a question without a date ("ronin hack") reads
+# only the months that can answer it.
+WORDS = "words.json"
+WORDS_SCHEMA = "unlimitedpipe.archive-words/1"
+_WORD = re.compile(r"[^\W_][\w'-]*")
 _MONTH = re.compile(r"^\d{4}-(0[1-9]|1[0-2])$")
 _DATE = re.compile(r"^\d{4}-(0[1-9]|1[0-2])(-\d{2})?")
 
@@ -54,6 +59,7 @@ def _known(path: Path) -> set[str]:
 def append(site: Path, items: list[dict[str, Any]], now: str) -> dict[str, int]:
     """Add the items the archive does not have yet; returns how many were added per month."""
     folder = site / ARCHIVE_DIR
+    fresh: list[tuple[str, dict[str, Any]]] = []
     by_month: dict[str, list[dict[str, Any]]] = {}
     for item in items:
         by_month.setdefault(month_of(item, now), []).append(item)
@@ -73,9 +79,46 @@ def append(site: Path, items: list[dict[str, Any]], now: str) -> dict[str, int]:
                 for entry in new:
                     out.write(json.dumps(entry, ensure_ascii=False, separators=(",", ":")) + "\n")
             added[month] = len(new)
+            fresh.extend((month, entry) for entry in new)
     if added:
         write_index(folder)
+        write_words(folder, fresh)
     return added
+
+
+def title_words(title: Any) -> set[str]:
+    """The searchable words of a title, as `search` stems them (no numbers, no short words)."""
+    from unlimitedpipe.sources.search import stem
+
+    words = _WORD.findall(str(title or "").casefold())
+    return {stem(w) for w in words if len(w) > 2 and not w.isdigit()}
+
+
+def write_words(folder: Path, fresh: list[tuple[str, dict[str, Any]]] | None = None) -> None:
+    """Add the fresh items' title words to the word index, or build it from every month when
+    it is missing (or ``fresh`` is None)."""
+    path = folder / WORDS
+    words: dict[str, set[str]] = {}
+    try:
+        document = json.loads(path.read_text(encoding="utf-8")) if fresh is not None else None
+    except (OSError, ValueError):
+        document = None
+    if isinstance(document, dict) and isinstance(document.get("words"), dict):
+        words = {w: set(m) for w, m in document["words"].items() if isinstance(m, list)}
+        entries = iter(fresh or [])
+    else:
+        entries = (
+            (month.stem, json.loads(line))
+            for month in sorted(folder.glob("*.jsonl"))
+            if _MONTH.match(month.stem)
+            for line in month.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        )
+    for month, entry in entries:
+        for word in title_words(entry.get("title") if isinstance(entry, dict) else None):
+            words.setdefault(word, set()).add(month)
+    index = {"schema": WORDS_SCHEMA, "words": {w: sorted(m) for w, m in sorted(words.items())}}
+    path.write_text(json.dumps(index, ensure_ascii=False, separators=(",", ":")) + "\n")
 
 
 def write_index(folder: Path) -> None:

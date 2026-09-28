@@ -27,6 +27,7 @@ from unlimitedpipe.operators.extract import STOPWORDS
 from unlimitedpipe.sources.search import (
     STORY_UPDATES,
     corrected,
+    items_by_words,
     items_since,
     open_catalog,
     story,
@@ -68,6 +69,54 @@ TIME_WORDS = (
     (re.compile(r"\bweek\b|สัปดาห์|อาทิตย์"), 8),
     (re.compile(r"\bmonth\b|เดือน"), 32),
 )
+
+# "strongest earthquake", "biggest hack": the items with the largest number come first.
+MOST = ["strongest", "biggest", "largest", "highest", "most", "worst", "deadliest", "costliest"]
+LEAST = ["smallest", "lowest", "least", "weakest", "cheapest"]
+SUPERLATIVES = {**dict.fromkeys(MOST, "most"), **dict.fromkeys(LEAST, "least")}
+_MONEY = re.compile(r"\$\s?(\d[\d,]*(?:\.\d+)?)\s*([KMBT])?\b")
+_SIZE = re.compile(r"(?<![\w.,/-])(\d[\d,]*(?:\.\d+)?)\s*([KMBT])?(?![\w-])")
+_SCALE = {"K": 1e3, "M": 1e6, "B": 1e9, "T": 1e12}
+
+
+def size_of(title: str) -> float | None:
+    """The number an item is about: its largest dollar amount ("$1.5B lost"), else the first
+    number after a colon ("S&P 500: 7,743.41"), else its first number ("M 7.5 - Noto")."""
+
+    def value(match: re.Match[str]) -> float:
+        return float(match[1].replace(",", "")) * _SCALE.get(match[2] or "", 1)
+
+    if money := [value(m) for m in _MONEY.finditer(title)]:
+        return max(money)
+    _, colon, after = title.partition(": ")
+    for text in (after, title) if colon else (title,):
+        if match := _SIZE.search(text):
+            return value(match)
+    return None
+
+
+def by_size(question: str, items: list[dict[str, Any]]) -> str:
+    """The answer to "strongest earthquake in 2024" from items ordered by their number."""
+    from unlimitedpipe.decide import headline, short
+
+    word = next(w for w in re.findall(r"\w+", question.casefold()) if w in SUPERLATIVES)
+    first = items[0]
+    date = str(first.get("date") or "")[:10]
+    title = headline(first.get("title"))
+    dated = date and date not in title and date[:7] not in title
+    answer = f"The {word}: {title}" + (f" ({date})" if dated else "")
+    answer += " [1]."
+    rest = [f"{short(i.get('title'))} [{n}]" for n, i in enumerate(items[1:3], 2)]
+    return answer + (f" Next: {'; '.join(rest)}." if rest else "")
+
+
+def superlative(question: str) -> str | None:
+    """ "most" for "strongest earthquake", "least" for "lowest rate", else None."""
+    return next(
+        (SUPERLATIVES[w] for w in re.findall(r"\w+", question.casefold()) if w in SUPERLATIVES),
+        None,
+    )
+
 
 PROMPT = """You answer questions using only the numbered sources below, which were collected \
 from public feeds. Today is {today}. Rules:
@@ -112,7 +161,12 @@ def needed(words: list[str]) -> int:
 
 
 def rank(
-    document: dict[str, Any], words: list[str], limit: int, *, since: str | None = None
+    document: dict[str, Any],
+    words: list[str],
+    limit: int,
+    *,
+    since: str | None = None,
+    order: str | None = None,
 ) -> tuple[list[dict[str, Any]], set[str]]:
     """The catalog items that best answer the words, and which words they cover.
 
@@ -120,7 +174,8 @@ def rank(
     than a summary), then newer ones; only items covering as many words as the best are kept,
     as loosely related items confuse a model. A feed's name counts as part of each item
     ("insider trades" finds the insider-trades feed), its description only a little. Items
-    older than ``since`` (an ISO date) are left out.
+    older than ``since`` (an ISO date) are left out. With ``order`` "most" or "least", the
+    kept items with the largest (or smallest) number come first ("strongest earthquake").
     """
     feeds = {
         f.get("name"): (str(f.get("name", "")).replace("-", " "), f.get("description") or "")
@@ -162,6 +217,11 @@ def rank(
     scored.sort(key=lambda s: (s[0], s[1], s[2]), reverse=True)
     best_coverage, best_score = scored[0][0], scored[0][1]
     kept = [s for s in scored if s[0] == best_coverage and s[1] >= best_score / 2]
+    if order:
+        sized = [(size_of(str(s[3].get("title") or "")), s) for s in kept]
+        with_size = [p for p in sized if p[0] is not None]
+        with_size.sort(key=lambda p: p[0], reverse=order == "most")  # type: ignore[arg-type]
+        kept = [s for _, s in with_size] + [s for size, s in sized if size is None]
     # Twenty advisories of one storm would push everything else out: two updates per story.
     updates: Counter[str] = Counter()
     chosen = []
@@ -280,7 +340,8 @@ class Ask(Source):
             if (error := ctx.fail(exc, source=self.name, url=exc.url)) is not None:
                 yield error
             return
-        asked = terms(question)
+        order = superlative(question)
+        asked = [w for w in terms(question) if w not in SUPERLATIVES]
         named = None if self.since else named_period(question, datetime.now(UTC).isoformat())
         if self.since:
             document = {**document, "items": await items_since(ctx, url, document, self.since)}
@@ -304,14 +365,23 @@ class Ask(Source):
             if days
             else None
         )
-        items, covered = rank(document, words, self.sources, since=after)
+        items, covered = rank(document, words, self.sources, since=after, order=order)
         weak = bool(items) and len(covered) < needed(words)
         stale = False
         if after and (not items or weak):
             # "baht rate today" on a Sunday: nothing that recent, so show the latest there is.
-            older, older_covered = rank(document, words, 3)
+            older, older_covered = rank(document, words, 3, order=order)
             if older and len(older_covered) >= needed(words):
                 items, covered, stale, weak = older, older_covered, True, False
+        if (not items or weak) and not named and not self.since:
+            # "ronin hack": nothing recent, so the archive months that hold its rare words
+            past = await items_by_words(ctx, url, document, words)
+            if past:
+                found_items, found_covered = rank(
+                    {**document, "items": past}, words, self.sources, order=order
+                )
+                if found_items and len(found_covered) >= needed(words):
+                    items, covered, weak, stale = found_items, found_covered, False, False
         by_meaning = False
         if (not items or weak) and self.provider != "anthropic":
             # No item has the words ("delisted stocks"): items that mean the same may.
@@ -362,6 +432,10 @@ class Ask(Source):
                 "have to guess. The closest items are below."
             )
             model = None
+        elif order and size_of(str(items[0].get("title") or "")) is not None:
+            # "strongest earthquake in 2024": comparing numbers is the code's job; the items
+            # are already ordered by theirs.
+            answer, model = by_size(question, items), None
         else:
 
             def prompt_for(sentences: int) -> str:

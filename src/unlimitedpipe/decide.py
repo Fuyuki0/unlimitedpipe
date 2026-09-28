@@ -49,8 +49,17 @@ def short(title: Any, words: int = 10) -> str:
     return " ".join(cut[:words]).rstrip(".,;:") + ("…" if len(cut) > words else "")
 
 
+# Not the end of a sentence: "St. Louis", "U.S. rules", "Inc. said", "No. 2".
+_ABBREVIATION = re.compile(r"(?:\b(?:St|Mr|Mrs|Ms|Dr|Inc|Corp|Co|Ltd|No|vs|Jr|Sr)|\b[A-Z])\.$")
+
+
 def first_sentence(text: str, words: int = 30) -> str:
-    sentence = re.split(r"(?<=[.!?])\s", " ".join(str(text or "").split()), maxsplit=1)[0]
+    flat = " ".join(str(text or "").split())
+    sentence = flat
+    for match in re.finditer(r"(?<=[.!?])\s", flat):
+        if not _ABBREVIATION.search(flat[: match.start()]):
+            sentence = flat[: match.start()]
+            break
     cut = sentence.split()
     return " ".join(cut[:words]).rstrip(".,;:") + ("…" if len(cut) > words else "")
 
@@ -71,7 +80,8 @@ def write(question: str, sources: list[dict[str, Any]], picked: list[int]) -> st
         title, date = headline(item.get("title")), str(item.get("date") or "")[:10]
         if thai:
             return f"ข่าวล่าสุดจากแหล่งข่าว [{n}] ({date}): {title}"
-        answer = f"{title} ({date}) [{n}]." if date else f"{title} [{n}]."
+        dated = date and date not in title and date[:7] not in title
+        answer = f"{title} ({date}) [{n}]." if dated else f"{title} [{n}]."
         summary = first_sentence(item.get("summary") or "")
         if summary and summary not in title:
             answer += f" {summary} [{n}]."

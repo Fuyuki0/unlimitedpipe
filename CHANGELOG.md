@@ -3,6 +3,20 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.9 - 2026-09-28
+
+- `ask` answers "strongest", "biggest", "highest", "lowest" questions by the numbers in the
+  items (M 7.5, $624M, 7.79%): the code picks the largest and writes the answer, in about a
+  second, without a model.
+- A question that names no date and finds nothing recent ("ronin hack") reads the archive
+  months its rare words appear in, from a word index (`archive/words.json`) that the archive
+  keeps up to date.
+- Catalog files are read without the pause between requests meant for scraping, four at a
+  time: a year of the archive loads in 0.2 s instead of 13 s.
+- `validate --deep` warns about archive items dated before 1990 or in the future, listed twice,
+  or in the wrong month.
+- Answers no longer end a summary at "St." or "U.S." or repeat a date the title has.
+
 ## 0.10.8 - 2026-09-28
 
 - `unlimited backfill FEED.yml --from 2016` fills a catalog's archive with a feed's past

@@ -94,6 +94,16 @@ the latest items. The files only grow at the end, which keeps them cheap to stor
 | `key` | Identifies the item across runs: the first 16 hex digits of SHA-256 over `feed`, `link` and the title (whitespace collapsed, case folded), joined by newlines. Readers MUST recompute it rather than trust the stored value when they merge archives. |
 | `seen` | When the catalog first listed the item. An item goes into the month of its `date`, or of `seen` when it has no date. |
 
+`archive/words.json` (optional) lists the months each title word appears in, so a reader can
+answer a question that names no date by reading only the months that can answer it:
+
+```json
+{"schema": "unlimitedpipe.archive-words/1", "words": {"ronin": ["2022-03", "2024-08"]}}
+```
+
+Words are lowercased and stemmed as `search` stems them; numbers and words of one or two
+letters are left out.
+
 ## 4. Events
 
 Full items are `unlimitedpipe.event/1` events, described in [events.md](events.md): the data,

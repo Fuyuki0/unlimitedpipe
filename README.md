@@ -413,7 +413,8 @@ Every run of a published catalog also appends its new items to a monthly archive
 question that names a year or a month reads the archive for it by itself:
 
 ```bash
-unlimited ask "strongest earthquake in Japan in 2024?"
+unlimited ask "strongest earthquake in Japan in 2024?"   # the largest, picked by code
+unlimited ask "ronin hack"                          # no date: the months its words are in
 unlimited search sanctions march 2025
 unlimited ask "how did the Ebola outbreak develop?" --since 2026-07
 ```

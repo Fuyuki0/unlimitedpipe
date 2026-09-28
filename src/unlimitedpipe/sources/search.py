@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import re
@@ -54,9 +55,15 @@ def join(base: str, relative: str) -> str:
     return urljoin(base, relative) if _is_web(base) else str(Path(base).parent / relative)
 
 
+# A catalog is static files made to be read by machines: its files are fetched without the
+# pause between requests that scraping a site gets, a few at a time.
+CATALOG_INTERVAL = 0.0
+AT_ONCE = 4
+
+
 async def read(ctx: Context, location: str) -> bytes:
     if _is_web(location):
-        return (await ctx.http.get(location)).content
+        return (await ctx.http.get(location, interval=CATALOG_INTERVAL)).content
     try:
         return Path(location).read_bytes()
     except OSError as exc:
@@ -274,18 +281,16 @@ async def items_since(
     except (FetchError, ValueError):
         ctx.warn(f"{url} has no archive; searching its latest items only")
         index = {"months": []}
-    for month in index.get("months", []):
-        name = str(month.get("month", ""))
-        if name < since[:7] or (until and name > until):
-            continue
-        content = await read(ctx, join(index_url, str(month.get("file"))))
-        for line in content.decode("utf-8", errors="replace").splitlines():
-            try:
-                item = json.loads(line)
-            except ValueError:
-                continue
-            if isinstance(item, dict):
-                merged.setdefault(item_key(item), item)
+    files = [
+        join(index_url, str(month.get("file")))
+        for month in index.get("months", [])
+        if not (
+            str(month.get("month", "")) < since[:7]
+            or (until and str(month.get("month", "")) > until)
+        )
+    ]
+    for item in await _read_items(ctx, files):
+        merged.setdefault(item_key(item), item)
     items = [
         i
         for i in merged.values()
@@ -294,6 +299,56 @@ async def items_since(
     ]
     items.sort(key=lambda i: str(i.get("date") or ""), reverse=True)
     return items
+
+
+async def _read_items(ctx: Context, files: list[str]) -> list[dict[str, Any]]:
+    """The items of some archive month files, fetched a few at a time."""
+    gate = asyncio.Semaphore(AT_ONCE)
+
+    async def fetch(location: str) -> bytes:
+        async with gate:
+            return await read(ctx, location)
+
+    items = []
+    for content in await asyncio.gather(*(fetch(f) for f in files)):
+        for line in content.decode("utf-8", errors="replace").splitlines():
+            try:
+                item = json.loads(line)
+            except ValueError:
+                continue
+            if isinstance(item, dict):
+                items.append(item)
+    return items
+
+
+RARE_MONTHS = 12  # a word in more months than this narrows nothing down
+MOST_MONTHS = 12
+
+
+async def items_by_words(
+    ctx: Context, url: str, document: dict[str, Any], words: list[str]
+) -> list[dict[str, Any]]:
+    """Archive items for a question that names no date ("ronin hack"): the months its rarest
+    words appear in, from the archive's word index (at most twelve, newest first). Empty when
+    the catalog has no index or no word is rare enough."""
+    from unlimitedpipe.archive import WORDS
+
+    index_url = join(url, document.get("archive") or "archive/index.json")
+    try:
+        table = json.loads(await read(ctx, join(index_url, WORDS))).get("words") or {}
+    except (FetchError, ValueError, AttributeError):
+        return []
+    found = [
+        set(table[stem(w)])
+        for w in words
+        if isinstance(table.get(stem(w)), list) and len(table[stem(w)]) <= RARE_MONTHS
+    ]
+    if not found:
+        return []
+    found.sort(key=len)
+    months = set.intersection(*found) or found[0]
+    chosen = sorted(months, reverse=True)[:MOST_MONTHS]
+    return await _read_items(ctx, [join(index_url, f"{m}.jsonl") for m in chosen])
 
 
 class Search(Source):

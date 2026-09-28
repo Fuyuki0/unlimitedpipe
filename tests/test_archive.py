@@ -183,3 +183,33 @@ def test_search_and_ask_use_the_archive_for_a_period_they_name(tmp_path):
     ask.provider = "anthropic"  # no meaning search: that needs Ollama
     [answer] = run_source(ask, ctx)
     assert answer.data["answer"].startswith("Nothing in the catalog from 2025 matches")
+
+
+def test_the_word_index_leads_undated_questions_to_their_months(tmp_path):
+    import asyncio
+
+    from unlimitedpipe.archive import WORDS, write_words
+    from unlimitedpipe.sources.search import items_by_words
+
+    site = local_catalog(tmp_path)
+    table = json.loads((site / "archive" / WORDS).read_text())["words"]
+    assert table["tonga"] == ["2026-08"] and table["loyalt"] == ["2026-09"]  # stemmed
+    append(site, [{**ITEMS[1], "title": "Tonga tsunami warning", "link": "https://t/1"}], "T")
+    assert json.loads((site / "archive" / WORDS).read_text())["words"]["tonga"] == ["2026-08"]
+    (site / "archive" / WORDS).unlink()
+    write_words(site / "archive")  # rebuilt from every month
+    assert json.loads((site / "archive" / WORDS).read_text())["words"]["tsunami"] == ["2026-08"]
+
+    async def find(words):
+        ctx = Context(quiet=True, state_dir=tmp_path / "s", cache_dir=tmp_path / "c")
+        try:
+            document = json.loads((site / "feeds.json").read_text())
+            return await items_by_words(ctx, str(site / "feeds.json"), document, words)
+        finally:
+            await ctx.aclose()
+
+    assert sorted(i["title"] for i in asyncio.run(find(["tonga"]))) == [
+        "M6.1 Tonga",
+        "Tonga tsunami warning",
+    ]
+    assert asyncio.run(find(["mars"])) == []

@@ -290,3 +290,33 @@ def test_a_decision_model_picks_the_sources_and_the_answer_is_written_from_them(
     assert asked == [DECIDER]  # one short decision, no writing model
     assert answer.data["answer"].startswith("Bangkok: rain, 24°C now (2026-09-26) [1].")
     assert answer.data["model"] == DECIDER and answer.data["confidence"] == 0.95
+
+
+def test_superlative_questions_are_answered_by_size_in_code():
+    from unlimitedpipe.sources.ask import by_size, size_of, superlative
+
+    assert size_of("M 7.5 - 2024 Noto Peninsula, Japan Earthquake") == 7.5
+    assert size_of("Bybit: $1.5B lost (key compromise)") == 1.5e9
+    assert size_of("S&P 500: 7,743.41 on 2026-09-25") == 7743.41
+    assert size_of("CVE-2023-4966: Citrix Bleed") is None
+    assert superlative("strongest earthquake in japan?") == "most"
+    assert superlative("lowest mortgage rate") == "least"
+    quakes = {
+        "schema": CATALOG_SCHEMA,
+        "feeds": [{"name": "earthquakes"}],
+        "items": [
+            {"feed": "earthquakes", "title": f"M {m} - {p}, Japan", "link": f"q{m}", "date": d}
+            for m, p, d in (
+                ("4.6", "Izu Islands", "2024-05-02"),
+                ("7.5", "Noto Peninsula", "2024-01-01"),
+                ("5.9", "Hyuganada Sea", "2024-03-01"),
+            )
+        ],
+    }
+    items, _ = rank(quakes, ["earthquake", "japan"], 10, order="most")
+    assert [i["link"] for i in items] == ["q7.5", "q5.9", "q4.6"]
+    answer = by_size("strongest earthquake in japan?", items)
+    assert answer == (
+        "The strongest: M 7.5 - Noto Peninsula, Japan (2024-01-01) [1]. "
+        "Next: M 5.9 - Hyuganada Sea, Japan [2]; M 4.6 - Izu Islands, Japan [3]."
+    )
