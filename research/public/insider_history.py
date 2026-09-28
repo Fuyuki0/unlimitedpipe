@@ -23,7 +23,13 @@ from pathlib import Path
 
 import httpx
 
-from unlimitedpipe.sources.sec import ACTIONS, headline, person_name
+from unlimitedpipe.sources.sec import (
+    ACTIONS,
+    PLAUSIBLE_PRICE,
+    PLAUSIBLE_VALUE,
+    headline,
+    person_name,
+)
 
 BULK = "https://www.sec.gov/files/structureddata/data/insider-transactions-data-sets/{}_form345.zip"
 CODES = ("P", "S")  # the feed's default: open-market purchases and sales
@@ -101,6 +107,10 @@ def items_of(archive: zipfile.ZipFile) -> list[dict]:
             "price": round(value / priced_shares, 4) if priced_shares else None,
             "value": round(value, 2),
         }
+        if (trade["price"] or 0) > PLAUSIBLE_PRICE and value > PLAUSIBLE_VALUE:
+            # the total filed as the price a share, as the live feed says it (sec.summarize)
+            trade["filed_price"] = round(trade["price"], 2)
+            trade["price"] = trade["value"] = None
         traded = min((d for t in found if (d := day(t["TRANS_DATE"]))), default=None)
         filed = day(filing["FILING_DATE"])
         if not filed:
