@@ -350,3 +350,10 @@ def test_typos_are_searched_as_the_catalog_word_one_letter_away():
     )
     assert corrected(["zebra"], document) == (["zebra"], {})  # nothing close: left alone
     assert corrected(["crypto"], document) == (["crypto"], {})  # found as typed
+
+
+def test_flaws_and_bugs_find_vulnerabilities():
+    from unlimitedpipe.sources.search import word_pattern
+
+    assert word_pattern("flaws").search("A vulnerability in Cisco Secure Firewall")
+    assert word_pattern("bug").search("Critical vulnerabilities in Fortinet")

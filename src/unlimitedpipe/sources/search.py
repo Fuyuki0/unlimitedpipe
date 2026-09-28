@@ -127,6 +127,9 @@ SAME = {
     "un": ("united nations",),
     "ai": ("artificial intelligence",),
     "stock": ("share",),
+    "flaw": ("vulnerabilit",),  # "cisco critical flaws": the sources say vulnerability
+    "flaws": ("vulnerabilit",),  # stem() keeps words ending in -ws whole, as "news"
+    "bug": ("vulnerabilit",),
 }
 
 
