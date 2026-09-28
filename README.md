@@ -171,6 +171,11 @@ blogs and news sites, and page text otherwise, with commented hints for narrowin
 | `unlimited bluesky [WORDS...]` | New public Bluesky posts, live, from Bluesky's Jetstream (endless; `pip install "unlimitedpipe[live]"`) |
 | `unlimited sec insider-trades` | Insider purchases and sales as they are filed with the SEC: who, their role, shares, price and total value. Needs a contact email (`--contact` or `SEC_CONTACT`), as the SEC asks. |
 | `unlimited sec activist-stakes` | New Schedule 13D filings: which investor disclosed 5% or more of which company. |
+| `unlimited sec company-events` | 8-K filings that report a bankruptcy, a completed acquisition, layoffs, a delisting notice, an auditor change, a restatement, a change in control or a cyberattack. |
+| `unlimited sec ipo-filings` | S-1 and F-1 registrations by companies going public (not public companies registering more shares). |
+
+With `--since` and `--until` in the past, the SEC sources read that period from EDGAR's
+full-text search, so `unlimited backfill` can fill a catalog with years of them.
 | `unlimited search WORDS...` | Items from every feed of a published catalog that mention all the words, in one request (default catalog: [feeds.daemonfill.dev](https://feeds.daemonfill.dev/)). `--list-feeds` lists its feeds. |
 | `unlimited ask QUESTION` | An `answer` to a question from a feed catalog, explained by a local model (Ollama) or Claude from numbered sources, which are always listed with their links. Optional: see [Ask](#ask). |
 | `unlimited inspect URL...` | An `inspection`: robots.txt, feeds, JSON-LD, products, sitemap, JavaScript, suggested commands. |
