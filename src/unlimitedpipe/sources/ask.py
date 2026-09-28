@@ -100,6 +100,22 @@ def size_of(title: str) -> float | None:
     return None
 
 
+_MAGNITUDE = re.compile(r"^M\s?(\d(?:\.\d+)?)\s")
+NOTABLE_STORIES = 5  # items of fewer stories than this are a series ("bitcoin price")
+
+
+def notable_size(title: str) -> float | None:
+    """How big an event is where its title says so plainly: its largest dollar amount
+    ("Ronin Bridge: $624M lost") or an earthquake's magnitude ("M 7.5 - Noto Peninsula")."""
+    if money := [
+        float(m[1].replace(",", "")) * _SCALE.get(m[2] or "", 1) for m in _MONEY.finditer(title)
+    ]:
+        return max(money)
+    if match := _MAGNITUDE.match(title):
+        return float(match[1])
+    return None
+
+
 def by_size(question: str, items: list[dict[str, Any]]) -> str:
     """The answer to "strongest earthquake in 2024" from items ordered by their number."""
     from unlimitedpipe.decide import headline, short
@@ -182,7 +198,10 @@ def rank(
     as loosely related items confuse a model. A feed's name counts as part of each item
     ("insider trades" finds the insider-trades feed), its description only a little. Items
     older than ``since`` (an ISO date) are left out. With ``order`` "most" or "least", the
-    kept items with the largest (or smallest) number come first ("strongest earthquake").
+    kept items with the largest (or smallest) number come first ("strongest earthquake"). With
+    "notable", for questions about the past, the biggest events come first where the items are
+    events of many stories with sizes (the Noto earthquake of 2024, not the last of December);
+    a series ("fed funds rate in 2019") keeps its order.
     """
     feeds = {
         f.get("name"): (str(f.get("name", "")).replace("-", " "), f.get("description") or "")
@@ -232,7 +251,14 @@ def rank(
     scored.sort(key=lambda s: (s[0], s[1], s[2]), reverse=True)
     best_coverage, best_score = scored[0][0], scored[0][1]
     kept = [s for s in scored if s[0] == best_coverage and s[1] >= best_score / 2]
-    if order:
+    if order == "notable":
+        sizes = [notable_size(str(s[3].get("title") or "")) for s in kept]
+        stories = len({story(s[3]) for s in kept})
+        sized = sum(size is not None for size in sizes)
+        if stories >= min(NOTABLE_STORIES, len(kept)) and sized * 2 >= len(kept):
+            ordered = sorted(zip(sizes, range(len(kept)), strict=True), key=lambda p: -(p[0] or 0))
+            kept = [kept[n] for _, n in ordered]
+    elif order:
         sized = [(size_of(str(s[3].get("title") or "")), s) for s in kept]
         with_size = [p for p in sized if p[0] is not None]
         with_size.sort(key=lambda p: p[0], reverse=order == "most")  # type: ignore[arg-type]
@@ -390,7 +416,14 @@ class Ask(Source):
             if days
             else None
         )
-        items, covered = rank(document, words, self.sources, since=after, order=order)
+        # about the past, the biggest events first; about now, the newest
+        items, covered = rank(
+            document,
+            words,
+            self.sources,
+            since=after,
+            order=order or ("notable" if named else None),
+        )
         weak = bool(items) and len(covered) < needed(words)
         stale = False
         if after and (not items or weak):
@@ -404,7 +437,7 @@ class Ask(Source):
             past = await items_by_words(ctx, url, document, words)
             if past:
                 found_items, found_covered = rank(
-                    {**document, "items": past}, words, self.sources, order=order
+                    {**document, "items": past}, words, self.sources, order=order or "notable"
                 )
                 if (
                     found_items

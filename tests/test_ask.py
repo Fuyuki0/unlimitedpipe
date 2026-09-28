@@ -321,3 +321,35 @@ def test_superlative_questions_are_answered_by_size_in_code():
         "The strongest: M 7.5 - Noto Peninsula, Japan (2024-01-01) [1]. "
         "Next: M 5.9 - Hyuganada Sea, Japan [2]; M 4.6 - Izu Islands, Japan [3]."
     )
+
+
+def test_questions_about_the_past_put_the_biggest_events_first():
+    from unlimitedpipe.sources.ask import notable_size
+
+    quakes = [
+        {"feed": "earthquakes", "title": f"M {m} - {place}, Japan", "date": date}
+        for m, place, date in (
+            ("7.5", "Noto Peninsula", "2024-01-01"),
+            ("4.5", "Volcano Islands", "2024-12-30"),
+            ("4.6", "Izu Islands", "2024-12-28"),
+            ("7.1", "Hyuganada Sea", "2024-08-08"),
+            ("4.7", "Bonin Islands", "2024-12-20"),
+        )
+    ]
+    document = {"feeds": [{"name": "earthquakes"}], "items": quakes}
+    newest, _ = rank(document, ["earthquakes", "japan"], 2)
+    assert [i["date"] for i in newest] == ["2024-12-30", "2024-12-28"]
+    biggest, _ = rank(document, ["earthquakes", "japan"], 2, order="notable")
+    assert [i["title"][:5] for i in biggest] == ["M 7.5", "M 7.1"]
+    rates = [
+        {
+            "feed": "rates",
+            "title": f"Fed funds rate (effective): {r}% (2019-{m})",
+            "date": f"2019-{m}-01",
+        }
+        for r, m in (("2.40", "04"), ("1.55", "12"), ("2.13", "08"))
+    ]
+    series, _ = rank({"feeds": [{"name": "rates"}], "items": rates}, ["fed"], 3, order="notable")
+    assert [i["date"] for i in series] == ["2019-12-01", "2019-08-01"]  # newest, not highest
+    assert notable_size("Ronin Bridge: $624M lost (key compromise)") == 624e6
+    assert notable_size("Environmental Protection Agency: Section 404 program") is None

@@ -117,6 +117,29 @@ def test_a_form4_becomes_one_trade_per_transaction_code():
     )
 
 
+def test_a_total_filed_as_the_price_a_share_is_not_multiplied_again():
+    filing = {
+        "transactions": [
+            {
+                "code": "P",
+                "date": "2025-10-17",
+                "shares": 25_000_000.0,
+                "price": 13_000_000.0,
+                "shares_after": None,
+            }
+        ],
+        "issuer": "Kayne Anderson Energy Infrastructure Fund, Inc.",
+        "ticker": "KYN",
+        "owner": "MetLife Investment Management LLC",
+        "role": "10% owner",
+    }
+    trade = summarize(filing, "P")
+    assert trade is not None and trade["value"] is None and trade["filed_price"] == 13_000_000
+    assert headline({**filing, **trade}).endswith(
+        "bought 25,000,000 shares (filed price $13,000,000.00 a share, not plausible)"
+    )
+
+
 def test_insider_trades_reads_each_filing_once_and_skips_other_forms(web, make_ctx):
     web.add(LATEST, ATOM, content_type="application/atom+xml")
     web.add(f"{FOLDER}/1197649/0001-26-7/0001-26-7.txt", FORM4, content_type="text/plain")

@@ -3,6 +3,17 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.21 - 2026-09-28
+
+- `ask` about the past puts the biggest events first where the items are events with sizes
+  (dollar amounts, earthquake magnitudes): "earthquakes in japan in 2024" starts with the M 7.5
+  Noto Peninsula earthquake, not the last small ones of December; "crypto hacks in 2022" with
+  Ronin ($624M), and "ronin hack" with that one rather than its $12M hack of 2024. A series
+  ("fed funds rate in 2019") and questions about now keep the newest first.
+- `sec insider-trades`: a price a share over $10,000 on a trade that would be worth more than
+  $5B is a filer's mistake (often the total where the price goes); the title shows the price as
+  filed and says it is not plausible, instead of a trade worth "$325T".
+
 ## 0.10.20 - 2026-09-28
 
 - `ask` and `search` know the acronyms of US agencies as the Federal Register names them

@@ -131,6 +131,13 @@ def parse_form4(xml: bytes) -> dict[str, Any]:
     }
 
 
+# A price a share above this on a trade said to be worth more than PLAUSIBLE_VALUE is a filer's
+# mistake, often the total where the price a share goes ("25,000,000 shares at $13,000,000.00",
+# which would be $325T): the title says so rather than showing the product.
+PLAUSIBLE_PRICE = 10_000.0
+PLAUSIBLE_VALUE = 5e9
+
+
 def summarize(filing: dict[str, Any], code: str) -> dict[str, Any] | None:
     """All of one filing's transactions with one code, as a single trade."""
     rows = [t for t in filing["transactions"] if t["code"] == code and t["shares"]]
@@ -141,7 +148,10 @@ def summarize(filing: dict[str, Any], code: str) -> dict[str, Any] | None:
     value = sum(t["shares"] * t["price"] for t in priced) if priced else None
     price = value / sum(t["shares"] for t in priced) if priced and value else None
     after = rows[-1]["shares_after"]
-    return {
+    filed = None
+    if price and value and price > PLAUSIBLE_PRICE and value > PLAUSIBLE_VALUE:
+        filed, price, value = price, None, None
+    trade = {
         "code": code,
         "action": ACTIONS.get(code, "reported"),
         "shares": int(shares) if float(shares).is_integer() else shares,
@@ -152,6 +162,9 @@ def summarize(filing: dict[str, Any], code: str) -> dict[str, Any] | None:
         if any(t["date"] for t in rows)
         else None,
     }
+    if filed:
+        trade["filed_price"] = round(filed, 2)
+    return trade
 
 
 def headline(trade: dict[str, Any]) -> str:
@@ -168,6 +181,8 @@ def headline(trade: dict[str, Any]) -> str:
         text += f" at ${trade['price']:,.2f}"
     if trade.get("value"):
         text += f" (${short_number(trade['value'])})"
+    elif trade.get("filed_price"):
+        text += f" (filed price ${trade['filed_price']:,.2f} a share, not plausible)"
     return text
 
 
