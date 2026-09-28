@@ -573,9 +573,102 @@ SEARCH_SCRIPT = r"""    <script>
           }
         });
       }).catch(() => {});
-      q.addEventListener("input", () => load().then(show).catch(() => {
+      q.addEventListener("input", () => load().then(show).then(offer).catch(() => {
         status.textContent = "Search starts working after the next run writes feeds.json.";
       }));
+
+      // The archive: every item the catalog ever listed, one file per month. Its word index
+      // says which months hold a word, so a search reads a dozen months, not all of them.
+      const deep = document.getElementById("deep");
+      let words = null, months = null;
+      const stem = (word) => {  // as UnlimitedPipe stems words (unlimitedpipe.sources.search)
+        const w = word.toLowerCase();
+        if (/(ss|us|is|ws)$/.test(w)) return w;
+        if (w.endsWith("y") && w.length >= 5) return w.slice(0, -1);
+        const endings = [["ies", ""], ["ing", ""], ["ed", ""], ["es", "e"], ["s", ""]];
+        for (const [suffix, keep] of endings) {
+          if (!w.endsWith(suffix)) continue;
+          const base = w.slice(0, -suffix.length);
+          const add = suffix === "es" && /(s|x|z|ch|sh)$/.test(base) ? "" : keep;
+          if (base.length >= 4 || ((suffix === "s" || suffix === "es") && base.length >= 3)) {
+            return base + add;
+          }
+        }
+        return w;
+      };
+      const NAMES = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct",
+        "nov", "dec"];
+      function offer() {
+        if (!deep || !catalog || !catalog.archive) return;
+        deep.hidden = !q.value.trim();
+      }
+      async function searchArchive() {
+        const base = catalog.archive.replace(/[^/]*$/, "");
+        if (!months) {
+          months = (await (await fetch(catalog.archive)).json()).months.map((m) => m.month);
+        }
+        const asked = q.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+        let period = null;
+        const terms = [];
+        for (let n = 0; n < asked.length; n++) {
+          const w = asked[n], month = NAMES.indexOf(w.slice(0, 3)), next = asked[n + 1];
+          if (/^(19|20)\d\d$/.test(w)) period = (m) => m.startsWith(w);
+          else if (month >= 0 && next && /^(19|20)\d\d$/.test(next) && w.length >= 3) {
+            const key = next + "-" + String(month + 1).padStart(2, "0");
+            period = (m) => m === key; n++;
+          } else if (/^\d{4}-\d\d$/.test(w)) period = (m) => m === w;
+          else terms.push(w);
+        }
+        let chosen = months.filter(period || (() => false)).sort().reverse();
+        if (!period) {
+          if (!words) words = (await (await fetch(base + "words.json")).json()).words;
+          const keys = Object.keys(words);
+          const sets = terms.filter((t) => t.length > 2).map((t) => {
+            const s = stem(t), found = new Set();
+            for (const k of keys) if (k.startsWith(s)) for (const m of words[k]) found.add(m);
+            return found;
+          }).filter((set) => set.size);
+          if (!sets.length) return [];
+          const anchor = sets.reduce((a, b) => (b.size < a.size ? b : a));
+          chosen = [...anchor].sort((a, b) =>
+            sets.filter((x) => x.has(b)).length - sets.filter((x) => x.has(a)).length
+            || (a < b ? 1 : -1));
+        }
+        chosen = chosen.slice(0, 12);  // the months holding most of the words, then the newest
+        const tests = terms.map(word);
+        const about = Object.fromEntries(
+          catalog.feeds.map((f) => [f.name, f.name.replaceAll("-", " ")]));
+        const found = [];
+        for (const m of chosen) {
+          const text = await (await fetch(base + m + ".jsonl")).text();
+          for (const line of text.split("\n")) {
+            if (!line) continue;
+            const i = JSON.parse(line), hay = (i.title || "") + " " + (i.summary || "") + " "
+              + (about[i.feed] || i.feed);
+            if (tests.every((t) => t.test(hay))) found.push(i);
+          }
+        }
+        return found.sort((a, b) => (b.date || "").localeCompare(a.date || "")).slice(0, 50);
+      }
+      if (deep) deep.addEventListener("click", () => {
+        deep.hidden = true;
+        status.textContent = "Searching the archive…";
+        load().then(searchArchive).then((found) => {
+          list.replaceChildren();
+          status.textContent = found.length
+            ? found.length + (found.length === 50 ? "+" : "") + " result(s) from the archive"
+            : "Nothing in the archive matches.";
+          const title = names();
+          for (const i of found) {
+            const li = document.createElement("li"), a = document.createElement("a");
+            a.href = i.link || "#"; a.textContent = i.title || i.link; a.rel = "noopener";
+            const meta = document.createElement("small");
+            meta.textContent = (title[i.feed] || i.feed) + (i.date ? " · " + day(i.date) : "");
+            li.append(a, meta);
+            list.append(li);
+          }
+        }).catch(() => { status.textContent = "The archive could not be read."; });
+      });
     </script>
 """
 
@@ -635,6 +728,10 @@ INDEX_STYLE = """
       #q:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
       #status { color: var(--muted); font-size: .9rem; margin: .5rem 0 0; }
       #status:empty, #results:empty { display: none; }
+      #deep { margin-top: .6rem; font: inherit; font-size: .9rem; font-weight: 600;
+        color: var(--accent-ink); background: var(--accent); border: 0; border-radius: 8px;
+        padding: .45rem .9rem; cursor: pointer; }
+      #deep[hidden] { display: none; }
       #results { list-style: none; padding: 0; margin: .5rem 0 0; }
       #results li { padding: .55rem 0; border-bottom: 1px solid var(--line); }
       #results small { display: block; color: var(--muted); }
@@ -747,6 +844,7 @@ def index_page(p: PublishPlan, every: str) -> str:
       <input id="q" type="search" placeholder="Search the latest items: flood, bankruptcy, Bangkok…"
         autocomplete="off" aria-label="Search every feed">
       <p id="status"></p>
+      <button id="deep" type="button" hidden>Search every past record, not only the latest</button>
       <ul id="results"></ul>
     </section>
     <nav class="toc" aria-label="Topics">{"".join(toc)}</nav>
