@@ -107,6 +107,7 @@ def main() -> None:
             ("real extra", "extra"),
             ("real blind", "blind"),
             ("real blind2", "blind2"),
+            ("real blind3", "blind3"),
         ):
             path = f"{args.decide_sets}/{file}-decide.jsonl"
             if os.path.exists(path):

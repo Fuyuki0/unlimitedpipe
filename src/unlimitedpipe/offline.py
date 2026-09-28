@@ -7,6 +7,7 @@ import json
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+from unlimitedpipe.archive import WORDS
 from unlimitedpipe.context import Context
 from unlimitedpipe.errors import FetchError, UsageError
 from unlimitedpipe.sources.search import catalog_url, join, load_catalog, read
@@ -51,12 +52,13 @@ async def mirror(
     index_path = document.get("archive") or "archive/index.json"
     index = await copy(index_path, required=False)
     if index:
+        archive_dir = str(PurePosixPath(index_path).parent)
         for month in json.loads(index).get("months", []):
             if since and str(month.get("month", "")) < since[:7]:
                 continue
-            archive_dir = str(PurePosixPath(index_path).parent)
             await copy(f"{archive_dir}/{month.get('file')}")
             copied["months"] += 1
+        await copy(f"{archive_dir}/{WORDS}", required=False)  # for questions without a date
     if feeds:
         for feed in document.get("feeds", []):
             for relative in feed.get("files", []):

@@ -122,6 +122,7 @@ def test_mirror_copies_a_catalog_for_offline_use(tmp_path):
     assert sorted(p.relative_to(copy).as_posix() for p in copy.rglob("*") if p.is_file()) == [
         "archive/2026-09.jsonl",
         "archive/index.json",
+        "archive/words.json",
         "feeds.json",
         "index.html",
     ]

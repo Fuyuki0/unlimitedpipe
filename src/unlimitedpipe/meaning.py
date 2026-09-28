@@ -67,6 +67,9 @@ async def _embed(client: httpx.AsyncClient, host: str, model: str, texts: list[s
     return vectors
 
 
+CACHE_SIZE = 8000  # vectors kept between questions, about 13 MB
+
+
 async def nearest(
     ctx: Context,
     client: httpx.AsyncClient,
@@ -92,8 +95,12 @@ async def nearest(
         for (key, _), vector in zip(missing, vectors, strict=True):
             cache[key] = _encode(vector)
         path.parent.mkdir(parents=True, exist_ok=True)
-        wanted = set(keys)  # the catalog's items now: older ones are dropped
-        path.write_text(json.dumps({k: v for k, v in cache.items() if k in wanted}))
+        # Keep these items and the most recently added others, up to a size that stays quick
+        # to read: questions about the archive embed items the latest catalog does not have.
+        wanted = set(keys)
+        others = [k for k in cache if k not in wanted][-max(0, CACHE_SIZE - len(wanted)) :]
+        kept = {k: cache[k] for k in [*others, *keys]}
+        path.write_text(json.dumps(kept))
     [query] = await _embed(client, host, model, [question])
     threshold = next(
         (t for name, t in THRESHOLD.items() if model.startswith(name)), DEFAULT_THRESHOLD

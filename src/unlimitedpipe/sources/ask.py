@@ -131,6 +131,8 @@ Sources:
 Question: {question}"""
 
 
+MEANING_ITEMS = 2000  # the most items a question is compared with by meaning
+
 # Stopwords for counting words in titles that are still worth searching for ("show hn").
 SEARCHABLE = frozenset({"hn"})
 
@@ -526,6 +528,10 @@ class Ask(Source):
             for item in document.get("items", [])
             if not (after and item.get("date") and str(item["date"]) < after)
         ]
+        # A year of the archive is tens of thousands of items: embedding them all would take
+        # minutes on a small computer, so the newest ones stand for the period.
+        items.sort(key=lambda i: str(i.get("date") or ""), reverse=True)
+        items = items[:MEANING_ITEMS]
         async with httpx.AsyncClient(timeout=self.timeout, transport=ctx.transport) as client:
             model = meaning.pick(await _ollama_models(client, host) or [])
             if model is None or not items:
