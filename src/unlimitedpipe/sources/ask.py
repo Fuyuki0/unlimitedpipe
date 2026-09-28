@@ -18,7 +18,7 @@ from typing import Any, Literal
 import httpx
 
 from unlimitedpipe import thai
-from unlimitedpipe.archive import named_period
+from unlimitedpipe.archive import EVER, named_period
 from unlimitedpipe.component import Source, arg, opt
 from unlimitedpipe.context import Context
 from unlimitedpipe.errors import FetchError, UsageError
@@ -93,6 +93,8 @@ def size_of(title: str) -> float | None:
 
     if money := [value(m) for m in _MONEY.finditer(title)]:
         return max(money)
+    if magnitude := _MAGNITUDE.search(title):  # not the "120 miles" after it
+        return float(magnitude[1])
     _, colon, after = title.partition(": ")
     for text in (after, title) if colon else (title,):
         if match := _SIZE.search(text):
@@ -100,7 +102,7 @@ def size_of(title: str) -> float | None:
     return None
 
 
-_MAGNITUDE = re.compile(r"^M\s?(\d(?:\.\d+)?)\s")
+_MAGNITUDE = re.compile(r"(?<![\w.])M\s?(\d\.\d)\b")  # "M 7.5 - Noto", "bulletin: M5.5 near"
 NOTABLE_STORIES = 5  # items of fewer stories than this are a series ("bitcoin price")
 
 
@@ -111,7 +113,7 @@ def notable_size(title: str) -> float | None:
         float(m[1].replace(",", "")) * _SCALE.get(m[2] or "", 1) for m in _MONEY.finditer(title)
     ]:
         return max(money)
-    if match := _MAGNITUDE.match(title):
+    if match := _MAGNITUDE.search(title):
         return float(match[1])
     return None
 
@@ -441,10 +443,15 @@ class Ask(Source):
         )
         weak = bool(items) and len(covered) < needed(words)
         stale = False
-        if after and (not items or weak):
-            # "baht rate today" on a Sunday: nothing that recent, so show the latest there is.
+        if after:
+            # "baht rate today" on a Sunday, "10 year treasury yield today" (published days
+            # later): nothing that recent has the words, so show the latest that does.
             older, older_covered = rank(document, words, 3, order=order)
-            if older and len(older_covered) >= needed(words):
+            if (
+                older
+                and len(older_covered) >= needed(words)
+                and (not items or weak or len(older_covered) > len(covered))
+            ):
                 items, covered, stale, weak = older, older_covered, True, False
         if len(covered) < len(words) and not named and not self.since:
             # "ronin hack", "reddit ipo filing": nothing recent has every word, so the archive
@@ -482,6 +489,8 @@ class Ask(Source):
         period = f" from the last {days} days" if days else ""
         if named:
             period = f" from {named[0]}" if named[0] == named[1] else f" from {named[0][:4]}"
+            if named[0] == EVER:
+                period = ""
         check: list[str] = []
         confidence: float | None = None
         if not items:
@@ -492,10 +501,12 @@ class Ask(Source):
             )
             model = None
         elif stale:
-            latest = max(str(i.get("date") or "")[:10] for i in items) or "an earlier day"
+            from unlimitedpipe.decide import headline
+
+            latest = str(items[0].get("date") or "")[:10] or "an earlier day"
             answer = (
                 f"Nothing in the catalog{period} matches this question. The latest that does "
-                f"is older, from {latest}: see the sources below."
+                f"is from {latest}: {headline(items[0].get('title'))} [1]."
             )
             model = None
         elif weak:

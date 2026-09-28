@@ -280,19 +280,24 @@ MONTH_NAMES = {
 _PERIOD = re.compile(
     r"\b(?:(?P<month>" + "|".join(sorted(MONTH_NAMES, key=len, reverse=True)) + r")\.?\s+)?"
     r"(?P<year>(?:19|20)\d\d)(?:-(?P<iso>0[1-9]|1[0-2]))?\b"
-    r"|\b(?P<relative>last|this)\s+year\b",
+    r"|\b(?P<relative>last|this)\s+year\b"
+    r"|\b(?P<ever>ever|of all time|all[- ]time)\b",
     re.IGNORECASE,
 )
+EVER = "1970-01"  # the first month of "biggest hacks ever": all of the archive
 
 
 def named_period(text: str, today: str) -> tuple[str, str, list[str]] | None:
     """The months a question names, as the first and last (YYYY-MM), and the words that named
-    them: "earthquakes in 2023", "rules in march 2025", "2025-03", "last year". None when it
-    names no period, or one after ``today`` (an ISO date)."""
+    them: "earthquakes in 2023", "rules in march 2025", "2025-03", "last year", and all of it
+    for "ever" (from EVER). None when it names no period, or one after ``today`` (an ISO
+    date)."""
     match = _PERIOD.search(text)
     if match is None:
         return None
     this_year = int(today[:4])
+    if match["ever"]:
+        return EVER, today[:7], [w.casefold() for w in match[0].split()]
     if match["relative"]:
         year = this_year - (match["relative"].casefold() == "last")
         return f"{year}-01", f"{year}-12", [w.casefold() for w in match[0].split()]

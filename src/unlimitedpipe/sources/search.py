@@ -116,6 +116,9 @@ SAME = {
     "cpi": ("consumer price",),
     "ipo": ("go public", "initial public offering"),
     "purchase": ("bought", "buy"),
+    "purchas": ("bought", "buy"),  # "purchases", as stem() cuts it
+    "sale": ("sold", "sell"),
+    "warning": ("alert", "advisory", "bulletin"),  # "tsunami warning?", "flood warning"
     "outage": ("issues with", "elevated error", "degraded", "disruption", "unavailable"),
     "quake": ("earthquake",),
     "sec": ("securities and exchange commission",),

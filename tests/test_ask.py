@@ -137,7 +137,7 @@ def test_nothing_recent_shows_the_latest_older_items(web, make_ctx):
     [answer] = run_source(Ask(question=["baht", "rate", "today?"], catalog=URL), make_ctx())
     assert answer.data["model"] is None
     assert answer.data["answer"].startswith("Nothing in the catalog from the last 2 days")
-    assert "is older, from 2020-01-03" in answer.data["answer"]
+    assert "is from 2020-01-03: US dollar: 33.345 baht [1]" in answer.data["answer"]
     assert [s["link"] for s in answer.data["sources"]] == ["fx"]
 
 
@@ -362,3 +362,28 @@ def test_questions_about_the_past_put_the_biggest_events_first():
     assert superlative("what are the latest big insider trades?") == "notable"
     assert superlative("biggest hack of 2022") == "most"
     assert superlative("insider trades today") is None
+
+
+def test_what_people_ask_finds_what_they_mean():
+    from unlimitedpipe.archive import EVER, named_period
+    from unlimitedpipe.sources.ask import notable_size, size_of
+    from unlimitedpipe.sources.search import word_pattern
+
+    title = "Tsunami information bulletin: M5.5 120 miles W of Port Alice, British Columbia"
+    assert size_of(title) == 5.5 and notable_size(title) == 5.5  # not the 120 miles
+    assert word_pattern("purchases").search("a director bought 10,000 shares")
+    assert word_pattern("sales").search("a director sold 5,000 shares")
+    assert word_pattern("warning").search("Tsunami information bulletin: M7.0")
+    assert named_period("biggest crypto hacks ever", "2026-09-28") == (EVER, "2026-09", ["ever"])
+
+
+def test_a_listing_of_old_items_is_dated_and_not_called_latest():
+    from unlimitedpipe import decide
+
+    old = [
+        {"feed": "cves", "title": "CVE-2023-2136: Skia in Chrome", "date": "2023-04-19T00:00:00Z"},
+        {"feed": "cves", "title": "CVE-2021-38002: Chrome", "date": "2021-11-23T00:00:00Z"},
+    ]
+    answer = decide.write("chrome vulnerabilities", old, [2, 1])
+    assert answer.startswith("Nothing recent; the latest found:")
+    assert answer.index("(2023-04-19) [1]") < answer.index("(2021-11-23) [2]")  # newest first

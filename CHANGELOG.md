@@ -3,6 +3,25 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.25 - 2026-09-28
+
+From 45 new questions asked the way a first-day user would, answers that were wrong or
+misleading:
+
+- "biggest crypto hacks ever": "ever" and "all time" search the whole archive (LuBian $3.5B,
+  Bybit $1.4B, Ronin $624M), not only the latest items.
+- "biggest earthquake this year": an earthquake's size is its magnitude wherever the title has
+  it ("bulletin: M5.5 120 miles W of ..." is 5.5, not 120).
+- "10 year treasury yield today": when an older item has more of the question's words than
+  anything recent (FRED publishes days later), `ask` shows it, and says how old it is with its
+  headline: "The latest that does is from 2026-09-24: US 10-year Treasury yield: 5.18%".
+- "new critical vulnerabilities in chrome": a listing whose newest item is more than 45 days
+  old is no longer called "Latest"; it says "Nothing recent" and dates each item.
+- "is there a tsunami warning?": "warning" also matches alerts, advisories and bulletins.
+- "biggest insider purchases this month", "tesla insider sales 2025": "purchases" matches
+  "bought" and "sales" matches "sold" (and no longer "Chief Purchasing Officer").
+- Updates of one feed are listed newest first ("new ollama version").
+
 ## 0.10.24 - 2026-09-28
 
 - An offline copy's archive index lists only the months it holds (`unlimited setup` copies
