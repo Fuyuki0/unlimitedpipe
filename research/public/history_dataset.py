@@ -40,6 +40,17 @@ FEEDS = {
     "us-indicators": ("BLS, Labor Department and Federal Reserve series via FRED", "public domain"),
     "data-breaches": ("Have I Been Pwned (haveibeenpwned.com)", "CC BY 4.0"),
     "crypto-hacks": ("DefiLlama hacks database", "open data, attribution to DefiLlama"),
+    "fed-funds-target": (
+        "Federal Reserve federal funds target (FRED: DFEDTAR, DFEDTARL, DFEDTARU)",
+        "public domain",
+    ),
+    "sanctions-actions": ("US Treasury, OFAC recent actions", "public domain"),
+    "natural-events": ("NASA Earth Observatory Natural Event Tracker (EONET)", "public domain"),
+    "usd-rates": (
+        "European Central Bank euro reference rates, as US dollar rates (via Frankfurter)",
+        "reuse permitted with the ECB named as the source",
+    ),
+    "stablecoin-supply": ("DefiLlama stablecoin data", "open data, attribution to DefiLlama"),
 }
 LEFT_OUT = ("US 30-year mortgage rate",)  # Freddie Mac's survey, not a government series
 
@@ -84,8 +95,10 @@ configs:
 The history of UnlimitedPipe's public-record feeds (https://feeds.daemonfill.dev):
 {sum(counts.values()):,} items, each with the feed it belongs to, a readable title, a short
 summary, a link to the record at its source, and its date. Built with `unlimited backfill`,
-which runs each feed's own pipeline over the past, and from the SEC's Form 345 data sets for
-insider trades (https://github.com/Fuyuki0/unlimitedpipe).
+which runs each feed's own pipeline over the past; from the SEC's Form 345 data sets for
+insider trades; and, where a source keeps its history elsewhere, with the scripts in
+research/public (FRED, the ECB, NASA EONET, OFAC, DefiLlama), which write the feeds' own
+titles (https://github.com/Fuyuki0/unlimitedpipe).
 
 | Feed | Items | Dates | Source | License |
 | --- | --- | --- | --- | --- |
