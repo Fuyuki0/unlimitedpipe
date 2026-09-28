@@ -329,7 +329,7 @@ async def items_since(
             or (until and str(month.get("month", "")) > until)
         )
     ]
-    wanted = await _wanted_feeds(ctx, index_url, document, words or [], months)
+    wanted = await _wanted_feeds(ctx, index_url, index, document, words or [], months)
     for item in await _read_months(ctx, index_url, months, wanted):
         merged.setdefault(item_key(item), item)
     items = [
@@ -367,9 +367,38 @@ def _named_feeds(document: dict[str, Any], words: list[str]) -> set[str]:
     }
 
 
+async def word_table(
+    ctx: Context, index_url: str, index: Any, name: str, forms: set[str]
+) -> dict[str, Any] | None:
+    """The entries of one of the archive's word indexes (``name``: words, words-by-feed) that
+    can start with ``forms``: from its small files by first letters where the archive index
+    lists them, else from its one whole file; None when there is neither."""
+    from unlimitedpipe.archive import shard_of
+
+    shards = index.get("shards") if isinstance(index, dict) else None
+    if not isinstance(shards, list):
+        try:
+            content = await read(ctx, join(index_url, f"{name}.json"))
+            return json.loads(content).get("words") or {}
+        except (FetchError, ValueError, AttributeError):
+            return None
+    wanted = sorted({shard_of(form) for form in forms if form} & set(map(str, shards)))
+    try:
+        contents = await asyncio.gather(
+            *(read(ctx, join(index_url, f"{name}/{shard}.json")) for shard in wanted)
+        )
+        table: dict[str, Any] = {}
+        for content in contents:
+            table.update(json.loads(content).get("words") or {})
+    except (FetchError, ValueError, AttributeError, TypeError):
+        return None
+    return table
+
+
 async def _wanted_feeds(
     ctx: Context,
     index_url: str,
+    index: Any,
     document: dict[str, Any],
     words: list[str],
     months: list[dict[str, Any]],
@@ -377,29 +406,23 @@ async def _wanted_feeds(
     """For each month, the feeds that can hold the words (from the archive's words-by-feed
     index), and the feeds the words name; None to read whole months (no split, no index, or
     no word that narrows anything down)."""
-    from bisect import bisect_left
-
     from unlimitedpipe.archive import BY_FEED
 
     if not words or not any("feeds" in m for m in months):
         return None
-    try:
-        table = json.loads(await read(ctx, join(index_url, BY_FEED))).get("words") or {}
-    except (FetchError, ValueError, AttributeError):
+    forms = {form for word in words for form in _forms(word) if len(form) >= 2}
+    table = await word_table(ctx, index_url, index, BY_FEED, forms)
+    if table is None:
         return None
-    keys = sorted(table)
     wanted: dict[str, set[str]] = {}
     narrowed = False
-    for word in words:
-        for form in _forms(word):
-            start = bisect_left(keys, form)
-            for key in keys[start:]:
-                if not key.startswith(form):
-                    break
-                narrowed = True
-                for feed, feed_months in table[key].items():
-                    for month in feed_months:
-                        wanted.setdefault(month, set()).add(feed)
+    for key, word_feeds in table.items():
+        if not any(key.startswith(form) for form in forms):
+            continue
+        narrowed = True
+        for feed, feed_months in word_feeds.items():
+            for month in feed_months:
+                wanted.setdefault(month, set()).add(feed)
     if not narrowed:
         return None
     named = _named_feeds(document, words)
@@ -455,15 +478,20 @@ async def _read_items(ctx: Context, files: list[str]) -> list[dict[str, Any]]:
     return items
 
 
-async def archive_words(ctx: Context, url: str, document: dict[str, Any]) -> set[str]:
-    """Every word of the archive's titles (stemmed), from its word index; empty without one."""
-    from unlimitedpipe.archive import WORDS
+async def archive_words(
+    ctx: Context, url: str, document: dict[str, Any], words: list[str]
+) -> set[str]:
+    """Which of the words (stemmed) the archive's titles have, from its word index; empty
+    without one."""
+    from unlimitedpipe.archive import WORD_FILES
 
     index_url = join(url, document.get("archive") or "archive/index.json")
     try:
-        return set(json.loads(await read(ctx, join(index_url, WORDS))).get("words") or {})
-    except (FetchError, ValueError, AttributeError):
-        return set()
+        index = json.loads(await read(ctx, index_url))
+    except (FetchError, ValueError):
+        index = None
+    forms = {stem(word) for word in words}
+    return forms & set(await word_table(ctx, index_url, index, WORD_FILES, forms) or {})
 
 
 RARE_MONTHS = 12  # a word in more months than this narrows nothing down
@@ -477,21 +505,20 @@ async def items_by_words(
     from the archive's word index: the months its rarest word appears in, those where more of
     its other words appear too first ("reddit" with "public", as "ipo" is said), then the
     newest; at most twelve. Empty when the catalog has no index or no word is rare enough."""
-    from unlimitedpipe.archive import WORDS
+    from unlimitedpipe.archive import WORD_FILES
 
     index_url = join(url, document.get("archive") or "archive/index.json")
     try:
-        table = json.loads(await read(ctx, join(index_url, WORDS))).get("words") or {}
-    except (FetchError, ValueError, AttributeError):
+        index = json.loads(await read(ctx, index_url))
+    except (FetchError, ValueError):
+        index = None
+    all_forms = {form for word in words for form in _forms(word)}
+    table = await word_table(ctx, index_url, index, WORD_FILES, all_forms)
+    if table is None:
         return []
     per_word = []
     for word in words:
-        forms = {stem(word)} | {
-            stem(part)
-            for phrase in SAME.get(stem(word), SAME.get(word.casefold(), ()))
-            for part in phrase.split()
-            if len(part) > 2
-        }
+        forms = _forms(word)
         months = {m for form in forms if isinstance(table.get(form), list) for m in table[form]}
         if months:
             per_word.append(months)
@@ -516,12 +543,10 @@ async def items_by_words(
         anchor, key=lambda m: (sum(m in months for months in per_word), m), reverse=True
     )
     chosen = set(ranked[:MOST_MONTHS])
-    try:
-        index = json.loads(await read(ctx, index_url))
-    except (FetchError, ValueError):
+    if not isinstance(index, dict):
         return await _read_items(ctx, [join(index_url, f"{m}.jsonl") for m in sorted(chosen)])
     months = [m for m in index.get("months", []) if str(m.get("month")) in chosen]
-    wanted = await _wanted_feeds(ctx, index_url, document, words, months)
+    wanted = await _wanted_feeds(ctx, index_url, index, document, words, months)
     return await _read_months(ctx, index_url, months, wanted)
 
 

@@ -377,7 +377,7 @@ class Ask(Source):
             fixed
             and not named
             and not self.since
-            and (known := await archive_words(ctx, url, document))
+            and (known := await archive_words(ctx, url, document, asked))
         ):
             words, fixed = corrected(asked, document, known)
         for typo, word in fixed.items():

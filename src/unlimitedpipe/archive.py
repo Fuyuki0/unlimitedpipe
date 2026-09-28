@@ -19,13 +19,16 @@ ARCHIVE_DIR = "archive"
 INDEX = "index.json"
 SCHEMA = "unlimitedpipe.archive/1"
 # Which months each title word appears in, so a question without a date ("ronin hack") reads
-# only the months that can answer it.
+# only the months that can answer it. Also split by the first two letters of the words
+# (words/ja.json), so a question reads a few small files rather than the whole index; the
+# index lists those files as "shards".
 WORDS = "words.json"
+WORD_FILES = "words"
 WORDS_SCHEMA = "unlimitedpipe.archive-words/1"
 # Each month also split by feed (archive/2024-02/sec-ipo-filings.jsonl), with the feeds each word
-# appears in, so a question reads the feeds that can answer it rather than every item of the
-# month. The month files stay, for readers that do not know the split.
-BY_FEED = "words-by-feed.json"
+# appears in (words-by-feed/ja.json), so a question reads the feeds that can answer it rather
+# than every item of the month. The month files stay, for readers that do not know the split.
+BY_FEED = "words-by-feed"
 BY_FEED_SCHEMA = "unlimitedpipe.archive-words-by-feed/1"
 _FEED = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 _WORD = re.compile(r"[^\W_][\w'-]*")
@@ -94,8 +97,8 @@ def append(site: Path, items: list[dict[str, Any]], now: str) -> dict[str, int]:
             fresh.extend((month, entry) for entry in new)
             _heal(folder, month)
     if added:
-        write_index(folder)
         write_words(folder, fresh)
+        write_index(folder)
     return added
 
 
@@ -192,9 +195,8 @@ def write_words(folder: Path, fresh: list[tuple[str, dict[str, Any]]] | None = N
     for (word, feed), months in by_feed.items():
         if RARE < len(words[word]) <= FEED_WORDS and len(months) < len(words[word]):
             table[f"{word}@{feed}"] = sorted(months)
-    index = {"schema": WORDS_SCHEMA, "words": dict(sorted(table.items()))}
-    path = folder / WORDS
-    path.write_text(json.dumps(index, ensure_ascii=False, separators=(",", ":")) + "\n")
+    table = dict(sorted(table.items()))
+    _write_json(folder / WORDS, {"schema": WORDS_SCHEMA, "words": table})
     from unlimitedpipe.operators.extract import STOPWORDS
 
     stop = {w.casefold() for w in STOPWORDS}  # a search never asks for them
@@ -202,10 +204,36 @@ def write_words(folder: Path, fresh: list[tuple[str, dict[str, Any]]] | None = N
     for (word, feed), months in sorted(by_feed.items()):
         if word not in stop:
             feeds[word][feed] = sorted(months)
-    split = {"schema": BY_FEED_SCHEMA, "words": dict(sorted(feeds.items()))}
-    (folder / BY_FEED).write_text(
-        json.dumps(split, ensure_ascii=False, separators=(",", ":")) + "\n"
-    )
+    names = {shard_of(word) for word in table}
+    _write_shards(folder / WORD_FILES, WORDS_SCHEMA, table, names)
+    _write_shards(folder / BY_FEED, BY_FEED_SCHEMA, feeds, names)
+    (folder / f"{BY_FEED}.json").unlink(missing_ok=True)  # the one file of version 0.10.18
+
+
+def shard_of(word: str) -> str:
+    """The file of a split word index that holds a word: its first two letters or digits, any
+    other character as "_" ("ja" for "japan", "x_" for "x-ray")."""
+    return re.sub(r"[^a-z0-9]", "_", word.lower()[:2]).ljust(2, "_")
+
+
+def _write_json(path: Path, content: dict[str, Any]) -> None:
+    text = json.dumps(content, ensure_ascii=False, separators=(",", ":")) + "\n"
+    if not path.exists() or path.read_text(encoding="utf-8") != text:
+        path.write_text(text, encoding="utf-8")
+
+
+def _write_shards(folder: Path, schema: str, table: dict[str, Any], names: set[str]) -> None:
+    """A word index split into one file per shard name (a name without words gets an empty
+    file, so every listed shard can be read); files of older names are removed."""
+    shards: dict[str, dict[str, Any]] = {name: {} for name in names}
+    for word, value in table.items():
+        shards.setdefault(shard_of(word), {})[word] = value
+    folder.mkdir(exist_ok=True)
+    for old in folder.glob("*.json"):
+        if old.stem not in shards:
+            old.unlink()
+    for name, words in shards.items():
+        _write_json(folder / f"{name}.json", {"schema": schema, "words": words})
 
 
 def write_index(folder: Path) -> None:
@@ -222,7 +250,9 @@ def write_index(folder: Path) -> None:
                     for f in sorted(split.glob("*.jsonl"))
                 }
             months.append(entry)
-    index = {"schema": SCHEMA, "months": months}
+    index: dict[str, Any] = {"schema": SCHEMA, "months": months}
+    if (folder / WORD_FILES).is_dir():
+        index["shards"] = sorted(f.stem for f in (folder / WORD_FILES).glob("*.json"))
     (folder / INDEX).write_text(json.dumps(index, indent=1) + "\n", encoding="utf-8")
 
 

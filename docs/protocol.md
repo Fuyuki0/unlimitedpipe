@@ -99,10 +99,10 @@ grouped by their `feed`; the index then lists each month's `feeds` and their ite
 (`{"month": "2024-02", "file": "2024-02.jsonl", "items": 1234, "feeds": {"sec-ipo-filings": 55,
 ...}}`). The month files stay, so readers that do not know the split keep working; a reader
 uses the split only when its counts add up to the month's `items`, and reads the whole month
-otherwise. `archive/words-by-feed.json` (optional) lists, for each title word, the feeds and
-months it appears in (`{"words": {"japan": {"earthquakes": ["2024-01", ...]}}}`), so a question
-about a period reads only the feeds that can hold its words, and the feeds whose name or
-description has them.
+otherwise. `archive/words-by-feed/` (optional) lists, for each title word, the feeds and months
+it appears in (`{"words": {"japan": {"earthquakes": ["2024-01", ...]}}}`), so a question about a
+period reads only the feeds that can hold its words, and the feeds whose name or description
+has them. It is split into files like the word index below (`archive/words-by-feed/ja.json`).
 
 `archive/words.json` (optional) lists the months each title word appears in, so a reader can
 answer a question that names no date by reading only the months that can answer it:
@@ -115,6 +115,13 @@ Words are lowercased and stemmed as `search` stems them; numbers and words of on
 letters are left out. A word in more than 12 months also has keys by feed, `word@feed`, when it
 appears in fewer months in that feed ("reddit@sec-ipo-filings": ["2024-02"]), for up to 120
 months; a question word that names a feed ("ipo") then narrows the others to that feed.
+
+The word index is also split by the first two letters of its words, lowercased, any character
+other than `a`-`z` and `0`-`9` written `_` (`archive/words/ja.json` holds "japan", `x_.json`
+"x-ray"), each file with the same schema. The archive index then lists the files as `"shards":
+["ja", ...]`, and a reader fetches only those its words need, a few kilobytes rather than the
+whole index; a listed file may be empty. Without `shards`, readers use `archive/words.json`,
+which stays for older readers.
 
 ## 4. Events
 

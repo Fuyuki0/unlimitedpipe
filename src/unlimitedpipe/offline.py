@@ -53,7 +53,13 @@ async def mirror(
     index = await copy(index_path, required=False)
     if index:
         archive_dir = str(PurePosixPath(index_path).parent)
-        for month in json.loads(index).get("months", []):
+        listed = json.loads(index)
+        if isinstance(listed, dict) and listed.pop("shards", None) is not None:
+            # the copy keeps the one-file word index, not its many small files
+            (folder / _safe(index_path)).write_text(
+                json.dumps(listed, indent=1) + "\n", encoding="utf-8"
+            )
+        for month in listed.get("months", []):
             if since and str(month.get("month", "")) < since[:7]:
                 continue
             await copy(f"{archive_dir}/{month.get('file')}")

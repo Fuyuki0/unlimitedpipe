@@ -3,6 +3,17 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.19 - 2026-09-28
+
+- The archive's word indexes are also split by the first two letters of their words
+  (`archive/words/ja.json`, `archive/words-by-feed/ja.json`), listed in the archive index as
+  `shards`: a question reads a few small files, tens of kilobytes, instead of both whole
+  indexes (22 MB on feeds.daemonfill.dev). `words.json` stays for older readers; the one-file
+  `words-by-feed.json` of 0.10.18 is gone (0.10.18 then reads whole months, as before it).
+- `unlimited offline` keeps the one-file word index in its copy.
+- The index page reads the split word indexes too, and the archive files of a search at once
+  rather than one after another.
+
 ## 0.10.18 - 2026-09-28
 
 - The archive is also split by feed (`archive/2024-02/sec-ipo-filings.jsonl`), with a word

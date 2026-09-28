@@ -294,9 +294,9 @@ def test_a_period_reads_only_the_feeds_that_can_hold_the_words(tmp_path):
         },
     ]
     append(site, items, "2026-01-01T00:00:00Z")
-    assert json.loads((site / "archive" / BY_FEED).read_text())["words"]["japan"] == {
-        "quakes": ["2024-01"]
-    }
+    shard = json.loads((site / "archive" / BY_FEED / "ja.json").read_text())
+    assert shard["words"] == {"japan": {"quakes": ["2024-01"]}}
+    assert "ja" in json.loads((site / "archive" / "index.json").read_text())["shards"]
     document = {
         "archive": "archive/index.json",
         "feeds": [{"name": "quakes", "description": "Earthquakes"}, {"name": "trades"}],
@@ -315,3 +315,56 @@ def test_a_period_reads_only_the_feeds_that_can_hold_the_words(tmp_path):
     write_index(site / "archive")
     found = asyncio.run(items_since(ctx, feeds_json, document, "2024-01", "2024-12", ["japan"]))
     assert sorted(i["feed"] for i in found) == ["quakes", "trades"]  # read the whole month
+
+
+def test_a_question_reads_only_the_word_files_it_needs(tmp_path):
+    import asyncio
+
+    from unlimitedpipe.archive import shard_of
+    from unlimitedpipe.sources import search
+
+    site = tmp_path / "site"
+    items = [
+        {
+            "feed": "hacks",
+            "title": f"Ronin bridge drained {n}",
+            "link": f"https://h/{n}",
+            "date": f"20{20 + n}-03-01T00:00:00Z",
+        }
+        for n in range(3)
+    ] + [
+        {
+            "feed": "news",
+            "title": "Zebra crossing",
+            "link": "https://n/1",
+            "date": "2024-05-01T00:00:00Z",
+        }
+    ]
+    append(site, items, "2026-01-01T00:00:00Z")
+    assert shard_of("ronin") == "ro" and shard_of("x-ray") == "x_" and shard_of("é") == "__"
+    document = {"archive": "archive/index.json", "feeds": [{"name": "hacks"}], "items": []}
+    (site / "feeds.json").write_text(json.dumps(document))
+    read_files = []
+    real_read = search.read
+
+    async def spy(ctx, location):
+        read_files.append(location.rsplit("archive/", 1)[-1])
+        return await real_read(ctx, location)
+
+    ctx = Context(quiet=True, state_dir=tmp_path / "s", cache_dir=tmp_path / "c")
+    search.read = spy
+    try:
+        found = asyncio.run(
+            search.items_by_words(ctx, str(site / "feeds.json"), document, ["ronin"])
+        )
+        known = asyncio.run(
+            search.archive_words(
+                ctx, str(site / "feeds.json"), document, ["ronin", "zebras", "roninn"]
+            )
+        )
+    finally:
+        search.read = real_read
+    assert len(found) == 3
+    assert known == {"ronin", "zebra"}
+    assert "words.json" not in read_files and "words/ro.json" in read_files
+    assert "words/ze.json" in read_files

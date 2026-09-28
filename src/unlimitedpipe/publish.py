@@ -583,7 +583,20 @@ SEARCH_SCRIPT = r"""    <script>
       // The archive: every item the catalog ever listed, one file per month. Its word index
       // says which months hold a word, so a search reads a dozen months, not all of them.
       const deep = document.getElementById("deep");
-      let words = null, months = null, entries = [], byFeed = null;
+      let months = null, entries = [], shards = null;
+      const tables = {};
+      // A word index's entries for words starting with some forms: from its small files by
+      // first two letters ("words/ja.json") where the archive lists them, else the whole file.
+      const shardOf = (w) => w.toLowerCase().slice(0, 2).replace(/[^a-z0-9]/g, "_")
+        .padEnd(2, "_");
+      async function wordTable(base, name, forms) {
+        const get = (file) => tables[file] || (tables[file] = fetch(base + file)
+          .then((r) => r.ok ? r.json() : {}).then((d) => d.words || {}).catch(() => ({})));
+        if (!shards) return get(name + ".json");
+        const wanted = [...new Set(forms.map(shardOf))].filter((s) => shards.has(s));
+        const parts = await Promise.all(wanted.map((s) => get(name + "/" + s + ".json")));
+        return Object.assign({}, ...parts);
+      }
       const stem = (word) => {  // as UnlimitedPipe stems words (unlimitedpipe.sources.search)
         const w = word.toLowerCase();
         if (/(ss|us|is|ws)$/.test(w)) return w;
@@ -608,8 +621,10 @@ SEARCH_SCRIPT = r"""    <script>
       async function searchArchive() {
         const base = catalog.archive.replace(/[^/]*$/, "");
         if (!months) {
-          entries = (await (await fetch(catalog.archive)).json()).months;
+          const index = await (await fetch(catalog.archive)).json();
+          entries = index.months;
           months = entries.map((m) => m.month);
+          if (Array.isArray(index.shards)) shards = new Set(index.shards);
         }
         const asked = q.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
         let period = null;
@@ -625,7 +640,8 @@ SEARCH_SCRIPT = r"""    <script>
         }
         let chosen = months.filter(period || (() => false)).sort().reverse();
         if (!period) {
-          if (!words) words = (await (await fetch(base + "words.json")).json()).words;
+          const words = await wordTable(base, "words",
+            terms.filter((t) => t.length > 2).map(stem));
           const keys = Object.keys(words).filter((k) => !k.includes("@"));
           const sets = terms.filter((t) => t.length > 2).map((t) => {
             const s = stem(t), found = new Set();
@@ -652,11 +668,8 @@ SEARCH_SCRIPT = r"""    <script>
         const about = Object.fromEntries(
           catalog.feeds.map((f) => [f.name, f.name.replaceAll("-", " ")]));
         // Read only the feeds that can hold the words, where the archive is split by feed.
-        if (byFeed === null) {
-          byFeed = await fetch(base + "words-by-feed.json").then((r) => r.ok ? r.json() : {})
-            .then((d) => d.words || {}).catch(() => ({}));
-        }
         const wanted = {}, forms = terms.filter((t) => t.length > 2).map(stem);
+        const byFeed = forms.length ? await wordTable(base, "words-by-feed", forms) : {};
         const byFeedKeys = Object.keys(byFeed);
         for (const k of byFeedKeys) {
           if (!forms.some((f) => k.startsWith(f))) continue;
@@ -675,13 +688,12 @@ SEARCH_SCRIPT = r"""    <script>
           return Object.keys(split).filter((f) => feeds.has(f)).map((f) => m + "/" + f + ".jsonl");
         };
         const found = [];
-        for (const m of chosen) {
-          let text = "";
-          for (const file of files(m)) {
-            const r = await fetch(base + file);
-            if (!r.ok) { text = await (await fetch(base + m + ".jsonl")).text(); break; }
-            text += await r.text();
-          }
+        const texts = await Promise.all(chosen.map(async (m) => {
+          const parts = await Promise.all(files(m).map((file) => fetch(base + file)
+            .then((r) => r.ok ? r.text() : null).catch(() => null)));
+          return parts.includes(null) ? (await fetch(base + m + ".jsonl")).text() : parts.join("");
+        }));
+        for (const text of texts) {
           for (const line of text.split("\n")) {
             if (!line) continue;
             const i = JSON.parse(line), hay = (i.title || "") + " " + (i.summary || "") + " "
