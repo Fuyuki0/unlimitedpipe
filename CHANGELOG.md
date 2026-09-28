@@ -3,6 +3,12 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.23 - 2026-09-28
+
+- `ask` without any model (no Ollama, no ANTHROPIC_API_KEY) lists the best matches with their
+  sources instead of stopping with an error, and says how to get answers: `unlimited setup`
+  or the decide model. The old hints named `qwen2.5:3b`.
+
 ## 0.10.22 - 2026-09-28
 
 - `ask`: "big", "large", "huge" and "massive" put the biggest matching items first ("what are

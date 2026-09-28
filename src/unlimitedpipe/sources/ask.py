@@ -131,6 +131,16 @@ def by_size(question: str, items: list[dict[str, Any]]) -> str:
     return answer + (f" Next: {'; '.join(rest)}." if rest else "")
 
 
+GET_A_MODEL = (
+    "for answers, run `unlimited setup` (a 531 MB model that runs on any laptop), or: "
+    "ollama pull hf.co/unlimitedpipe/decide-0.5b-GGUF; or set ANTHROPIC_API_KEY"
+)
+
+
+class NoModel(UsageError):
+    """No model on this machine to answer with, and none asked for by name."""
+
+
 # "any big hacks this week?", "latest large insider trades": the biggest of them first
 BIG = frozenset({"big", "large", "huge", "massive"})
 
@@ -520,8 +530,19 @@ class Ask(Source):
             if decided is not None:
                 answer, model, prompt, confidence = decided
             else:
-                answer, model, prompt = await self._answer(ctx, prompt_for)
-            check = unsupported_numbers(answer, prompt)
+                try:
+                    answer, model, prompt = await self._answer(ctx, prompt_for)
+                except NoModel as exc:
+                    # Still useful without a model: the best matches, listed, no claim made.
+                    from unlimitedpipe.decide import MOST, short
+
+                    ctx.notice(f"ask: {exc.message}, so these are the best matches; {exc.hint}")
+                    listed = "; ".join(
+                        f"{short(item.get('title'))} [{n}]"
+                        for n, item in enumerate(items[:MOST], 1)
+                    )
+                    answer, model, prompt = f"Best matches: {listed}.", None, ""
+            check = unsupported_numbers(answer, prompt) if prompt else []
         yield Event(
             source=self.name,
             type="answer",
@@ -626,7 +647,7 @@ class Ask(Source):
                 if not models:
                     raise UsageError(
                         f"Ollama is not running at {host}",
-                        hint="install it from https://ollama.com, then: ollama pull qwen2.5:3b",
+                        hint="install it from https://ollama.com, then: unlimited setup",
                     )
                 from unlimitedpipe.meaning import is_embedding
 
@@ -658,11 +679,11 @@ class Ask(Source):
                     raise FetchError(f"Ollama could not answer: {exc}", url=host) from None
                 return response.json().get("response", "").strip(), model, prompt
             if not key:
-                raise UsageError(
-                    "no model to answer with",
-                    hint="run Ollama (https://ollama.com, then: ollama pull qwen2.5:3b) "
-                    "or set ANTHROPIC_API_KEY",
-                )
+                if self.provider == "anthropic":
+                    raise UsageError(
+                        "ANTHROPIC_API_KEY is not set", hint="export ANTHROPIC_API_KEY=..."
+                    )
+                raise NoModel("no model to answer with", hint=GET_A_MODEL)
             model = self.model or ANTHROPIC_MODEL
             prompt = prompt_for(5)
             ctx.notice(f"ask: {len(prompt)} characters of sources to {model} (Anthropic)")

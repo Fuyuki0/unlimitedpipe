@@ -209,10 +209,13 @@ def test_claude_answers_when_ollama_is_not_running(catalog, make_ctx, monkeypatc
     )
 
 
-def test_no_model_explains_how_to_get_one(catalog, make_ctx, monkeypatch):
+def test_no_model_lists_the_best_matches_and_says_how_to_get_one(catalog, make_ctx, monkeypatch):
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
-    with pytest.raises(UsageError, match="no model to answer with"):
-        run_source(Ask(question=["weather"], catalog=URL), make_ctx())
+    [answer] = run_source(Ask(question=["weather"], catalog=URL), make_ctx())
+    assert answer.data["model"] is None and answer.data["sources"]
+    assert "[1]" in answer.data["answer"]
+    with pytest.raises(UsageError, match="ANTHROPIC_API_KEY"):
+        run_source(Ask(question=["weather"], catalog=URL, provider="anthropic"), make_ctx())
     with pytest.raises(UsageError, match="Ollama is not running"):
         run_source(Ask(question=["weather"], catalog=URL, provider="ollama"), make_ctx())
     with pytest.raises(ValueError, match="needs a question"):
