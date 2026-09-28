@@ -731,8 +731,22 @@ PAST_TOPICS = {
     "sec-ipo-filings": ("ipo filings", "companies filing to go public"),
     "sec-cyber-incidents": ("cyber incidents disclosed to the sec", "sec cyber incidents"),
     "us-indicators": ("us inflation", "jobless claims", "unemployment rate"),
+    "insider-trades": ("insider trades", "insider sales", "insider buys"),
+    "activist-stakes": ("activist stakes", "13d filings", "new 5% stakes"),
+    "sec-company-events": ("bankruptcies", "company bankruptcies", "delisting notices"),
+    "lobbying-big-spenders": ("lobbying reports", "big lobbying spenders"),
+    "fda-recalls": ("class i recalls", "fda recalls", "food recalls"),
+    "court-rulings": ("supreme court rulings", "supreme court opinions"),
 }
-HISTORY_FEEDS = {"critical-vulnerabilities", "us-indicators", "market-prices", "drug-approvals"}
+HISTORY_FEEDS = {
+    "critical-vulnerabilities",
+    "us-indicators",
+    "market-prices",
+    "drug-approvals",
+    "fda-recalls",
+    "court-rulings",
+}
+WORLD_PER_FEED = 20_000  # items of each feed in the history world, to fit a small computer
 
 
 # What people ask about a topic that its sources may not say: a question about the topic plus

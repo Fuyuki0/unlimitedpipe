@@ -18,8 +18,19 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import build
 
 
+def capped(items: list[dict], per_feed: int, seed: int = 7) -> list[dict]:
+    """At most ``per_feed`` items of each feed (a sample of the larger ones), in date order."""
+    rng = random.Random(seed)
+    by_feed = collections.defaultdict(list)
+    for item in items:
+        by_feed[item["feed"]].append(item)
+    kept = [i for group in by_feed.values() for i in rng.sample(group, min(per_feed, len(group)))]
+    return sorted(kept, key=lambda i: i["date"])
+
+
 def make(snapshot: str, out: str) -> None:
-    past = build.history_items(snapshot)
+    past = capped(build.history_items(snapshot), build.WORLD_PER_FEED)
+    print(f"history world: {len(past)} items", flush=True)
     described = json.loads((Path(snapshot) / "feeds.json").read_text(encoding="utf-8"))["feeds"]
     feeds = [f for f in described if f.get("name") in {i["feed"] for i in past}]
     world = build.World(past, feeds)
