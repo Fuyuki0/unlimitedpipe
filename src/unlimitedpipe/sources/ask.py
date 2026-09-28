@@ -363,14 +363,14 @@ class Ask(Source):
         elif named:
             # "earthquakes in 2023": that period's items from the archive, not the latest ones
             first, last, said = named
+            asked = [w for w in asked if w not in said]
             try:
-                items = await items_since(ctx, url, document, first, last)
+                items = await items_since(ctx, url, document, first, last, words=asked)
             except FetchError as exc:
                 if (error := ctx.fail(exc, source=self.name, url=exc.url)) is not None:
                     yield error
                 return
             document = {**document, "items": items}
-            asked = [w for w in asked if w not in said]
         words, fixed = corrected(asked, document)
         # "reddit" is no typo when the archive has it, only not among the latest items
         if (

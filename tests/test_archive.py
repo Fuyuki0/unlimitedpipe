@@ -37,9 +37,16 @@ def test_append_adds_each_item_once_into_its_month(tmp_path):
     assert first["key"] == item_key(ITEMS[0]) and first["seen"] == "2026-09-26T00:00:00Z"
     index = json.loads((tmp_path / "archive" / "index.json").read_text())
     assert index["months"] == [
-        {"month": "2026-09", "file": "2026-09.jsonl", "items": 2},
-        {"month": "2026-08", "file": "2026-08.jsonl", "items": 1},
+        {
+            "month": "2026-09",
+            "file": "2026-09.jsonl",
+            "items": 2,
+            "feeds": {"news": 1, "quakes": 1},
+        },
+        {"month": "2026-08", "file": "2026-08.jsonl", "items": 1, "feeds": {"quakes": 1}},
     ]
+    # each month is also split by feed, for readers that want one feed's items
+    assert (tmp_path / "archive" / "2026-08" / "quakes.jsonl").read_text().count("\n") == 1
     assert month_of({"date": "garbage"}, "2026-10-01T00:00:00Z") == "2026-10"
 
 
@@ -263,3 +270,48 @@ def test_a_word_naming_a_feed_narrows_the_others_to_that_feed(tmp_path):
             await ctx.aclose()
 
     assert [i["title"] for i in asyncio.run(find(["acme", "ipo"]))] == [ipo["title"]]
+
+
+def test_a_period_reads_only_the_feeds_that_can_hold_the_words(tmp_path):
+    import asyncio
+
+    from unlimitedpipe.archive import BY_FEED
+    from unlimitedpipe.sources.search import items_since
+
+    site = tmp_path / "site"
+    items = [
+        {
+            "feed": "quakes",
+            "title": "M 7.5 - Noto Peninsula, Japan",
+            "link": "https://q/1",
+            "date": "2024-01-01T07:10:00Z",
+        },
+        {
+            "feed": "trades",
+            "title": "Acme Corp: a director sold shares",
+            "link": "https://t/1",
+            "date": "2024-01-02T00:00:00Z",
+        },
+    ]
+    append(site, items, "2026-01-01T00:00:00Z")
+    assert json.loads((site / "archive" / BY_FEED).read_text())["words"]["japan"] == {
+        "quakes": ["2024-01"]
+    }
+    document = {
+        "archive": "archive/index.json",
+        "feeds": [{"name": "quakes", "description": "Earthquakes"}, {"name": "trades"}],
+        "items": [],
+    }
+    (site / "feeds.json").write_text(json.dumps(document))
+    ctx = Context(quiet=True, state_dir=tmp_path / "s", cache_dir=tmp_path / "c")
+    feeds_json = str(site / "feeds.json")
+    found = asyncio.run(items_since(ctx, feeds_json, document, "2024-01", "2024-12", ["japan"]))
+    assert [i["feed"] for i in found] == ["quakes"]  # the trades file was not read
+    everything = asyncio.run(items_since(ctx, feeds_json, document, "2024-01", "2024-12"))
+    assert sorted(i["feed"] for i in everything) == ["quakes", "trades"]
+    (site / "archive" / "2024-01" / "quakes.jsonl").unlink()  # a split that does not add up
+    from unlimitedpipe.archive import write_index
+
+    write_index(site / "archive")
+    found = asyncio.run(items_since(ctx, feeds_json, document, "2024-01", "2024-12", ["japan"]))
+    assert sorted(i["feed"] for i in found) == ["quakes", "trades"]  # read the whole month

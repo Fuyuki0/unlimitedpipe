@@ -303,10 +303,16 @@ async def load_catalog(ctx: Context, url: str) -> dict[str, Any]:
 
 
 async def items_since(
-    ctx: Context, url: str, document: dict[str, Any], since: str, until: str | None = None
+    ctx: Context,
+    url: str,
+    document: dict[str, Any],
+    since: str,
+    until: str | None = None,
+    words: list[str] | None = None,
 ) -> list[dict[str, Any]]:
     """The catalog's latest items plus its archive from ``since`` (a month or a day) on, and
-    up to the month ``until`` when given, each once, newest first."""
+    up to the month ``until`` when given, each once, newest first. With ``words``, only the
+    feeds that can hold them are read, where the archive is split by feed."""
 
     merged = {item_key(i): i for i in document.get("items", [])}
     index_url = join(url, document.get("archive") or "archive/index.json")
@@ -315,15 +321,16 @@ async def items_since(
     except (FetchError, ValueError):
         ctx.warn(f"{url} has no archive; searching its latest items only")
         index = {"months": []}
-    files = [
-        join(index_url, str(month.get("file")))
+    months = [
+        month
         for month in index.get("months", [])
         if not (
             str(month.get("month", "")) < since[:7]
             or (until and str(month.get("month", "")) > until)
         )
     ]
-    for item in await _read_items(ctx, files):
+    wanted = await _wanted_feeds(ctx, index_url, document, words or [], months)
+    for item in await _read_months(ctx, index_url, months, wanted):
         merged.setdefault(item_key(item), item)
     items = [
         i
@@ -335,8 +342,101 @@ async def items_since(
     return items
 
 
+def _forms(word: str) -> set[str]:
+    """The index words a question word stands for: its stem and those of its synonyms."""
+    return {stem(word)} | {
+        stem(part)
+        for phrase in SAME.get(stem(word), SAME.get(word.casefold(), ()))
+        for part in phrase.split()
+        if len(part) > 2
+    }
+
+
+def _named_feeds(document: dict[str, Any], words: list[str]) -> set[str]:
+    """Feeds a question names by a word of their name or description ("earthquakes", "ipo",
+    "hack", "close" for daily closes): their items may have the word only in a summary."""
+    return {
+        str(f.get("name"))
+        for f in document.get("feeds", [])
+        if any(
+            word_pattern(w).search(
+                f"{str(f.get('name', '')).replace('-', ' ')} {f.get('description') or ''}"
+            )
+            for w in words
+        )
+    }
+
+
+async def _wanted_feeds(
+    ctx: Context,
+    index_url: str,
+    document: dict[str, Any],
+    words: list[str],
+    months: list[dict[str, Any]],
+) -> dict[str, set[str]] | None:
+    """For each month, the feeds that can hold the words (from the archive's words-by-feed
+    index), and the feeds the words name; None to read whole months (no split, no index, or
+    no word that narrows anything down)."""
+    from bisect import bisect_left
+
+    from unlimitedpipe.archive import BY_FEED
+
+    if not words or not any("feeds" in m for m in months):
+        return None
+    try:
+        table = json.loads(await read(ctx, join(index_url, BY_FEED))).get("words") or {}
+    except (FetchError, ValueError, AttributeError):
+        return None
+    keys = sorted(table)
+    wanted: dict[str, set[str]] = {}
+    narrowed = False
+    for word in words:
+        for form in _forms(word):
+            start = bisect_left(keys, form)
+            for key in keys[start:]:
+                if not key.startswith(form):
+                    break
+                narrowed = True
+                for feed, feed_months in table[key].items():
+                    for month in feed_months:
+                        wanted.setdefault(month, set()).add(feed)
+    if not narrowed:
+        return None
+    named = _named_feeds(document, words)
+    return {
+        str(m["month"]): (wanted.get(str(m["month"]), set()) | named) & set(m.get("feeds") or {})
+        for m in months
+    }
+
+
+async def _read_months(
+    ctx: Context,
+    index_url: str,
+    months: list[dict[str, Any]],
+    wanted: dict[str, set[str]] | None,
+) -> list[dict[str, Any]]:
+    """The items of some archive months: of the wanted feeds only where the archive is split
+    by feed, else (or when a feed file cannot be read) the whole month."""
+    items: list[dict[str, Any]] = []
+    for month in months:
+        name = str(month.get("month"))
+        split = month.get("feeds")
+        # a split that does not add up to the month (being written, or half done) is not used
+        whole = not isinstance(split, dict) or sum(split.values()) != month.get("items")
+        feeds = None if wanted is None or whole else wanted.get(name, set())
+        if feeds is None:
+            items += await _read_items(ctx, [join(index_url, str(month.get("file")))])
+            continue
+        try:
+            files = [join(index_url, f"{name}/{feed}.jsonl") for feed in sorted(feeds)]
+            items += await _read_items(ctx, files)
+        except FetchError:
+            items += await _read_items(ctx, [join(index_url, str(month.get("file")))])
+    return items
+
+
 async def _read_items(ctx: Context, files: list[str]) -> list[dict[str, Any]]:
-    """The items of some archive month files, fetched a few at a time."""
+    """The items of some archive files, fetched a few at a time."""
     gate = asyncio.Semaphore(AT_ONCE)
 
     async def fetch(location: str) -> bytes:
@@ -415,8 +515,14 @@ async def items_by_words(
     ranked = sorted(
         anchor, key=lambda m: (sum(m in months for months in per_word), m), reverse=True
     )
-    chosen = ranked[:MOST_MONTHS]
-    return await _read_items(ctx, [join(index_url, f"{m}.jsonl") for m in chosen])
+    chosen = set(ranked[:MOST_MONTHS])
+    try:
+        index = json.loads(await read(ctx, index_url))
+    except (FetchError, ValueError):
+        return await _read_items(ctx, [join(index_url, f"{m}.jsonl") for m in sorted(chosen)])
+    months = [m for m in index.get("months", []) if str(m.get("month")) in chosen]
+    wanted = await _wanted_feeds(ctx, index_url, document, words, months)
+    return await _read_months(ctx, index_url, months, wanted)
 
 
 class Search(Source):
@@ -518,14 +624,16 @@ class Search(Source):
         if self.since or named:
             # "earthquake 2023": that period's items from the archive, not the latest ones
             first, last = (named[0], named[1]) if named else (str(self.since), None)
+            if named:
+                asked = [w for w in asked if w.casefold().rstrip(".") not in named[2]]
             try:
-                items = await items_since(ctx, url, document, first, last)
+                items = await items_since(
+                    ctx, url, document, first, last, words=asked if named else None
+                )
             except FetchError as exc:
                 if (error := ctx.fail(exc, source=self.name, url=url)) is not None:
                     yield error
                 return
-            if named:
-                asked = [w for w in asked if w.casefold().rstrip(".") not in named[2]]
         words, fixed = corrected(asked, {**document, "items": items})
         for typo, word in fixed.items():
             ctx.notice(f"search: no item has {typo!r}; searched for {word!r}")

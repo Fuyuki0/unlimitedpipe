@@ -22,6 +22,12 @@ SCHEMA = "unlimitedpipe.archive/1"
 # only the months that can answer it.
 WORDS = "words.json"
 WORDS_SCHEMA = "unlimitedpipe.archive-words/1"
+# Each month also split by feed (archive/2024-02/sec-ipo-filings.jsonl), with the feeds each word
+# appears in, so a question reads the feeds that can answer it rather than every item of the
+# month. The month files stay, for readers that do not know the split.
+BY_FEED = "words-by-feed.json"
+BY_FEED_SCHEMA = "unlimitedpipe.archive-words-by-feed/1"
+_FEED = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 _WORD = re.compile(r"[^\W_][\w'-]*")
 _MONTH = re.compile(r"^\d{4}-(0[1-9]|1[0-2])$")
 _DATE = re.compile(r"^\d{4}-(0[1-9]|1[0-2])(-\d{2})?")
@@ -76,15 +82,74 @@ def append(site: Path, items: list[dict[str, Any]], now: str) -> dict[str, int]:
                 new.append({**item, "key": key, "seen": now})
         if new:
             folder.mkdir(parents=True, exist_ok=True)
+            lines = [json.dumps(e, ensure_ascii=False, separators=(",", ":")) for e in new]
             with path.open("a", encoding="utf-8") as out:
-                for entry in new:
-                    out.write(json.dumps(entry, ensure_ascii=False, separators=(",", ":")) + "\n")
+                out.writelines(line + "\n" for line in lines)
+            for entry, line in zip(new, lines, strict=True):
+                if feed_file := _feed_path(folder, month, entry.get("feed")):
+                    feed_file.parent.mkdir(exist_ok=True)
+                    with feed_file.open("a", encoding="utf-8") as out:
+                        out.write(line + "\n")
             added[month] = len(new)
             fresh.extend((month, entry) for entry in new)
+            _heal(folder, month)
     if added:
         write_index(folder)
         write_words(folder, fresh)
     return added
+
+
+def _feed_path(folder: Path, month: str, feed: Any) -> Path | None:
+    return folder / month / f"{feed}.jsonl" if isinstance(feed, str) and _FEED.match(feed) else None
+
+
+def _lines(path: Path) -> int:
+    with path.open(encoding="utf-8") as lines:
+        return sum(1 for line in lines if line.strip())
+
+
+def _heal(folder: Path, month: str) -> None:
+    """Split a month again when its feed files do not add up to it (a version that did not
+    split appended to it, or a run stopped half-way)."""
+    split = folder / month
+    if split.is_dir() and sum(_lines(f) for f in split.glob("*.jsonl")) != _lines(
+        folder / f"{month}.jsonl"
+    ):
+        _split_month(folder, folder / f"{month}.jsonl")
+
+
+def _split_month(folder: Path, path: Path) -> int:
+    groups: dict[Path, list[str]] = collections.defaultdict(list)
+    for line in path.read_text(encoding="utf-8").splitlines():
+        try:
+            entry = json.loads(line)
+        except ValueError:
+            continue
+        feed_file = (
+            _feed_path(folder, path.stem, entry.get("feed")) if isinstance(entry, dict) else None
+        )
+        if feed_file:
+            groups[feed_file].append(line)
+    month_folder = folder / path.stem
+    if month_folder.is_dir():
+        for old in month_folder.glob("*.jsonl"):
+            if old not in groups:
+                old.unlink()
+    for feed_file, lines in groups.items():
+        feed_file.parent.mkdir(exist_ok=True)
+        feed_file.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return len(groups)
+
+
+def split_by_feed(folder: Path) -> int:
+    """Write every month's per-feed files anew from the month files; returns how many."""
+    written = sum(
+        _split_month(folder, path)
+        for path in sorted(folder.glob("*.jsonl"))
+        if _MONTH.match(path.stem)
+    )
+    write_index(folder)
+    return written
 
 
 def title_words(title: Any) -> set[str]:
@@ -130,6 +195,17 @@ def write_words(folder: Path, fresh: list[tuple[str, dict[str, Any]]] | None = N
     index = {"schema": WORDS_SCHEMA, "words": dict(sorted(table.items()))}
     path = folder / WORDS
     path.write_text(json.dumps(index, ensure_ascii=False, separators=(",", ":")) + "\n")
+    from unlimitedpipe.operators.extract import STOPWORDS
+
+    stop = {w.casefold() for w in STOPWORDS}  # a search never asks for them
+    feeds: dict[str, dict[str, list[str]]] = collections.defaultdict(dict)
+    for (word, feed), months in sorted(by_feed.items()):
+        if word not in stop:
+            feeds[word][feed] = sorted(months)
+    split = {"schema": BY_FEED_SCHEMA, "words": dict(sorted(feeds.items()))}
+    (folder / BY_FEED).write_text(
+        json.dumps(split, ensure_ascii=False, separators=(",", ":")) + "\n"
+    )
 
 
 def write_index(folder: Path) -> None:
@@ -138,7 +214,14 @@ def write_index(folder: Path) -> None:
         if _MONTH.match(path.stem):
             with path.open(encoding="utf-8") as lines:
                 count = sum(1 for line in lines if line.strip())
-            months.append({"month": path.stem, "file": path.name, "items": count})
+            entry: dict[str, Any] = {"month": path.stem, "file": path.name, "items": count}
+            split = folder / path.stem
+            if split.is_dir():
+                entry["feeds"] = {
+                    f.stem: sum(1 for line in f.open(encoding="utf-8") if line.strip())
+                    for f in sorted(split.glob("*.jsonl"))
+                }
+            months.append(entry)
     index = {"schema": SCHEMA, "months": months}
     (folder / INDEX).write_text(json.dumps(index, indent=1) + "\n", encoding="utf-8")
 

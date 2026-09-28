@@ -3,6 +3,16 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.18 - 2026-09-28
+
+- The archive is also split by feed (`archive/2024-02/sec-ipo-filings.jsonl`), with a word
+  index by feed (`archive/words-by-feed.json`): a question about a year reads only the feeds
+  that can hold its words and those it names, 5 to 10 times less data than whole months
+  ("earthquakes in japan in 2024": 1.8 MB instead of 17.8 MB, 6,398 items ranked instead of
+  44,659). Month files stay, so older readers and mirrors keep working; a month whose split
+  does not add up is read whole, and the next run splits it again.
+- The index page's archive search reads the split too.
+
 ## 0.10.17 - 2026-09-28
 
 - The archive's word index also has keys by feed for words that are not rare

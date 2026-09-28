@@ -94,6 +94,16 @@ the latest items. The files only grow at the end, which keeps them cheap to stor
 | `key` | Identifies the item across runs: the first 16 hex digits of SHA-256 over `feed`, `link` and the title (whitespace collapsed, case folded), joined by newlines. Readers MUST recompute it rather than trust the stored value when they merge archives. |
 | `seen` | When the catalog first listed the item. An item goes into the month of its `date`, or of `seen` when it has no date. |
 
+Each month may also be split by feed, `archive/2024-02/sec-ipo-filings.jsonl`, the same lines
+grouped by their `feed`; the index then lists each month's `feeds` and their item counts
+(`{"month": "2024-02", "file": "2024-02.jsonl", "items": 1234, "feeds": {"sec-ipo-filings": 55,
+...}}`). The month files stay, so readers that do not know the split keep working; a reader
+uses the split only when its counts add up to the month's `items`, and reads the whole month
+otherwise. `archive/words-by-feed.json` (optional) lists, for each title word, the feeds and
+months it appears in (`{"words": {"japan": {"earthquakes": ["2024-01", ...]}}}`), so a question
+about a period reads only the feeds that can hold its words, and the feeds whose name or
+description has them.
+
 `archive/words.json` (optional) lists the months each title word appears in, so a reader can
 answer a question that names no date by reading only the months that can answer it:
 

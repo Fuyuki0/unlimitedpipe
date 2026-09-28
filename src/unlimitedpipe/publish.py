@@ -583,7 +583,7 @@ SEARCH_SCRIPT = r"""    <script>
       // The archive: every item the catalog ever listed, one file per month. Its word index
       // says which months hold a word, so a search reads a dozen months, not all of them.
       const deep = document.getElementById("deep");
-      let words = null, months = null;
+      let words = null, months = null, entries = [], byFeed = null;
       const stem = (word) => {  // as UnlimitedPipe stems words (unlimitedpipe.sources.search)
         const w = word.toLowerCase();
         if (/(ss|us|is|ws)$/.test(w)) return w;
@@ -608,7 +608,8 @@ SEARCH_SCRIPT = r"""    <script>
       async function searchArchive() {
         const base = catalog.archive.replace(/[^/]*$/, "");
         if (!months) {
-          months = (await (await fetch(catalog.archive)).json()).months.map((m) => m.month);
+          entries = (await (await fetch(catalog.archive)).json()).months;
+          months = entries.map((m) => m.month);
         }
         const asked = q.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
         let period = null;
@@ -650,9 +651,37 @@ SEARCH_SCRIPT = r"""    <script>
         const tests = terms.map(word);
         const about = Object.fromEntries(
           catalog.feeds.map((f) => [f.name, f.name.replaceAll("-", " ")]));
+        // Read only the feeds that can hold the words, where the archive is split by feed.
+        if (byFeed === null) {
+          byFeed = await fetch(base + "words-by-feed.json").then((r) => r.ok ? r.json() : {})
+            .then((d) => d.words || {}).catch(() => ({}));
+        }
+        const wanted = {}, forms = terms.filter((t) => t.length > 2).map(stem);
+        const byFeedKeys = Object.keys(byFeed);
+        for (const k of byFeedKeys) {
+          if (!forms.some((f) => k.startsWith(f))) continue;
+          for (const [feed, ms] of Object.entries(byFeed[k])) {
+            for (const m of ms) (wanted[m] = wanted[m] || new Set()).add(feed);
+          }
+        }
+        const named = catalog.feeds.filter((f) => terms.some((t) => word(t).test(
+          f.name.replaceAll("-", " ") + " " + (f.description || "")))).map((f) => f.name);
+        const files = (m) => {
+          const e = entries.find((x) => x.month === m);
+          const split = e && e.feeds;
+          if (!split || !forms.length || !Object.keys(wanted).length
+            || Object.values(split).reduce((a, b) => a + b, 0) !== e.items) return [m + ".jsonl"];
+          const feeds = new Set([...(wanted[m] || []), ...named]);
+          return Object.keys(split).filter((f) => feeds.has(f)).map((f) => m + "/" + f + ".jsonl");
+        };
         const found = [];
         for (const m of chosen) {
-          const text = await (await fetch(base + m + ".jsonl")).text();
+          let text = "";
+          for (const file of files(m)) {
+            const r = await fetch(base + file);
+            if (!r.ok) { text = await (await fetch(base + m + ".jsonl")).text(); break; }
+            text += await r.text();
+          }
           for (const line of text.split("\n")) {
             if (!line) continue;
             const i = JSON.parse(line), hay = (i.title || "") + " " + (i.summary || "") + " "
