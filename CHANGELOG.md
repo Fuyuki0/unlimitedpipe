@@ -3,6 +3,14 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.12 - 2026-09-28
+
+- `web --next-page next --pages 12` follows JSON APIs that answer a page at a time (the
+  field that holds the next page's address), so a feed reads all of a period, not its first
+  25 items.
+- `${TOMORROW}` in a pipeline, for APIs whose end date is not included; in a backfill, the day
+  after the period.
+
 ## 0.10.11 - 2026-09-28
 
 - `unlimited sec company-events`: 8-K filings that report a bankruptcy, a completed
