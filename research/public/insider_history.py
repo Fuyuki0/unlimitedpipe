@@ -135,6 +135,8 @@ def main(out: str, quarters: list[str]) -> None:
                 path.write_bytes(response.content)
             with zipfile.ZipFile(path) as archive:
                 found = items_of(archive)
+            if os.environ.get("DROP_ZIPS"):
+                path.unlink()  # a download cache: the SEC keeps the originals
             for item in found:
                 lines.write(json.dumps(item, ensure_ascii=False) + "\n")
             print(quarter, len(found), "trades")
