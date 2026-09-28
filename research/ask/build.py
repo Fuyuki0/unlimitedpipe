@@ -892,13 +892,21 @@ def answering(item: dict, sources: list[dict], words: list[str]) -> list[int]:
     return [first, *alike]
 
 
+# Series of the market-prices feed that are not public data: stock indices and the VIX belong
+# to their publishers (S&P Dow Jones, Nasdaq, Nikkei, Cboe) even when FRED shows them. The
+# Treasury yield (Federal Reserve) and WTI oil (EIA) are public.
+LICENSED = ("S&P 500", "Nasdaq Composite", "Dow Jones Industrial Average", "Nikkei 225", "VIX")
+
+
 def history_items(folder: str) -> list[dict]:
     """The archive's items from public feeds: works of the US government, and sentences
-    UnlimitedPipe writes from open data."""
+    UnlimitedPipe writes from open data; no licensed series."""
     items = []
     for path in sorted((Path(folder) / "archive").glob("*.jsonl")):
         for line in path.open(encoding="utf-8"):
             entry = json.loads(line)
+            if str(entry.get("title") or "").startswith(LICENSED):
+                continue
             if entry.get("feed") in PUBLIC_FEEDS | HISTORY_FEEDS and entry.get("date"):
                 items.append(
                     {k: entry.get(k) for k in ("feed", "title", "summary", "link", "date")}
