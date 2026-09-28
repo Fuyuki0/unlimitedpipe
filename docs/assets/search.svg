@@ -1,4 +1,4 @@
-<svg class="rich-terminal" viewBox="0 0 1360 440.4" xmlns="http://www.w3.org/2000/svg">
+<svg class="rich-terminal" viewBox="0 0 1360 416.0" xmlns="http://www.w3.org/2000/svg">
     <!-- Generated with Rich https://www.textualize.io -->
     <style>
 
@@ -19,102 +19,98 @@
         font-weight: 700;
     }
 
-    .terminal-800957336-matrix {
+    .terminal-1678021273-matrix {
         font-family: Fira Code, monospace;
         font-size: 20px;
         line-height: 24.4px;
         font-variant-east-asian: full-width;
     }
 
-    .terminal-800957336-title {
+    .terminal-1678021273-title {
         font-size: 18px;
         font-weight: bold;
         font-family: arial;
     }
 
-    .terminal-800957336-r1 { fill: #c5c8c6;font-weight: bold }
-.terminal-800957336-r2 { fill: #c5c8c6 }
-.terminal-800957336-r3 { fill: #868887 }
-.terminal-800957336-r4 { fill: #68a0b3 }
+    .terminal-1678021273-r1 { fill: #c5c8c6;font-weight: bold }
+.terminal-1678021273-r2 { fill: #c5c8c6 }
+.terminal-1678021273-r3 { fill: #868887 }
+.terminal-1678021273-r4 { fill: #68a0b3 }
     </style>
 
     <defs>
-    <clipPath id="terminal-800957336-clip-terminal">
-      <rect x="0" y="0" width="1341.0" height="389.4" />
+    <clipPath id="terminal-1678021273-clip-terminal">
+      <rect x="0" y="0" width="1341.0" height="365.0" />
     </clipPath>
-    <clipPath id="terminal-800957336-line-0">
+    <clipPath id="terminal-1678021273-line-0">
     <rect x="0" y="1.5" width="1342" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-800957336-line-1">
+<clipPath id="terminal-1678021273-line-1">
     <rect x="0" y="25.9" width="1342" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-800957336-line-2">
+<clipPath id="terminal-1678021273-line-2">
     <rect x="0" y="50.3" width="1342" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-800957336-line-3">
+<clipPath id="terminal-1678021273-line-3">
     <rect x="0" y="74.7" width="1342" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-800957336-line-4">
+<clipPath id="terminal-1678021273-line-4">
     <rect x="0" y="99.1" width="1342" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-800957336-line-5">
+<clipPath id="terminal-1678021273-line-5">
     <rect x="0" y="123.5" width="1342" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-800957336-line-6">
+<clipPath id="terminal-1678021273-line-6">
     <rect x="0" y="147.9" width="1342" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-800957336-line-7">
+<clipPath id="terminal-1678021273-line-7">
     <rect x="0" y="172.3" width="1342" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-800957336-line-8">
+<clipPath id="terminal-1678021273-line-8">
     <rect x="0" y="196.7" width="1342" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-800957336-line-9">
+<clipPath id="terminal-1678021273-line-9">
     <rect x="0" y="221.1" width="1342" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-800957336-line-10">
+<clipPath id="terminal-1678021273-line-10">
     <rect x="0" y="245.5" width="1342" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-800957336-line-11">
+<clipPath id="terminal-1678021273-line-11">
     <rect x="0" y="269.9" width="1342" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-800957336-line-12">
+<clipPath id="terminal-1678021273-line-12">
     <rect x="0" y="294.3" width="1342" height="24.65"/>
             </clipPath>
-<clipPath id="terminal-800957336-line-13">
+<clipPath id="terminal-1678021273-line-13">
     <rect x="0" y="318.7" width="1342" height="24.65"/>
-            </clipPath>
-<clipPath id="terminal-800957336-line-14">
-    <rect x="0" y="343.1" width="1342" height="24.65"/>
             </clipPath>
     </defs>
 
-    <rect fill="#292929" stroke="rgba(255,255,255,0.35)" stroke-width="1" x="1" y="1" width="1358" height="438.4" rx="8"/><text class="terminal-800957336-title" fill="#c5c8c6" text-anchor="middle" x="679" y="27">unlimited&#160;search&#160;flood&#160;bangkok</text>
+    <rect fill="#292929" stroke="rgba(255,255,255,0.35)" stroke-width="1" x="1" y="1" width="1358" height="414" rx="8"/><text class="terminal-1678021273-title" fill="#c5c8c6" text-anchor="middle" x="679" y="27">unlimited&#160;search&#160;flood&#160;bangkok</text>
             <g transform="translate(26,22)">
             <circle cx="0" cy="0" r="7" fill="#ff5f57"/>
             <circle cx="22" cy="0" r="7" fill="#febc2e"/>
             <circle cx="44" cy="0" r="7" fill="#28c840"/>
             </g>
         
-    <g transform="translate(9, 41)" clip-path="url(#terminal-800957336-clip-terminal)">
+    <g transform="translate(9, 41)" clip-path="url(#terminal-1678021273-clip-terminal)">
     
-    <g class="terminal-800957336-matrix">
-    <text class="terminal-800957336-r1" x="0" y="20" textLength="512.4" clip-path="url(#terminal-800957336-line-0)">$&#160;unlimited&#160;search&#160;flood&#160;bangkok&#160;--limit&#160;3</text><text class="terminal-800957336-r2" x="1342" y="20" textLength="12.2" clip-path="url(#terminal-800957336-line-0)">
-</text><text class="terminal-800957336-r3" x="0" y="44.4" textLength="146.4" clip-path="url(#terminal-800957336-line-1)">2026-09-26&#160;&#160;</text><text class="terminal-800957336-r1" x="146.4" y="44.4" textLength="524.6" clip-path="url(#terminal-800957336-line-1)">Watch:&#160;Bangkok&#160;declared&#160;flood&#160;disaster&#160;zone</text><text class="terminal-800957336-r4" x="671" y="44.4" textLength="195.2" clip-path="url(#terminal-800957336-line-1)">&#160;&#160;[climate-news]</text><text class="terminal-800957336-r2" x="1342" y="44.4" textLength="12.2" clip-path="url(#terminal-800957336-line-1)">
-</text><text class="terminal-800957336-r3" x="0" y="68.8" textLength="939.4" clip-path="url(#terminal-800957336-line-2)">https://www.bbc.co.uk/news/videos/cwp933mr9v1xo?at_medium=RSS&amp;at_campaign=rss</text><text class="terminal-800957336-r2" x="1342" y="68.8" textLength="12.2" clip-path="url(#terminal-800957336-line-2)">
-</text><text class="terminal-800957336-r2" x="0" y="93.2" textLength="1329.8" clip-path="url(#terminal-800957336-line-3)">Heavy&#160;rain&#160;over&#160;the&#160;last&#160;two&#160;days&#160;has&#160;overwhelmed&#160;Bangkok&#x27;s&#160;water&#160;systems,&#160;with&#160;more&#160;rain&#160;forecast&#160;on&#160;Sunday.</text><text class="terminal-800957336-r2" x="1342" y="93.2" textLength="12.2" clip-path="url(#terminal-800957336-line-3)">
-</text><text class="terminal-800957336-r2" x="1342" y="117.6" textLength="12.2" clip-path="url(#terminal-800957336-line-4)">
-</text><text class="terminal-800957336-r3" x="0" y="142" textLength="146.4" clip-path="url(#terminal-800957336-line-5)">2026-09-26&#160;&#160;</text><text class="terminal-800957336-r1" x="146.4" y="142" textLength="1000.4" clip-path="url(#terminal-800957336-line-5)">Rajamangala&#160;Stadium&#160;surrounded&#160;by&#160;floodwater,&#160;cars&#160;nearly&#160;submerged&#160;to&#160;their&#160;roofs</text><text class="terminal-800957336-r2" x="1342" y="142" textLength="12.2" clip-path="url(#terminal-800957336-line-5)">
-</text><text class="terminal-800957336-r4" x="0" y="166.4" textLength="183" clip-path="url(#terminal-800957336-line-6)">[thailand-news]</text><text class="terminal-800957336-r2" x="1342" y="166.4" textLength="12.2" clip-path="url(#terminal-800957336-line-6)">
-</text><text class="terminal-800957336-r3" x="0" y="190.8" textLength="1342" clip-path="url(#terminal-800957336-line-7)">https://www.khaosodenglish.com/news/2026/09/26/rajamangala-stadium-surrounded-by-floodwater-cars-nearly-submer</text><text class="terminal-800957336-r2" x="1342" y="190.8" textLength="12.2" clip-path="url(#terminal-800957336-line-7)">
-</text><text class="terminal-800957336-r3" x="0" y="215.2" textLength="231.8" clip-path="url(#terminal-800957336-line-8)">ged-to-their-roofs/</text><text class="terminal-800957336-r2" x="1342" y="215.2" textLength="12.2" clip-path="url(#terminal-800957336-line-8)">
-</text><text class="terminal-800957336-r2" x="0" y="239.6" textLength="1329.8" clip-path="url(#terminal-800957336-line-9)">BANGKOK&#160;—&#160;26&#160;September&#160;2026,&#160;Rajamangala&#160;National&#160;Stadium&#160;has&#160;been&#160;surrounded&#160;by&#160;floodwater,&#160;with&#160;widespread&#160;</text><text class="terminal-800957336-r2" x="1342" y="239.6" textLength="12.2" clip-path="url(#terminal-800957336-line-9)">
-</text><text class="terminal-800957336-r2" x="0" y="264" textLength="1110.2" clip-path="url(#terminal-800957336-line-10)">flooding&#160;across&#160;the&#160;surrounding&#160;area&#160;and&#160;several&#160;parked&#160;cars&#160;almost&#160;submerged&#160;to&#160;their&#160;roo…</text><text class="terminal-800957336-r2" x="1342" y="264" textLength="12.2" clip-path="url(#terminal-800957336-line-10)">
-</text><text class="terminal-800957336-r2" x="1342" y="288.4" textLength="12.2" clip-path="url(#terminal-800957336-line-11)">
-</text><text class="terminal-800957336-r3" x="0" y="312.8" textLength="146.4" clip-path="url(#terminal-800957336-line-12)">2026-09-26&#160;&#160;</text><text class="terminal-800957336-r1" x="146.4" y="312.8" textLength="878.4" clip-path="url(#terminal-800957336-line-12)">Bangkok&#160;declared&#160;public&#160;disaster&#160;zone&#160;after&#160;sustained&#160;rainfall,&#160;flooding</text><text class="terminal-800957336-r4" x="1024.8" y="312.8" textLength="207.4" clip-path="url(#terminal-800957336-line-12)">&#160;&#160;[thailand-news]</text><text class="terminal-800957336-r2" x="1342" y="312.8" textLength="12.2" clip-path="url(#terminal-800957336-line-12)">
-</text><text class="terminal-800957336-r3" x="0" y="337.2" textLength="475.8" clip-path="url(#terminal-800957336-line-13)">https://prachataienglish.com/node/12046</text><text class="terminal-800957336-r2" x="1342" y="337.2" textLength="12.2" clip-path="url(#terminal-800957336-line-13)">
-</text><text class="terminal-800957336-r2" x="0" y="361.6" textLength="1342" clip-path="url(#terminal-800957336-line-14)">Bangkok&#160;declared&#160;public&#160;disaster&#160;zone&#160;after&#160;sustained&#160;rainfall,&#160;flooding&#160;All&#160;50&#160;districts&#160;of&#160;Bangkok&#160;have&#160;been</text><text class="terminal-800957336-r2" x="1342" y="361.6" textLength="12.2" clip-path="url(#terminal-800957336-line-14)">
-</text><text class="terminal-800957336-r2" x="0" y="386" textLength="1085.8" clip-path="url(#terminal-800957336-line-15)">declared&#160;a&#160;public&#160;disaster&#160;zones&#160;after&#160;sustained&#160;rainfall&#160;caused&#160;widespread&#160;flooding&#160;acr…</text><text class="terminal-800957336-r2" x="1342" y="386" textLength="12.2" clip-path="url(#terminal-800957336-line-15)">
+    <g class="terminal-1678021273-matrix">
+    <text class="terminal-1678021273-r1" x="0" y="20" textLength="512.4" clip-path="url(#terminal-1678021273-line-0)">$&#160;unlimited&#160;search&#160;flood&#160;bangkok&#160;--limit&#160;3</text><text class="terminal-1678021273-r2" x="1342" y="20" textLength="12.2" clip-path="url(#terminal-1678021273-line-0)">
+</text><text class="terminal-1678021273-r3" x="0" y="44.4" textLength="146.4" clip-path="url(#terminal-1678021273-line-1)">2026-09-28&#160;&#160;</text><text class="terminal-1678021273-r1" x="146.4" y="44.4" textLength="707.6" clip-path="url(#terminal-1678021273-line-1)">Drones&#160;deliver&#160;food&#160;to&#160;residents&#160;trapped&#160;by&#160;Bangkok&#160;floods</text><text class="terminal-1678021273-r4" x="854" y="44.4" textLength="207.4" clip-path="url(#terminal-1678021273-line-1)">&#160;&#160;[thailand-news]</text><text class="terminal-1678021273-r2" x="1342" y="44.4" textLength="12.2" clip-path="url(#terminal-1678021273-line-1)">
+</text><text class="terminal-1678021273-r3" x="0" y="68.8" textLength="1293.2" clip-path="url(#terminal-1678021273-line-2)">https://www.khaosodenglish.com/news/2026/09/28/drones-deliver-food-to-residents-trapped-by-bangkok-floods/</text><text class="terminal-1678021273-r2" x="1342" y="68.8" textLength="12.2" clip-path="url(#terminal-1678021273-line-2)">
+</text><text class="terminal-1678021273-r2" x="0" y="93.2" textLength="1281" clip-path="url(#terminal-1678021273-line-3)">Two&#160;large&#160;transport&#160;drones&#160;are&#160;being&#160;used&#160;to&#160;deliver&#160;food&#160;and&#160;emergency&#160;supplies&#160;to&#160;residents&#160;trapped&#160;by&#160;</text><text class="terminal-1678021273-r2" x="1342" y="93.2" textLength="12.2" clip-path="url(#terminal-1678021273-line-3)">
+</text><text class="terminal-1678021273-r2" x="0" y="117.6" textLength="1159" clip-path="url(#terminal-1678021273-line-4)">severe&#160;flooding&#160;in&#160;Bangkok’s&#160;Kheha&#160;Rom&#160;Klao&#160;community,&#160;where&#160;some&#160;areas&#160;are&#160;difficult&#160;for&#160;boat…</text><text class="terminal-1678021273-r2" x="1342" y="117.6" textLength="12.2" clip-path="url(#terminal-1678021273-line-4)">
+</text><text class="terminal-1678021273-r2" x="1342" y="142" textLength="12.2" clip-path="url(#terminal-1678021273-line-5)">
+</text><text class="terminal-1678021273-r3" x="0" y="166.4" textLength="146.4" clip-path="url(#terminal-1678021273-line-6)">2026-09-28&#160;&#160;</text><text class="terminal-1678021273-r1" x="146.4" y="166.4" textLength="902.8" clip-path="url(#terminal-1678021273-line-6)">Thai&#160;police&#160;arrest&#160;jet&#160;skier&#160;after&#160;joyride&#160;through&#160;flooded&#160;Bangkok&#160;streets</text><text class="terminal-1678021273-r4" x="1049.2" y="166.4" textLength="231.8" clip-path="url(#terminal-1678021273-line-6)">&#160;&#160;[world-headlines]</text><text class="terminal-1678021273-r2" x="1342" y="166.4" textLength="12.2" clip-path="url(#terminal-1678021273-line-6)">
+</text><text class="terminal-1678021273-r3" x="0" y="190.8" textLength="1342" clip-path="url(#terminal-1678021273-line-7)">https://www.aljazeera.com/video/newsfeed/2026/9/28/thai-police-arrest-jet-skier-after-joyride-through-flooded-</text><text class="terminal-1678021273-r2" x="1342" y="190.8" textLength="12.2" clip-path="url(#terminal-1678021273-line-7)">
+</text><text class="terminal-1678021273-r3" x="0" y="215.2" textLength="414.8" clip-path="url(#terminal-1678021273-line-8)">bangkok-streets?traffic_source=rss</text><text class="terminal-1678021273-r2" x="1342" y="215.2" textLength="12.2" clip-path="url(#terminal-1678021273-line-8)">
+</text><text class="terminal-1678021273-r2" x="1342" y="239.6" textLength="12.2" clip-path="url(#terminal-1678021273-line-9)">
+</text><text class="terminal-1678021273-r3" x="0" y="264" textLength="146.4" clip-path="url(#terminal-1678021273-line-10)">2026-09-28&#160;&#160;</text><text class="terminal-1678021273-r1" x="146.4" y="264" textLength="854" clip-path="url(#terminal-1678021273-line-10)">Bangkok&#160;floods&#160;affect&#160;700,000&#160;people&#160;as&#160;eight&#160;districts&#160;remain&#160;flooded</text><text class="terminal-1678021273-r4" x="1000.4" y="264" textLength="207.4" clip-path="url(#terminal-1678021273-line-10)">&#160;&#160;[thailand-news]</text><text class="terminal-1678021273-r2" x="1342" y="264" textLength="12.2" clip-path="url(#terminal-1678021273-line-10)">
+</text><text class="terminal-1678021273-r3" x="0" y="288.4" textLength="1342" clip-path="url(#terminal-1678021273-line-11)">https://www.khaosodenglish.com/news/2026/09/28/bangkok-floods-affect-700000-people-as-eight-districts-remain-f</text><text class="terminal-1678021273-r2" x="1342" y="288.4" textLength="12.2" clip-path="url(#terminal-1678021273-line-11)">
+</text><text class="terminal-1678021273-r3" x="0" y="312.8" textLength="85.4" clip-path="url(#terminal-1678021273-line-12)">looded/</text><text class="terminal-1678021273-r2" x="1342" y="312.8" textLength="12.2" clip-path="url(#terminal-1678021273-line-12)">
+</text><text class="terminal-1678021273-r2" x="0" y="337.2" textLength="1281" clip-path="url(#terminal-1678021273-line-13)">BANGKOK&#160;—&#160;Flooding&#160;in&#160;Bangkok&#160;has&#160;affected&#160;around&#160;300,000&#160;households,&#160;or&#160;about&#160;700,000&#160;people,&#160;since&#160;the&#160;</text><text class="terminal-1678021273-r2" x="1342" y="337.2" textLength="12.2" clip-path="url(#terminal-1678021273-line-13)">
+</text><text class="terminal-1678021273-r2" x="0" y="361.6" textLength="1159" clip-path="url(#terminal-1678021273-line-14)">situation&#160;began,&#160;while&#160;eight&#160;districts&#160;remain&#160;flooded,&#160;Bangkok&#160;Deputy&#160;Governor&#160;Tavida&#160;Kamolvej…</text><text class="terminal-1678021273-r2" x="1342" y="361.6" textLength="12.2" clip-path="url(#terminal-1678021273-line-14)">
 </text>
     </g>
     </g>

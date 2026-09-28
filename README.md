@@ -15,7 +15,7 @@ changed, with a link to where it came from. Search and ask 89 live feeds of publ
 news in one command, even offline, answered by a 0.5B model that cites its sources.
 Local-first, free, no account, no API key.
 
-![unlimited ask answering "any big crypto hacks this week?" with cited sources](https://raw.githubusercontent.com/Fuyuki0/unlimitedpipe/main/docs/assets/ask.svg)
+![unlimited ask answering "any big crypto hacks this week?" and "earthquakes in japan in 2024" with cited sources](https://raw.githubusercontent.com/Fuyuki0/unlimitedpipe/main/docs/assets/ask.svg)
 
 Install and set everything up with one command (it asks before each step):
 
