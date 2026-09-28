@@ -45,10 +45,16 @@ def test_doctor_says_when_a_newer_ask_model_is_out(monkeypatch):
     from unlimitedpipe.doctor import newer_ask_model
 
     class Answer:
-        def json(self):
-            return {"lastModified": "2026-09-27T12:00:00.000Z"}
+        def __init__(self, content):
+            self.content = content
 
-    monkeypatch.setattr(httpx, "get", lambda url, **kw: Answer())
+        def json(self):
+            return self.content
+
+    files = [{"path": "README.md"}, {"path": "decide-0.5b-q8_0.gguf"}]
+    info = [{"path": "decide-0.5b-q8_0.gguf", "lastCommit": {"date": "2026-09-27T12:00:00.000Z"}}]
+    monkeypatch.setattr(httpx, "get", lambda url, **kw: Answer(files))
+    monkeypatch.setattr(httpx, "post", lambda url, **kw: Answer(info))
     from unlimitedpipe.onboard import ASK_MODEL
 
     tags = [{"name": f"{ASK_MODEL}:latest", "modified_at": "2026-09-27T01:00:00Z"}]

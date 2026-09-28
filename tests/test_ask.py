@@ -353,3 +353,9 @@ def test_questions_about_the_past_put_the_biggest_events_first():
     assert [i["date"] for i in series] == ["2019-12-01", "2019-08-01"]  # newest, not highest
     assert notable_size("Ronin Bridge: $624M lost (key compromise)") == 624e6
     assert notable_size("Environmental Protection Agency: Section 404 program") is None
+
+    from unlimitedpipe.sources.ask import superlative
+
+    assert superlative("what are the latest big insider trades?") == "notable"
+    assert superlative("biggest hack of 2022") == "most"
+    assert superlative("insider trades today") is None

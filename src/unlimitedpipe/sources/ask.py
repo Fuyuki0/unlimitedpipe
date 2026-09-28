@@ -131,11 +131,16 @@ def by_size(question: str, items: list[dict[str, Any]]) -> str:
     return answer + (f" Next: {'; '.join(rest)}." if rest else "")
 
 
+# "any big hacks this week?", "latest large insider trades": the biggest of them first
+BIG = frozenset({"big", "large", "huge", "massive"})
+
+
 def superlative(question: str) -> str | None:
-    """ "most" for "strongest earthquake", "least" for "lowest rate", else None."""
-    return next(
-        (SUPERLATIVES[w] for w in re.findall(r"\w+", question.casefold()) if w in SUPERLATIVES),
-        None,
+    """ "most" for "strongest earthquake", "least" for "lowest rate", "notable" for "big
+    insider trades" (the biggest first, but not one answer), else None."""
+    words = re.findall(r"\w+", question.casefold())
+    return next((SUPERLATIVES[w] for w in words if w in SUPERLATIVES), None) or (
+        "notable" if BIG.intersection(words) else None
     )
 
 
@@ -384,7 +389,7 @@ class Ask(Source):
                 yield error
             return
         order = superlative(question)
-        asked = [w for w in terms(question) if w not in SUPERLATIVES]
+        asked = [w for w in terms(question) if w not in SUPERLATIVES and w not in BIG]
         named = None if self.since else named_period(question, datetime.now(UTC).isoformat())
         if self.since:
             document = {**document, "items": await items_since(ctx, url, document, self.since)}
@@ -495,7 +500,7 @@ class Ask(Source):
                 "have to guess. The closest items are below."
             )
             model = None
-        elif order and size_of(str(items[0].get("title") or "")) is not None:
+        elif order in ("most", "least") and size_of(str(items[0].get("title") or "")) is not None:
             # "strongest earthquake in 2024": comparing numbers is the code's job; the items
             # are already ordered by theirs.
             answer, model = by_size(question, items), None

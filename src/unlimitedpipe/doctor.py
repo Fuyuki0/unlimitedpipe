@@ -144,7 +144,12 @@ def run_checks(catalog: str | None = None, timeout: float = 8.0) -> list[Check]:
     try:
         tags = httpx.get(f"{host}/api/tags", timeout=3).json()["models"]
         models = [m["name"] for m in tags]
-        best = next((m for m in PREFERRED if m in models), models[0] if models else None)
+        from unlimitedpipe.sources.ask import DECIDER
+
+        # the model ask answers with: the one trained for it when pulled, as ask picks
+        best = next(
+            (m for m in (DECIDER, *PREFERRED) if m in models), models[0] if models else None
+        )
         checks.append(
             Check(
                 "ai",
@@ -201,7 +206,8 @@ def run_checks(catalog: str | None = None, timeout: float = 8.0) -> list[Check]:
 
 def newer_ask_model(tags: list[dict]) -> str | None:
     """The day a newer build of the ask model came out on Hugging Face than the one pulled,
-    or None (up to date, not installed, or Hugging Face out of reach)."""
+    or None (up to date, not installed, or Hugging Face out of reach). A build is the last
+    commit of the model file itself; edits of the model card do not count."""
     from unlimitedpipe.event import parse_time
     from unlimitedpipe.onboard import ASK_MODEL
 
@@ -211,11 +217,15 @@ def newer_ask_model(tags: list[dict]) -> str | None:
     )
     if pulled is None:
         return None
-    repo = ASK_MODEL.removeprefix("hf.co/")
+    api = f"https://huggingface.co/api/models/{ASK_MODEL.removeprefix('hf.co/')}"
     try:
-        response = httpx.get(f"https://huggingface.co/api/models/{repo}", timeout=3)
-        published = parse_time(response.json().get("lastModified"))
-    except (httpx.HTTPError, ValueError, AttributeError):
+        files = httpx.get(f"{api}/tree/main", timeout=3).json()
+        gguf = next(str(f["path"]) for f in files if str(f.get("path", "")).endswith(".gguf"))
+        info = httpx.post(
+            f"{api}/paths-info/main", data={"paths": gguf, "expand": "true"}, timeout=3
+        ).json()
+        published = parse_time(info[0]["lastCommit"]["date"])
+    except (httpx.HTTPError, ValueError, LookupError, AttributeError, TypeError, StopIteration):
         return None
     if published is None or published <= pulled:
         return None

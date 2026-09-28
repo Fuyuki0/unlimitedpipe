@@ -3,6 +3,16 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.22 - 2026-09-28
+
+- `ask`: "big", "large", "huge" and "massive" put the biggest matching items first ("what are
+  the latest big insider trades?" starts with the largest recent trades, not the newest
+  $129K one; "any big crypto hacks this week?" with the $387M one).
+- `doctor` names the model `ask` really answers with (the decide model when pulled), and says
+  a newer build is out only when the model file changed on Hugging Face, not its card.
+- README: 89 feeds, the express lane every 5 minutes and the rest every hour, and the archive
+  of 300,000 records back to 2000.
+
 ## 0.10.21 - 2026-09-28
 
 - `ask` about the past puts the biggest events first where the items are events with sizes
