@@ -108,6 +108,18 @@ def test_the_same_story_from_two_sources_is_listed_once(repo):
     ]
 
 
+def test_a_feed_with_archive_false_is_listed_but_never_archived(repo):
+    quakes = repo / "feeds" / "quakes.yml"
+    quakes.write_text("archive: false\n" + quakes.read_text())
+    p = repo_plan(repo)
+    write_catalog(p)
+    document = json.loads((repo / "public" / "feeds.json").read_text())
+    assert [f.get("archive") for f in document["feeds"] if f["name"] == "quakes"] == [False]
+    assert any(i["feed"] == "quakes" for i in document["items"])  # the latest value is shown
+    archived = (repo / "public" / "archive").rglob("*.jsonl")
+    assert not any("quakes" in path.read_text() for path in archived)  # its history is not kept
+
+
 def test_write_catalog_only_rewrites_on_change(repo):
     p = repo_plan(repo)
     assert write_catalog(p) == repo / "public" / "feeds.json"

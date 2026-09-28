@@ -43,6 +43,7 @@ class Published:
     files: list[Path]  # relative to the site folder
     group: str | None = None  # the topic the index page lists it under
     title: str | None = None  # a readable name: its feed's title ("IPO filings (SEC S-1 and F-1)")
+    archive: bool = True  # False: its items are listed but never archived
 
 
 @dataclass
@@ -202,6 +203,7 @@ def plan(
             description=pipeline.description,
             files=[f.relative_to(site_dir) for i, f in outputs if i == index],
             group=pipeline.group,
+            archive=pipeline.archive,
             title=next(
                 (str(title) for o in pipeline.outputs if (title := getattr(o, "title", None))),
                 None,
@@ -441,6 +443,7 @@ def catalog(
             **({"title": item.title} if item.title else {}),
             "description": item.description,
             **({"group": item.group} if item.group else {}),
+            **({"archive": False} if not item.archive else {}),
             "files": [f.as_posix() for f in item.files],
         }
         code = (results or {}).get(item.path.as_posix())
@@ -513,7 +516,9 @@ def write_catalog(
     except (OSError, ValueError):
         previous = None
     document = catalog(p, results=results, previous=previous)
-    added = archive.append(p.root / p.site_dir, document["items"], utcnow())
+    kept = {i.name for i in p.pipelines if i.archive}
+    listed = [i for i in document["items"] if i.get("feed") in kept]
+    added = archive.append(p.root / p.site_dir, listed, utcnow())
     if archived is not None:
         archived.update(added)
     text = json.dumps(document, ensure_ascii=False, indent=1) + "\n"

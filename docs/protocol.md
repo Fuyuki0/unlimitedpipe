@@ -60,7 +60,7 @@ with one request.
 | --- | --- |
 | `schema` | MUST be `unlimitedpipe.catalog/1`. |
 | `title` | SHOULD name the catalog. |
-| `feeds` | MUST be a list. Each feed has a `name` (MUST, unique, lowercase letters, digits and `-`), a `description` (SHOULD say what it follows), `files` (MUST, paths of the feed's files: RSS, Atom or JSON Feed), and MAY have `health`. |
+| `feeds` | MUST be a list. Each feed has a `name` (MUST, unique, lowercase letters, digits and `-`), a `description` (SHOULD say what it follows), `files` (MUST, paths of the feed's files: RSS, Atom or JSON Feed), and MAY have `health`, and `archive: false` when its items are listed but never kept in the archive (data whose owner allows showing the latest value, not republishing its history). |
 | `health` | `status`: `ok` (the last run worked), `partial` (some sources failed) or `failing`; `since`: when that status began; `latest`: the newest item's date. |
 | `items` | MUST be a list of the latest items of every feed, newest first. Each has `feed` (a feed's `name`), `title` (MUST), `link` (SHOULD, an absolute URL of the original), `date` (ISO 8601, UTC, or null) and `summary` (text or null). A catalog SHOULD list the same story once per feed. |
 | `archive` | MAY point to the archive index (section 3). |

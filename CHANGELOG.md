@@ -3,6 +3,12 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.29 - 2026-09-28
+
+- `archive: false` in a pipeline file: the catalog lists the feed's latest items but never
+  adds them to its archive, for data whose owner allows showing the latest value but not
+  republishing its history (stock indices through FRED). The catalog marks such feeds.
+
 ## 0.10.28 - 2026-09-28
 
 - A live lane: `unlimited watch --every 1m --catalog a.yml b.yml ...` runs several pipelines

@@ -41,7 +41,16 @@ from unlimitedpipe.component import Component, Operator, Output, Source, kind_of
 from unlimitedpipe.errors import ConfigError
 
 SECTIONS = {"sources": "source", "operators": "operator", "outputs": "output"}
-TOP_LEVEL = {"name", "description", "group", "sources", "operators", "outputs", "settings"}
+TOP_LEVEL = {
+    "name",
+    "description",
+    "group",
+    "archive",
+    "sources",
+    "operators",
+    "outputs",
+    "settings",
+}
 SETTINGS = {"errors_as_events"}
 PATH_OPTIONS = {"path", "state"}
 ENV_REFERENCE = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
@@ -97,6 +106,9 @@ class Pipeline:
     sources: list[Source]
     description: str | None = None
     group: str | None = None  # the topic a catalog lists it under ("Security")
+    # False: a catalog lists its latest items but keeps none in its archive (data whose
+    # owner allows showing the latest value, not republishing its history)
+    archive: bool = True
     operators: list[Operator] = field(default_factory=list)
     outputs: list[Output] = field(default_factory=list)
     errors_as_events: bool = False
@@ -216,10 +228,14 @@ def parse_pipeline(
     group = document.get("group")
     if group is not None and not isinstance(group, str):
         raise fail("`group` must be text", "group")
+    archived = document.get("archive", True)
+    if not isinstance(archived, bool):
+        raise fail("`archive` must be true or false", "archive")
     return Pipeline(
         name=name,
         description=description.strip() if description else None,
         group=group.strip() if group else None,
+        archive=archived,
         sources=built["sources"],  # type: ignore[arg-type]
         operators=built["operators"],  # type: ignore[arg-type]
         outputs=built["outputs"],  # type: ignore[arg-type]
