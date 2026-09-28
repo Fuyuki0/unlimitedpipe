@@ -419,6 +419,7 @@ class HttpClient:
                     f"{url} returned HTTP {response.status} {raw.reason_phrase}".rstrip(),
                     url=url,
                     hint=_status_hint(response.status, response.headers),
+                    status=response.status,
                 )
             if cache and response.status == 200:
                 self._store_cached(response)

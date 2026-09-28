@@ -3,6 +3,13 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.13 - 2026-09-28
+
+- `web --not-found-is-empty`: read HTTP 404 as no records, for APIs such as openFDA that answer
+  a search with no results that way (the feed stays healthy in a quiet week).
+- `backfill` reads a source that takes no dates once, not once per period.
+- Search: "flaws" and "bug" find vulnerabilities.
+
 ## 0.10.12 - 2026-09-28
 
 - `web --next-page next --pages 12` follows JSON APIs that answer a page at a time (the

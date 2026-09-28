@@ -249,3 +249,17 @@ def test_json_pages_are_followed_with_next_page(web, ctx):
     assert [e.data["id"] for e in events] == [1, 2]
     only_one = run_source(Web(url=[first], records="results", next_page="next", pages=1), ctx)
     assert [e.data["id"] for e in only_one] == [1]
+
+
+def test_not_found_can_mean_no_records(web, ctx):
+    url = "https://api.example.gov/drug/enforcement.json?search=classification:Class+I"
+    web.add(url, '{"error": {"code": "NOT_FOUND"}}', status=404, content_type="application/json")
+    assert run_source(Web(url=[url], records="results", not_found_is_empty=True), ctx) == []
+    assert ctx.failures == 0
+
+
+def test_not_found_is_still_an_error_by_default(web, ctx):
+    url = "https://api.example.gov/drug/enforcement.json?search=classification:Class+I"
+    web.add(url, '{"error": {"code": "NOT_FOUND"}}', status=404, content_type="application/json")
+    assert run_source(Web(url=[url], records="results"), ctx) == []
+    assert ctx.failures == 1

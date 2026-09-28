@@ -40,9 +40,12 @@ class InputError(UnlimitedError):
 class FetchError(UnlimitedError):
     """A network request failed."""
 
-    def __init__(self, message: str, *, url: str, hint: str | None = None) -> None:
+    def __init__(
+        self, message: str, *, url: str, hint: str | None = None, status: int | None = None
+    ) -> None:
         super().__init__(message, hint=hint)
         self.url = url
+        self.status = status  # the HTTP status, when the server answered
 
 
 class RobotsDisallowed(FetchError):

@@ -106,6 +106,11 @@ class Web(Source):
         metavar="PATH",
     )
     pages: int = opt("With --next-page: the most pages to read per URL", default=10)
+    not_found_is_empty: bool = opt(
+        "Read HTTP 404 Not Found as no records (APIs such as openFDA answer a search that "
+        "finds nothing that way)",
+        default=False,
+    )
 
     def __post_init__(self) -> None:
         if self.pages < 1:
@@ -163,7 +168,12 @@ class Web(Source):
         from unlimitedpipe.http import normalize_url
 
         url = normalize_url(url)
-        response = await self._get(url, ctx)
+        try:
+            response = await self._get(url, ctx)
+        except FetchError as exc:
+            if self.not_found_is_empty and exc.status == 404:
+                return []
+            raise
         page = response.final_url
         meta = {
             "status": response.status,
