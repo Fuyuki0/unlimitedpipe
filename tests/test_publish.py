@@ -231,3 +231,24 @@ def test_express_lane_runs_its_pipelines_every_time_and_the_rest_when_due(repo):
         plan(items, 3600, express=["volcanoes"])
     with pytest.raises(UsageError, match="shorter than --every"):
         plan(items, 3600, express=["quakes"], express_every=3600)
+
+
+def test_only_runs_that_run_a_browser_pipeline_install_the_browser(repo):
+    quakes = repo / "feeds" / "quakes.yml"
+    quakes.write_text(
+        "name: quakes\nsources: [{type: file, path: data.json}]\n"
+        "outputs: [{type: feed, path: ../public/quakes.xml}]\n"
+    )
+    bank = repo / "feeds" / "bank.yml"
+    bank.write_text(
+        "name: bank\nsources: [{type: web, url: 'https://bank.example/news', browser: true}]\n"
+        "outputs: [{type: feed, path: ../public/bank.xml}]\n"
+    )
+    items = [(quakes, load_pipeline(quakes)), (bank, load_pipeline(bank))]
+    later = workflow(plan(items, 3600, express=["quakes"], express_every=15 * 60))
+    steps = yaml.safe_load(later)["jobs"]["run"]["steps"]
+    assert not any("playwright" in str(step.get("run", "")) for step in steps[:3])
+    lanes = steps[3]["run"]
+    assert lanes.index("playwright install") > lanes.index('[ "$age" -ge 3300 ]')
+    first = yaml.safe_load(workflow(plan(items, 3600, express=["bank"], express_every=900)))
+    assert "playwright install" in first["jobs"]["run"]["steps"][3]["run"]  # a step of its own

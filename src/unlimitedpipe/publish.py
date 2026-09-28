@@ -55,6 +55,9 @@ class PublishPlan:
     secrets: list[str]  # ${NAME} references, passed from repository secrets
     install: str = f"unlimitedpipe=={__version__}"  # what the workflow installs with pip
     browser: bool = False  # a pipeline renders pages with --browser: install Chromium too
+    # Those pipelines: when none is in the express lane, Chromium is installed only in the runs
+    # that run the rest (it takes a fifth of an express run).
+    browser_pipelines: list[str] = field(default_factory=list)
     title: str | None = None  # the site's title (default: the workflow name)
     about: str | None = None  # a sentence under the title on the index page
     # The express lane: pipelines run by every scheduled run (every `express_every`); the
@@ -218,16 +221,22 @@ def plan(
         site_url=pages_url(root),
         secrets=list(secrets),
         browser=any(getattr(s, "browser", False) is True for _, pl in items for s in pl.sources),
+        browser_pipelines=[
+            i.path.as_posix()
+            for i, (_, pipeline) in zip(published, items, strict=True)
+            if any(getattr(s, "browser", False) is True for s in pipeline.sources)
+        ],
     )
 
 
 def workflow(p: PublishPlan) -> str:
-    browser_setup = (
-        '\n      - run: pip install "playwright>=1.45" && python -m playwright install --with-deps '
-        "chromium"
-        if p.browser
-        else ""
+    install_browser = (
+        'pip install "playwright>=1.45" && python -m playwright install --with-deps chromium'
     )
+    # With an express lane that needs no browser, only the runs that run the rest install it.
+    browser_later = bool(p.express) and not set(p.browser_pipelines) & set(p.express)
+    browser_setup = f"\n      - run: {install_browser}" if p.browser and not browser_later else ""
+    browser_in_lane = f"\n            {install_browser}" if p.browser and browser_later else ""
     secrets = "".join(f"\n          {secret}: ${{{{ secrets.{secret} }}}}" for secret in p.secrets)
     pipelines = " ".join(f'"{item.path.as_posix()}"' for item in p.pipelines)
     site = p.site_dir.as_posix()
@@ -237,6 +246,9 @@ def workflow(p: PublishPlan) -> str:
             f'"{i.path.as_posix()}"' for i in p.pipelines if i.path.as_posix() not in p.express
         )
         due = int(p.every) - 300  # a run a few minutes early still counts
+        full_run = (
+            f'if [ "$event" != schedule ] && [ "$lane" != express ] || [ "$age" -ge {due} ]; then'
+        )
         lanes = f"""
           # The express lane runs every time; the rest when it last ran {int(p.every)}s ago or
           # more (GitHub starts scheduled runs late or not at all when busy), or when this run
@@ -245,7 +257,7 @@ def workflow(p: PublishPlan) -> str:
           last=$(cat "{STATE_DIR}/last-full-run" 2>/dev/null || echo 0)
           age=$(( $(date +%s) - last ))
           event="${{{{ github.event_name }}}}" lane="${{{{ inputs.lane }}}}"
-          if [ "$event" != schedule ] && [ "$lane" != express ] || [ "$age" -ge {due} ]; then
+          {full_run}{browser_in_lane}
             for pipeline in {rest}; do run "$pipeline"; done
             mkdir -p "{STATE_DIR}" && date +%s > "{STATE_DIR}/last-full-run"
           fi"""
