@@ -23,6 +23,13 @@ Built from news feeds, the files hold publishers' headlines: keep them private. 
     research/.venv/bin/python research/ask/build.py research/data research/ask/data
     research/.venv/bin/python research/ask/build.py research/data research/ask/data-public \\
         --public research/data-fr/federal_register
+
+Build 7 (2026-09-28) adds a third world with `--history SNAPSHOT`: the archive's past items
+(public feeds, back to 2000), asked about the way `ask` now reads them. A question that names a
+period ("cpi march 2021", "crypto hacks in 2022") is ranked over that period's items; one that
+names none ("ronin hack") and finds nothing recent is ranked over the months its rare words
+appear in. Today is late September 2026 in every prompt, so the model learns that a source from
+the period asked about answers, however old.
 """
 
 from __future__ import annotations
@@ -42,17 +49,30 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import corpus
 
 from unlimitedpipe import decide
+from unlimitedpipe.archive import named_period, title_words
 from unlimitedpipe.operators.extract import STOPWORDS
 from unlimitedpipe.sources.ask import (
     PROMPT,
     QUESTION_WORDS,
+    SUPERLATIVES,
     days_asked,
     needed,
     rank,
+    size_of,
     source_lines,
+    superlative,
     terms,
 )
-from unlimitedpipe.sources.search import IRREGULAR, SAME, STORY_UPDATES, stem, story, word_pattern
+from unlimitedpipe.sources.search import (
+    IRREGULAR,
+    MOST_MONTHS,
+    RARE_MONTHS,
+    SAME,
+    STORY_UPDATES,
+    stem,
+    story,
+    word_pattern,
+)
 
 SOURCE_COUNTS = (10,) * 7 + (5,) * 2 + (3,)  # `ask` gives 10 unless --sources says otherwise
 LISTED = 5  # a listing names at most this many sources
@@ -284,6 +304,17 @@ class World:
                 chosen.append(self.items[s[3]])
         return chosen[:limit], scored[0][4]
 
+    def check_period(self, questions: list[str], since: str, until: str) -> None:
+        """Stop if this ranking and `ask.rank` disagree over one period's items."""
+        lo, hi = self.window(since, until)
+        document = {"feeds": self.feeds, "items": self.items[lo:hi]}
+        for question in questions:
+            words = terms(question)
+            mine = self.rank(words, 10, since, until)[0]
+            theirs = rank(document, words, 10)[0]
+            if [id(i) for i in mine] != [id(i) for i in theirs]:
+                raise SystemExit(f"World.rank differs from ask.rank on {question!r} in {since}")
+
     def check(self, questions: list[str], until: str) -> None:
         """Stop if this ranking and `ask.rank` ever disagree."""
         lo, hi = self.window(None, until)
@@ -498,6 +529,143 @@ class Builder:
         )
         return self.example("refusal", lang, style, question, sources, answer, [], today)
 
+    # ---- build 7: questions about the past ----
+
+    def period_of(self, item: dict, today: datetime) -> tuple[str, str, str]:
+        """A way people name the item's period ("2023", "march 2023", "last year") and the
+        first and last month it covers."""
+        year, month = item["date"][:4], item["date"][5:7]
+        pick = self.rng.random()
+        if int(year) == today.year - 1 and pick < 0.12:
+            return "last year", f"{year}-01", f"{year}-12"
+        if pick < 0.5:
+            return year, f"{year}-01", f"{year}-12"
+        name = MONTHS[int(month) - 1]
+        phrase = self.rng.choice((f"{name} {year}", f"{name[:3]} {year}", f"{year}-{month}"))
+        return phrase, f"{year}-{month}", f"{year}-{month}"
+
+    def ask_period(self, question: str, today: datetime, leave_out: dict | None = None):
+        """What `ask` gives the model for a question naming a period: the best items of that
+        period; None when it would answer without a model."""
+        named = named_period(question, today.isoformat())
+        if named is None:
+            return None
+        words = [w for w in terms(question) if w not in named[2] and w not in SUPERLATIVES]
+        if not words:
+            return None
+        since, until = named[0], f"{named[1]}-31T23:59:59Z"
+        limit = self.rng.choice(SOURCE_COUNTS)
+        sources, covered = self.world.rank(words, limit, since, until, without=leave_out)
+        if not sources or len(covered) < needed(words):
+            return None
+        if superlative(question) and size_of(sources[0]["title"]) is not None:
+            return None  # "biggest hack in 2022": the code answers by size
+        return sources
+
+    def now(self) -> datetime:
+        """When someone asks about the past: a day of late September 2026."""
+        return datetime(2026, 9, 1) + timedelta(
+            days=self.rng.randint(0, 27), hours=self.rng.randint(7, 22)
+        )
+
+    def past_question(self, templates, **parts: str) -> str:
+        question = self.rng.choice(templates).format(**parts)
+        return question.casefold() if self.rng.random() < 0.6 else question
+
+    def past_lookup(self, item: dict) -> dict | None:
+        words = self.keywords(item, 2)
+        if not words:
+            return None
+        today = self.now()
+        period, _, _ = self.period_of(item, today)
+        question = self.past_question(PAST_LOOKUP, a=words[0], b=words[1], p=period)
+        sources = self.ask_period(question, today)
+        if not sources or item not in sources:
+            return None
+        if len(sources) >= 3:
+            return self.listed("en", "casual", question, sources, today)
+        return self.example(
+            "lookup", "en", "casual", question, sources, "", answering(item, sources, words), today
+        )
+
+    def past_listing(self, topic: str, item: dict) -> dict | None:
+        today = self.now()
+        period, _, _ = self.period_of(item, today)
+        question = self.past_question(PAST_LISTING, topic=topic, p=period)
+        sources = self.ask_period(question, today)
+        if not sources or len(sources) < 2:
+            return None
+        return self.listed("en", "casual", question, sources, today)
+
+    def past_refusal(self, item: dict) -> dict | None:
+        """The period and the topic match, the question's key word does not: "not covered"."""
+        today = self.now()
+        period, _, _ = self.period_of(item, today)
+        if self.rng.random() < 0.5:
+            words = self.keywords(item, 3)
+            if not words:
+                return None
+            missing, kept = words[0], words[1:]
+            question = self.past_question(PAST_REFUSAL, a=kept[0], b=kept[1], c=missing, p=period)
+            sources = self.ask_period(question, today, leave_out=item)
+        else:
+            words = self.keywords(item, 2)
+            if not words:
+                return None
+            missing = self.rng.choice(ASKED_FOR)
+            question = self.past_question(PAST_REFUSAL, a=words[0], b=words[1], c=missing, p=period)
+            sources = self.ask_period(question, today)
+        if not sources:
+            return None
+        text = " ".join(f"{s['title']} {s.get('summary') or ''}" for s in sources)
+        if word_pattern(missing.casefold()).search(text):
+            return None  # a source says it after all
+        return self.example("refusal", "en", "casual", question, sources, "", [], today)
+
+    def undated_past(self, item: dict, months: dict[str, set[str]]) -> dict | None:
+        """ "ronin hack": no period named and nothing recent, so `ask` ranks the months the
+        question's rare words appear in (its word index)."""
+        words = self.keywords(item, 2)
+        if not words:
+            return None
+        today = self.now()
+        question, _ = self.question("lookup", "en", a=words[0], b=words[1])
+        asked = terms(question)
+        if not asked or named_period(question, today.isoformat()) or superlative(question):
+            return None
+        until = today.strftime("%Y-%m-%dT%H:%M:%SZ")
+        recent = (today - timedelta(days=RECENT_DAYS)).strftime("%Y-%m-%dT%H:%M:%SZ")
+        latest, covered = self.world.rank(asked, 10, recent, until)
+        if latest and len(covered) >= needed(asked):
+            return None  # the latest items answer it: not a question about the past
+        found = [
+            months[stem(w)]
+            for w in asked
+            if stem(w) in months and len(months[stem(w)]) <= RARE_MONTHS
+        ]
+        if not found:
+            return None
+        found.sort(key=len)
+        chosen = sorted(set.intersection(*found) or found[0], reverse=True)[:MOST_MONTHS]
+        if item["date"][:7] not in chosen:
+            return None
+        document = {
+            "feeds": self.world.feeds,
+            "items": [
+                i
+                for m in chosen
+                for i in self.world.items[slice(*self.world.window(m, f"{m}-31T23:59:59Z"))]
+            ],
+        }
+        sources, covered = rank(document, asked, self.rng.choice(SOURCE_COUNTS))
+        if not sources or len(covered) < needed(asked) or item not in sources:
+            return None
+        if len(sources) >= 3:
+            return self.listed("en", "casual", question, sources, today)
+        return self.example(
+            "lookup", "en", "casual", question, sources, "", answering(item, sources, words), today
+        )
+
     def topics(self, today: datetime, count: int) -> list[str]:
         """Words people would ask "what's new with" about: in two to fifteen items of the last
         week, in no more than a few percent of all titles."""
@@ -511,6 +679,60 @@ class Builder:
         good = [w for w, n in counts.items() if 2 <= n <= 15 and self.documents[w] <= limit]
         self.rng.shuffle(good)
         return good[:count]
+
+
+MONTHS = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+]
+RECENT_DAYS = 30  # about what a catalog's latest items cover
+PAST_LOOKUP = (
+    "{a} {b} {p}",
+    "{a} {b} in {p}",
+    "{a} {b} {p}?",
+    "what was the {a} {b} in {p}?",
+    "any {a} {b} in {p}?",
+    "tell me about {a} {b} in {p}",
+    "what happened with {a} {b} in {p}",
+)
+PAST_LISTING = (
+    "{topic} {p}",
+    "{topic} in {p}",
+    "any {topic} in {p}?",
+    "list {topic} from {p}",
+    "what {topic} were there in {p}?",
+    "show me {topic} {p}",
+)
+PAST_REFUSAL = (
+    "{a} {b} {c} {p}",
+    "{a} {b} {c} in {p}",
+    "{c} of {a} {b} in {p}",
+    "was there a {c} for {a} {b} in {p}?",
+)
+# The words people use for a feed's items when asking about a period.
+PAST_TOPICS = {
+    "earthquakes": ("earthquakes", "quakes", "big earthquakes"),
+    "crypto-hacks": ("crypto hacks", "hacks", "defi exploits"),
+    "data-breaches": ("data breaches", "breaches"),
+    "critical-vulnerabilities": ("critical vulnerabilities", "critical cves"),
+    "exploited-vulnerabilities": ("exploited vulnerabilities", "known exploited vulnerabilities"),
+    "drug-approvals": ("fda drug approvals", "new drug approvals"),
+    "us-new-rules": ("significant rules", "new federal rules"),
+    "sec-ipo-filings": ("ipo filings", "companies filing to go public"),
+    "sec-cyber-incidents": ("cyber incidents disclosed to the sec", "sec cyber incidents"),
+    "us-indicators": ("us inflation", "jobless claims", "unemployment rate"),
+}
+HISTORY_FEEDS = {"critical-vulnerabilities", "us-indicators", "market-prices", "drug-approvals"}
 
 
 # What people ask about a topic that its sources may not say: a question about the topic plus
@@ -644,6 +866,60 @@ def federal_register_items(folder: str) -> list[dict]:
     return items
 
 
+def answering(item: dict, sources: list[dict], words: list[str]) -> list[int]:
+    """The item asked about first, then every other source whose title has the words too
+    (two filings of one company, two advisories of one storm)."""
+    first = sources.index(item) + 1
+    alike = [
+        n
+        for n, s in enumerate(sources, 1)
+        if n != first and all(word_pattern(w.casefold()).search(s["title"]) for w in words)
+    ]
+    return [first, *alike]
+
+
+def history_items(folder: str) -> list[dict]:
+    """The archive's items from public feeds: works of the US government, and sentences
+    UnlimitedPipe writes from open data."""
+    items = []
+    for path in sorted((Path(folder) / "archive").glob("*.jsonl")):
+        for line in path.open(encoding="utf-8"):
+            entry = json.loads(line)
+            if entry.get("feed") in PUBLIC_FEEDS | HISTORY_FEEDS and entry.get("date"):
+                items.append(
+                    {k: entry.get(k) for k in ("feed", "title", "summary", "link", "date")}
+                )
+    return items
+
+
+def build_history(builder: Builder, items: list[dict], per_feed: int) -> dict[str, list[dict]]:
+    """Questions about the past: for up to `per_feed` items of each feed, one naming the item's
+    period, one listing its feed over that period, one "not covered", and one naming no period
+    (answered through the word index)."""
+    split: dict[str, list[dict]] = {"train": [], "test": []}
+    rng = builder.rng
+    months: dict[str, set[str]] = {}
+    for item in builder.world.items:
+        for word in title_words(item["title"]):
+            months.setdefault(word, set()).add(item["date"][:7])
+    by_feed = collections.defaultdict(list)
+    for item in items:
+        by_feed[item["feed"]].append(item)
+    for feed, feed_items in sorted(by_feed.items()):
+        feed_items = [i for i in feed_items if i["date"][:7] < PAST_BEFORE]
+        chosen = rng.sample(feed_items, min(per_feed, len(feed_items)))
+        topics = PAST_TOPICS.get(feed, (feed.replace("-", " "),))
+        for n, item in enumerate(chosen):
+            part = "test" if held(f"history|{feed}|{item['title']}") else "train"
+            made = [builder.past_lookup(item), builder.past_refusal(item)]
+            if n % 3 == 0:
+                made.append(builder.past_listing(rng.choice(topics), item))
+            if n % 2 == 0:
+                made.append(builder.undated_past(item, months))
+            split[part] += [m for m in made if m]
+    return split
+
+
 def build_world(builder: Builder, items: list[dict], days: list[datetime], per_day: int, name: str):
     """Examples from one world: a lookup (a list when the question is broad) and a refusal per
     item, and on each of `days`, a listing per feed and `per_day` "what's new with" topics."""
@@ -678,12 +954,17 @@ def build_world(builder: Builder, items: list[dict], days: list[datetime], per_d
     return split
 
 
+HISTORY_PER_FEED = 1000  # items of each feed asked about (earthquakes alone have 80,000)
+PAST_BEFORE = "2026-08"  # asked about as the past; newer items are the catalog world's
+
+
 def main(
     catalog: str,
     out: str,
     public: bool = False,
     fr_folder: str | None = None,
     decide: bool = False,
+    history: str | None = None,
 ) -> None:
     rng = random.Random(0)
     feeds = json.loads((Path(catalog) / "feeds.json").read_text(encoding="utf-8"))["feeds"]
@@ -727,6 +1008,19 @@ def main(
         for part in split:
             split[part] += made[part]
         print(f"{name}: {len(world_items)} items, {sum(len(v) for v in made.values())} examples")
+    if history:
+        past = history_items(history)
+        described = json.loads((Path(history) / "feeds.json").read_text(encoding="utf-8"))["feeds"]
+        past_feeds = [f for f in described if f.get("name") in {i["feed"] for i in past}]
+        world = World(past, past_feeds)
+        builder = Builder(world, seed=len(split["train"]) + 7, decide=decide)
+        sample = [" ".join(builder.keywords(i, 2) or ["x"]) for i in past[::997]]
+        for year in ("2019", "2023", "2025"):
+            world.check_period(sample[:40], f"{year}-01", f"{year}-12-31T23:59:59Z")
+        made = build_history(builder, past, HISTORY_PER_FEED)
+        for part in split:
+            split[part] += made[part]
+        print(f"history: {len(past)} items, {sum(len(v) for v in made.values())} examples")
     folder = Path(out)
     folder.mkdir(parents=True, exist_ok=True)
     for name, examples in split.items():
@@ -745,10 +1039,15 @@ def main(
 
 
 if __name__ == "__main__":
-    # build.py CATALOG OUT [--public [FEDERAL_REGISTER_FOLDER]] [--decide]
+    # build.py CATALOG OUT [--public [FEDERAL_REGISTER_FOLDER]] [--decide] [--history SNAPSHOT]
     args = sys.argv[1:]
     decide_mode = "--decide" in args
     args = [a for a in args if a != "--decide"]
+    history_folder = None
+    if "--history" in args:
+        at = args.index("--history")
+        history_folder = args[at + 1]
+        args = args[:at] + args[at + 2 :]
     public = "--public" in args
     fr = (
         args[args.index("--public") + 1]
@@ -762,4 +1061,5 @@ if __name__ == "__main__":
         public=public,
         fr_folder=fr,
         decide=decide_mode,
+        history=history_folder,
     )

@@ -193,3 +193,64 @@ def test_stakes_join_the_company_and_its_investors():
     )
     assert new["link"].startswith(f"{folder}/2088082/") and not new["amendment"]
     assert amended["title"].startswith("Jewett Cameron Trading Co Ltd: An investor updated")
+
+
+def hit(name, cik, form, date, accession, sics=("7370",)):
+    return {
+        "_id": f"{accession}:doc.htm",
+        "_source": {
+            "display_names": [f"{name}  (CIK {cik:010d})"],
+            "ciks": [f"{cik:010d}"],
+            "form": form,
+            "file_date": date,
+            "biz_locations": ["San Francisco, CA"],
+            "sics": list(sics),
+        },
+    }
+
+
+def test_ipo_filings_leave_out_companies_that_were_public_already(web, make_ctx):
+    import json
+
+    search = "https://efts.sec.gov/LATEST/search-index?forms={}&dateRange=custom"
+    period = "&startdt=2024-02-01&enddt=2024-02-29"
+    hits = [
+        hit("Reddit, Inc.  (RDDT)", 1713445, "S-1", "2024-02-22", "0001-24-1"),
+        hit("Reddit, Inc.  (RDDT)", 1713445, "S-1/A", "2024-03-11", "0001-24-2"),
+        hit("Ocean Power Technologies, Inc.  (OPTT)", 1378140, "S-1", "2024-02-20", "0002-24-1"),
+        hit("American General Life Insurance Co", 5000, "S-1", "2024-02-21", "0003-24-1", ["6311"]),
+    ]
+    web.add(
+        search.format("S-1") + period,
+        json.dumps({"hits": {"hits": hits}}),
+        content_type="application/json",
+    )
+    web.add(
+        search.format("F-1") + period,
+        json.dumps({"hits": {"hits": []}}),
+        content_type="application/json",
+    )
+    subs = "https://data.sec.gov/submissions/CIK{:010d}.json"
+    web.add(
+        subs.format(1713445),
+        json.dumps(
+            {
+                "filings": {
+                    "recent": {"form": ["S-1", "D"], "filingDate": ["2024-02-22", "2021-08-01"]}
+                }
+            }
+        ),
+        content_type="application/json",
+    )
+    web.add(
+        subs.format(1378140),
+        json.dumps({"filings": {"recent": {"form": ["10-K"], "filingDate": ["2023-07-20"]}}}),
+        content_type="application/json",
+    )
+    source = Sec(
+        resource="ipo-filings", contact="me@example.com", since="2024-02-01", until="2024-02-29"
+    )
+    events = run_source(source, make_ctx())
+    assert [e.data["title"] for e in events] == ["Reddit, Inc. filed to go public (S-1)"]
+    assert events[0].data["link"].endswith("/1713445/0001241/0001-24-1-index.htm")
+    assert events[0].timestamp == "2024-02-22T00:00:00Z"

@@ -15,6 +15,14 @@ from unlimitedpipe.event import Event
 from unlimitedpipe.state import state_path, write_json_atomic
 
 LATEST = "https://www.sec.gov/cgi-bin/browse-edgar"
+SEARCH = "https://efts.sec.gov/LATEST/search-index"  # EDGAR full-text search
+SUBMISSIONS = "https://data.sec.gov/submissions/"
+# Reports a company files once it is public: one filed before its S-1 means it was public
+# already (a resale or follow-on registration, not an IPO).
+PERIODIC = {"10-K", "10-Q", "20-F", "40-F", "10-KT", "10-QT", "10-K405", "N-CSR"}
+IPO_FORMS = ("S-1", "F-1")
+NOT_IPO_SICS = {"6311"}  # life insurers register annuities on S-1
+MOST_HITS = 2000  # search results read per form and period
 # Form 4 transaction codes: https://www.sec.gov/edgar/searchedgar/ownershipformcodes.html
 ACTIONS = {
     "P": "bought",
@@ -210,6 +218,10 @@ class Sec(Source):
     `activist-stakes` lists the latest Schedule 13D filings: an investor that owns 5% or more
     of a company and may seek to influence it, with 13D/A when a stake changes.
 
+    `ipo-filings` lists new S-1 and F-1 registrations filed from --since to --until (the
+    last week by default) by companies that were not public yet: a company that had already
+    filed annual or quarterly reports is registering more shares, not going public.
+
     `insider-trades` reads the latest Form 4 filings and turns each into readable trades:
     who (and their role) bought or sold how many shares of which company, at what price and
     for how much, from the filing's own data. By default only open-market purchases (P) and
@@ -226,9 +238,12 @@ class Sec(Source):
         "unlimited sec insider-trades --min-value 1000000 | unlimited feed insider.xml",
         "unlimited sec insider-trades --code P    # purchases only",
         "unlimited sec activist-stakes              # who took 5%+ of which company",
+        "unlimited sec ipo-filings --since 2024-02-01 --until 2024-02-29",
     )
 
-    resource: Literal["insider-trades", "activist-stakes"] = arg("What to read")
+    resource: Literal["insider-trades", "activist-stakes", "ipo-filings"] = arg("What to read")
+    since: str | None = opt("ipo-filings: first day (YYYY-MM-DD; default a week ago)", default=None)
+    until: str | None = opt("ipo-filings: last day (YYYY-MM-DD; default today)", default=None)
     contact: str | None = opt(
         "Contact email the SEC asks for (default: $SEC_CONTACT)", default=None, secret=True
     )
@@ -271,6 +286,10 @@ class Sec(Source):
         agent = f"UnlimitedPipe/{__version__} {contact}"
         if self.resource == "activist-stakes":
             async for event in self._stakes(ctx, agent):
+                yield event
+            return
+        if self.resource == "ipo-filings":
+            async for event in self._ipos(ctx, agent):
                 yield event
             return
         path = state_path(ctx, "sec", "insider-trades-read")
@@ -357,6 +376,86 @@ class Sec(Source):
                 metadata={"method": "edgar-schedule-13d"},
             )
 
+    async def _ipos(self, ctx: Context, agent: str):
+        from datetime import UTC, datetime, timedelta
+
+        today = datetime.now(UTC).date()
+        since = self.since or (today - timedelta(days=7)).isoformat()
+        until = self.until or today.isoformat()
+        reported: dict[str, list[str]] = {}
+        for form in IPO_FORMS:
+            try:
+                hits = await self._search(ctx, agent, form, since, until)
+            except FetchError as exc:
+                if (error := ctx.fail(exc, source=self.name, url=SEARCH)) is not None:
+                    yield error
+                continue
+            for hit in hits:
+                filing = ipo_filing(hit)
+                if filing is None or filing["form"] != form:
+                    continue  # an amendment (S-1/A), or another form the search matched
+                cik = filing["cik"]
+                if cik not in reported:
+                    try:
+                        reported[cik] = await self._periodic(ctx, agent, cik, filing["filed_at"])
+                    except (FetchError, ValueError) as exc:
+                        if (error := ctx.fail(exc, source=self.name, url=SUBMISSIONS)) is not None:
+                            yield error
+                        continue
+                if any(day < filing["filed_at"] for day in reported[cik]):
+                    continue  # public already
+                yield Event(
+                    source=self.name,
+                    type="ipo-filing",
+                    source_url=filing["link"],
+                    key=filing["accession"],
+                    timestamp=f"{filing['filed_at']}T00:00:00Z",
+                    data=filing,
+                    metadata={"method": "edgar-full-text-search"},
+                )
+
+    async def _search(self, ctx: Context, agent: str, form: str, since: str, until: str):
+        """Every search hit for one form filed in the period, 100 at a time."""
+        hits: list[dict[str, Any]] = []
+        while len(hits) < MOST_HITS:
+            params = {"forms": form, "dateRange": "custom", "startdt": since, "enddt": until}
+            if hits:
+                params["from"] = str(len(hits))
+            response = await ctx.http.get(
+                SEARCH,
+                params=params,
+                user_agent=agent,
+                timeout=self.timeout,
+                interval=SEC_INTERVAL,
+            )
+            page = (response.json().get("hits") or {}).get("hits") or []
+            hits += page
+            if len(page) < 100:
+                break
+        return hits
+
+    async def _periodic(self, ctx: Context, agent: str, cik: str, before: str) -> list[str]:
+        """The days a company filed annual or quarterly reports, as far back as ``before``."""
+        url = f"{SUBMISSIONS}CIK{int(cik):010d}.json"
+        response = await ctx.http.get(
+            url, user_agent=agent, timeout=self.timeout, interval=SEC_INTERVAL
+        )
+        document = response.json()
+        days = _periodic_days((document.get("filings") or {}).get("recent") or {})
+        recent = (document.get("filings") or {}).get("recent") or {}
+        oldest = min(recent.get("filingDate") or [before])
+        if not any(d < before for d in days) and oldest > before:
+            # A long history is split: the older filings are in more files.
+            for older in (document.get("filings") or {}).get("files") or []:
+                page = await ctx.http.get(
+                    SUBMISSIONS + older["name"],
+                    user_agent=agent,
+                    timeout=self.timeout,
+                    interval=SEC_INTERVAL,
+                )
+                days += _periodic_days(page.json())
+        return days
+
     async def _latest(
         self, ctx: Context, agent: str, read: dict[str, str | None] | None = None
     ) -> list[tuple[str, str | None]]:
@@ -407,6 +506,47 @@ class Sec(Source):
 
 
 SEC_INTERVAL = 0.2  # five requests a second: half of what the SEC allows automated readers
+
+
+def _periodic_days(filings: dict[str, Any]) -> list[str]:
+    forms, days = filings.get("form") or [], filings.get("filingDate") or []
+    return [d for f, d in zip(forms, days, strict=False) if str(f).split("/")[0] in PERIODIC]
+
+
+def ipo_filing(hit: dict[str, Any]) -> dict[str, Any] | None:
+    """A search hit as a registration: the company (without the ticker EDGAR shows today),
+    the form, when and where, and the filing's index page."""
+    source = hit.get("_source") or {}
+    ident = str(hit.get("_id") or "")
+    names, ciks = source.get("display_names") or [], source.get("ciks") or []
+    if not (names and ciks and ":" in ident and source.get("file_date")):
+        return None
+    if NOT_IPO_SICS & set(source.get("sics") or []):
+        return None
+    company = re.sub(r"\s*\(CIK \d+\)\s*$", "", names[0])
+    company = re.sub(r"\s*\([A-Z0-9., -]{1,30}\)\s*$", "", company)  # today's ticker
+    company = re.sub(r"\s*/\s*[A-Z]{2}\s*/?\s*$", "", " ".join(company.split()))
+    accession = ident.split(":", 1)[0]
+    cik = str(int(ciks[0]))
+    form = str(source.get("form") or "")
+    place = (source.get("biz_locations") or [None])[0]
+    filed = str(source["file_date"])
+    return {
+        "title": f"{company} filed to go public ({form})",
+        "company": company,
+        "form": form,
+        "filed_at": filed,
+        "published_at": f"{filed}T00:00:00Z",
+        "place": place,
+        "cik": cik,
+        "accession": accession,
+        "link": f"https://www.sec.gov/Archives/edgar/data/{cik}/{accession.replace('-', '')}/"
+        f"{accession}-index.htm",
+        "summary": f"Registration statement filed {filed}"
+        + (f" by a company based in {place}." if place else "."),
+    }
+
+
 KEEP_READ = 20000  # Form 4 accession numbers remembered by --all-new: about two months
 
 
