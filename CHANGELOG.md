@@ -3,6 +3,14 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.14 - 2026-09-28
+
+- `ask` looks in the archive for a question without a date whenever the latest items miss
+  one of its words ("supreme court netchoice" finds Moody v. NetChoice of 2024), and ranks the
+  word index's months by how many of the question's words each holds.
+- A word the archive has is not taken for a typo because the latest items lack it ("reddit"
+  was searched as "reddio").
+
 ## 0.10.13 - 2026-09-28
 
 - `web --not-found-is-empty`: read HTTP 404 as no records, for APIs such as openFDA that answer
