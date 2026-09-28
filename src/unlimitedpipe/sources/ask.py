@@ -26,6 +26,7 @@ from unlimitedpipe.event import Event
 from unlimitedpipe.operators.extract import STOPWORDS
 from unlimitedpipe.sources.search import (
     STORY_UPDATES,
+    archive_words,
     corrected,
     items_by_words,
     items_since,
@@ -359,6 +360,14 @@ class Ask(Source):
             document = {**document, "items": items}
             asked = [w for w in asked if w not in said]
         words, fixed = corrected(asked, document)
+        # "reddit" is no typo when the archive has it, only not among the latest items
+        if (
+            fixed
+            and not named
+            and not self.since
+            and (known := await archive_words(ctx, url, document))
+        ):
+            words, fixed = corrected(asked, document, known)
         for typo, word in fixed.items():
             ctx.notice(f"ask: no item has {typo!r}; searched for {word!r}")
         days = None if named else days_asked(question)
@@ -375,14 +384,19 @@ class Ask(Source):
             older, older_covered = rank(document, words, 3, order=order)
             if older and len(older_covered) >= needed(words):
                 items, covered, stale, weak = older, older_covered, True, False
-        if (not items or weak) and not named and not self.since:
-            # "ronin hack": nothing recent, so the archive months that hold its rare words
+        if len(covered) < len(words) and not named and not self.since:
+            # "ronin hack", "reddit ipo filing": nothing recent has every word, so the archive
+            # months that hold its rare words, when they cover more of the question
             past = await items_by_words(ctx, url, document, words)
             if past:
                 found_items, found_covered = rank(
                     {**document, "items": past}, words, self.sources, order=order
                 )
-                if found_items and len(found_covered) >= needed(words):
+                if (
+                    found_items
+                    and len(found_covered) >= needed(words)
+                    and len(found_covered) > (len(covered) if items and not stale else 0)
+                ):
                     items, covered, weak, stale = found_items, found_covered, False, False
         by_meaning = False
         if (not items or weak) and self.provider != "anthropic":

@@ -160,10 +160,13 @@ def _start(form: str) -> str:
 STORY_UPDATES = 2  # updates of one story that search and ask show, newest first
 
 
-def corrected(words: list[str], document: dict[str, Any]) -> tuple[list[str], dict[str, str]]:
+def corrected(
+    words: list[str], document: dict[str, Any], known: set[str] | frozenset[str] = frozenset()
+) -> tuple[list[str], dict[str, str]]:
     """The words with typos fixed ("bitcion" -> "bitcoin"): a word of five letters or more
-    that no item has is replaced by the most common word of the catalog one letter away (two
-    for long words). Returns the words and what was replaced."""
+    that no item has, and that is not in ``known`` (the archive's words, stemmed), is replaced
+    by the most common word of the catalog one letter away (two for long words). Returns the
+    words and what was replaced."""
     names = " ".join(str(f.get("name", "")).replace("-", " ") for f in document.get("feeds", []))
     text = "\n".join(
         f"{i.get('title') or ''} {i.get('summary') or ''}" for i in document.get("items", [])
@@ -173,8 +176,10 @@ def corrected(words: list[str], document: dict[str, Any]) -> tuple[list[str], di
     fixed: dict[str, str] = {}
     out = []
     for word in words:
-        if not (word.isascii() and word.isalpha() and len(word) >= 5) or word_pattern(word).search(
-            text
+        if (
+            not (word.isascii() and word.isalpha() and len(word) >= 5)
+            or stem(word) in known
+            or word_pattern(word).search(text)
         ):
             out.append(word)
             continue
@@ -324,6 +329,17 @@ async def _read_items(ctx: Context, files: list[str]) -> list[dict[str, Any]]:
     return items
 
 
+async def archive_words(ctx: Context, url: str, document: dict[str, Any]) -> set[str]:
+    """Every word of the archive's titles (stemmed), from its word index; empty without one."""
+    from unlimitedpipe.archive import WORDS
+
+    index_url = join(url, document.get("archive") or "archive/index.json")
+    try:
+        return set(json.loads(await read(ctx, join(index_url, WORDS))).get("words") or {})
+    except (FetchError, ValueError, AttributeError):
+        return set()
+
+
 RARE_MONTHS = 12  # a word in more months than this narrows nothing down
 MOST_MONTHS = 12
 
@@ -331,9 +347,10 @@ MOST_MONTHS = 12
 async def items_by_words(
     ctx: Context, url: str, document: dict[str, Any], words: list[str]
 ) -> list[dict[str, Any]]:
-    """Archive items for a question that names no date ("ronin hack"): the months its rarest
-    words appear in, from the archive's word index (at most twelve, newest first). Empty when
-    the catalog has no index or no word is rare enough."""
+    """Archive items for a question that names no date ("ronin hack", "reddit ipo filing"),
+    from the archive's word index: the months its rarest word appears in, those where more of
+    its other words appear too first ("reddit" with "public", as "ipo" is said), then the
+    newest; at most twelve. Empty when the catalog has no index or no word is rare enough."""
     from unlimitedpipe.archive import WORDS
 
     index_url = join(url, document.get("archive") or "archive/index.json")
@@ -341,16 +358,25 @@ async def items_by_words(
         table = json.loads(await read(ctx, join(index_url, WORDS))).get("words") or {}
     except (FetchError, ValueError, AttributeError):
         return []
-    found = [
-        set(table[stem(w)])
-        for w in words
-        if isinstance(table.get(stem(w)), list) and len(table[stem(w)]) <= RARE_MONTHS
-    ]
-    if not found:
+    per_word = []
+    for word in words:
+        forms = {stem(word)} | {
+            stem(part)
+            for phrase in SAME.get(stem(word), SAME.get(word.casefold(), ()))
+            for part in phrase.split()
+            if len(part) > 2
+        }
+        months = {m for form in forms if isinstance(table.get(form), list) for m in table[form]}
+        if months:
+            per_word.append(months)
+    anchors = [months for months in per_word if len(months) <= RARE_MONTHS * 5]
+    if not anchors:
         return []
-    found.sort(key=len)
-    months = set.intersection(*found) or found[0]
-    chosen = sorted(months, reverse=True)[:MOST_MONTHS]
+    anchor = min(anchors, key=len)
+    ranked = sorted(
+        anchor, key=lambda m: (sum(m in months for months in per_word), m), reverse=True
+    )
+    chosen = ranked[:MOST_MONTHS]
     return await _read_items(ctx, [join(index_url, f"{m}.jsonl") for m in chosen])
 
 

@@ -357,3 +357,11 @@ def test_flaws_and_bugs_find_vulnerabilities():
 
     assert word_pattern("flaws").search("A vulnerability in Cisco Secure Firewall")
     assert word_pattern("bug").search("Critical vulnerabilities in Fortinet")
+
+
+def test_a_word_the_archive_knows_is_no_typo():
+    from unlimitedpipe.sources.search import corrected
+
+    document = {"feeds": [], "items": [{"title": "Reddio raises funds", "summary": ""}]}
+    assert corrected(["reddit"], document) == (["reddio"], {"reddit": "reddio"})
+    assert corrected(["reddit"], document, {"reddit"}) == (["reddit"], {})
