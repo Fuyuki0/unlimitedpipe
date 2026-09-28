@@ -559,7 +559,7 @@ SEARCH_SCRIPT = r"""    <script>
         const updated = document.getElementById("stat-updated");
         if (modified && updated) {
           const minutes = Math.max(0, Math.round((Date.now() - Date.parse(modified)) / 60000));
-          updated.textContent = minutes < 60 ? minutes + " min ago"
+          updated.textContent = minutes < 1 ? "just now" : minutes < 60 ? minutes + " min ago"
             : Math.round(minutes / 60) + " h ago";
         }
         if (!catalog.archive) return;
@@ -633,11 +633,12 @@ INDEX_STYLE = """
         border: 1px solid var(--line); border-radius: 10px; background: var(--card);
         color: var(--ink); }
       #q:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
-      #status { color: var(--muted); font-size: .9rem; min-height: 1.4em; margin: .5rem 0 0; }
+      #status { color: var(--muted); font-size: .9rem; margin: .5rem 0 0; }
+      #status:empty, #results:empty { display: none; }
       #results { list-style: none; padding: 0; margin: .5rem 0 0; }
       #results li { padding: .55rem 0; border-bottom: 1px solid var(--line); }
       #results small { display: block; color: var(--muted); }
-      .toc { display: flex; flex-wrap: wrap; gap: .5rem; padding-block: 1rem 0; }
+      .toc { display: flex; flex-wrap: wrap; gap: .5rem; padding-block: .5rem 0; }
       .toc a { background: var(--pill); color: var(--ink); text-decoration: none;
         padding: .3rem .75rem; border-radius: 999px; font-size: .9rem; }
       .group { padding-block: 2rem .5rem; }
@@ -653,6 +654,10 @@ INDEX_STYLE = """
       .desc { color: var(--muted); font-size: .93rem; margin: 0; }
       .latest { font-size: .9rem; margin: 0; overflow-wrap: anywhere; }
       .latest:empty { display: none; }
+      .latest::before { content: "Latest"; display: block; color: var(--muted); font-size: .7rem;
+        font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+      .latest a { color: var(--ink); text-decoration: none; }
+      .latest a:hover { text-decoration: underline; }
       .latest span { color: var(--muted); }
       .card footer { margin-top: auto; display: flex; flex-wrap: wrap; gap: .4rem;
         align-items: center; font-size: .85rem; }
