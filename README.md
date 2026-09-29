@@ -390,25 +390,28 @@ decision model (531 MB): given the numbered sources and the question, it replies
 sources that answer it (`USE 2 5`) or `NONE`, and `ask` writes the answer from those sources'
 own titles, dates and summaries. So the answer holds no word or number the sources do not, it
 comes in a few seconds on a small computer, and the decision's probability says how sure it
-was. It was trained on public data only, and graded with other small open models on 155
-questions typed the way people type ("microsoft news", "whats new with bitget"), through
-`ask`'s own search, labelled by hand:
+was. It was trained on public data only, and graded strictly (an answer that says "not covered"
+fails when a source answers) on questions typed the way people type ("microsoft news", "whats
+new with bitget", "earthquakes in japan in 2024"), through `ask`'s own search, labelled by hand.
+Three blind rounds, written before the model was trained:
 
-| Model | Size | Real (115) | Blind (40) |
-| --- | --- | --- | --- |
-| **unlimitedpipe/decide-0.5b** (decides; the code writes) | **0.5B** | **111 (97%)** | **36 (90%)** |
-| unlimitedpipe/ask-0.5b (writes its answers) | 0.5B | 112 (97%) | 35 (87%) |
-| Qwen3.5 2B | 1.9B | 74 (64%) | 35 (87%) |
-| Phi-4 mini | 3.8B | 76 (66%) | 34 (85%) |
-| Qwen3.5 4B | 4.2B | 95 (82%) | 31 (77%) |
-| Llama 3.2 3B | 3.2B | 66 (57%) | 25 (62%) |
+| Model | Size | Blind (40) | Blind 2 (42) | Blind 3, the past (43) |
+| --- | --- | --- | --- | --- |
+| **unlimitedpipe/decide-0.5b, build 7** (decides; the code writes) | **0.5B** | **36 (90%)** | 27 (64%) | **37 (86%)** |
+| unlimitedpipe/decide-0.5b, build 6 | 0.5B | 36 (90%) | 28 (67%) | 26 (60%) |
+| unlimitedpipe/ask-0.5b (writes its answers) | 0.5B | 35 (87%) | | |
+| Qwen3.5 2B | 1.9B | 35 (87%) | | |
+| Phi-4 mini | 3.8B | 34 (85%) | | |
+| Qwen3.5 4B | 4.2B | 31 (77%) | | |
+| Llama 3.2 3B | 3.2B | 25 (62%) | | |
 
-Read the blind column first. The 115 showed where earlier builds fell short, and the models
-were made to fix that, so they flatter them; the 40 blind questions were written after both
-0.5B models were trained. On those, the 0.5B model is level with Qwen3.5 2B, a model four
-times its size (one question ahead), and ahead of the 3 to 4B models. Its weak spot, saying
-"the sources do not answer this" when they are about something related, is better since build
-6 (21 of 28 such questions, up from 14) but not gone.
+On the first round the 0.5B model is level with Qwen3.5 2B, a model four times its size (one
+question ahead), and ahead of the 3 to 4B models. Build 7 learned questions about the past;
+blind 3 is scored on 43 of its 46 questions, as three turn up word for word among build 7's
+generated training questions, and it flatters build 7, whose data was made to fix build 6's
+misses there. Its weak spot is saying "not covered" for some current questions a source does
+answer ("crude oil price"); `ask` then still shows the closest sources. The model card has
+every set and the other models' scores.
 
 ```bash
 ollama pull hf.co/unlimitedpipe/decide-0.5b-GGUF     # or let unlimited setup do it
