@@ -371,6 +371,13 @@ def test_what_people_ask_finds_what_they_mean():
 
     title = "Tsunami information bulletin: M5.5 120 miles W of Port Alice, British Columbia"
     assert size_of(title) == 5.5 and notable_size(title) == 5.5  # not the 120 miles
+    nasa = "Earthquakes: Papua New Guinea Earthquake 7.5M"
+    assert size_of(nasa) == 7.5 and notable_size(nasa) == 7.5  # a magnitude, not 7.5 million
+    assert size_of("Earthquakes: Sumatra, Indonesia Earthquake, December 2016") is None  # a year
+    assert size_of("Klyuchevskoy (Russia) - Report for 10 September 2026") is None
+    assert size_of("Historical tsunami: waves up to 524.6 m, USA (1958-07-10)") == 524.6
+    assert size_of("Ford Motor Company: Brake Fluid May Leak (1,204,337 affected)") == 1204337
+    assert size_of("Hedera Hashgraph +20.4% in 24 hours") == 20.4
     assert word_pattern("purchases").search("a director bought 10,000 shares")
     assert word_pattern("sales").search("a director sold 5,000 shares")
     assert word_pattern("warning").search("Tsunami information bulletin: M7.0")

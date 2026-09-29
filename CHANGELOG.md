@@ -3,6 +3,13 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.32 - 2026-09-29
+
+- `ask` reads an item's size more carefully for "biggest", "strongest" and past questions:
+  NASA's "Earthquake 7.5M" is a magnitude, not 7.5 million; a year is never a size; "(1,204,337
+  affected)" and "+20.4%" are; a number deep in a title without a colon ("Report for 10
+  September") is not. "biggest tsunami ever" starts with Lituya Bay, 1958 (524.6 m).
+
 ## 0.10.31 - 2026-09-29
 
 - "ever" and "all time" search the whole archive, now back to 1900, not from 1970: "biggest

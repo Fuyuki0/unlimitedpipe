@@ -85,8 +85,10 @@ _SCALE = {"K": 1e3, "M": 1e6, "B": 1e9, "T": 1e12}
 
 
 def size_of(title: str) -> float | None:
-    """The number an item is about: its largest dollar amount ("$1.5B lost"), else the first
-    number after a colon ("S&P 500: 7,743.41"), else its first number ("M 7.5 - Noto")."""
+    """The number an item is about: its largest dollar amount ("$1.5B lost"), else an
+    earthquake's magnitude ("M 7.5 - Noto"), else a number among the first four words after
+    its colon ("S&P 500: 7,743.41", "waves up to 524.6 m", "VEI 6"), a year never; None when
+    the title states no size ("Report for 10 September")."""
 
     def value(match: re.Match[str]) -> float:
         return float(match[1].replace(",", "")) * _SCALE.get(match[2] or "", 1)
@@ -94,15 +96,29 @@ def size_of(title: str) -> float | None:
     if money := [value(m) for m in _MONEY.finditer(title)]:
         return max(money)
     if magnitude := _MAGNITUDE.search(title):  # not the "120 miles" after it
-        return float(magnitude[1])
+        return float(magnitude[1] or magnitude[2])
+    if affected := _AFFECTED.search(title):  # "Brake Hoses May Leak (1,204,337 affected)"
+        return float(affected[1].replace(",", ""))
+    if move := _MOVE.search(title):  # "Hedera Hashgraph +20.4% in 24 hours"
+        return float(move[1])
     _, colon, after = title.partition(": ")
-    for text in (after, title) if colon else (title,):
-        if match := _SIZE.search(text):
+    if not colon:
+        return None
+    lead = " ".join(after.split()[:4])
+    for match in _SIZE.finditer(lead):
+        if not (_YEAR.fullmatch(match[1]) and not match[2]):
             return value(match)
     return None
 
 
-_MAGNITUDE = re.compile(r"(?<![\w.])M\s?(\d\.\d)\b")  # "M 7.5 - Noto", "bulletin: M5.5 near"
+_YEAR = re.compile(r"(1[89]|20)\d\d")
+_AFFECTED = re.compile(r"\(([\d,]+) affected\)")
+_MOVE = re.compile(r"(?<![\w.])[+-](\d+(?:\.\d+)?)%")
+
+
+# "M 7.5 - Noto", "bulletin: M5.5 near", and NASA's "Papua New Guinea Earthquake 7.5M", which
+# is a magnitude, not 7.5 million
+_MAGNITUDE = re.compile(r"(?<![\w.])M\s?(\d\.\d)\b|[Ee]arthquake (\d\.\d)M\b")
 NOTABLE_STORIES = 5  # items of fewer stories than this are a series ("bitcoin price")
 
 
@@ -114,7 +130,7 @@ def notable_size(title: str) -> float | None:
     ]:
         return max(money)
     if match := _MAGNITUDE.search(title):
-        return float(match[1])
+        return float(match[1] or match[2])
     return None
 
 
