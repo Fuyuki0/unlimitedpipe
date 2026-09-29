@@ -49,8 +49,8 @@ unlimited mirror && unlimited search flood --catalog offline    # works without 
 - **History, not only the latest.** Every item the feeds ever listed stays in a monthly
   archive, 475,000 records back to 1900 (earthquakes, tsunamis, Fed rate decisions, disaster
   declarations, vehicle and product recalls, sanctions, federal rules, SEC filings, papers and
-  more): ask about a year ("earthquakes in japan in
-  2024", "crypto hacks in 2022") and the biggest come first, in about a second.
+  more): ask about a year ("earthquakes in japan in 2024", "crypto hacks in 2022") and the
+  biggest come first, in about a second.
 - **Answers that cite.** `ask` finds the facts with plain search, then a small local model
   trained for the job answers from them: on 40 blind questions typed the way people type, 90%
   of its answers pass (Qwen3.5 2B, four times its size, 87%), ahead of the 3 to 4B models we
