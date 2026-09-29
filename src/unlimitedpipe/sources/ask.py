@@ -292,6 +292,15 @@ def rank(
             ordered = sorted(zip(sizes, range(len(kept)), strict=True), key=lambda p: -(p[0] or 0))
             kept = [kept[n] for _, n in ordered]
     elif order:
+        # "biggest earthquake ever": the earthquakes feed's items, not a tsunami that mentions
+        # the earthquake behind it, when the question names a feed
+        named = {
+            f
+            for f, (spaced, _) in feeds.items()
+            if any(word_pattern(w).search(spaced) for w in words)
+        }
+        if in_named := [s for s in kept if s[3].get("feed") in named]:
+            kept = in_named
         sized = [(size_of(str(s[3].get("title") or "")), s) for s in kept]
         with_size = [p for p in sized if p[0] is not None]
         with_size.sort(key=lambda p: p[0], reverse=order == "most")  # type: ignore[arg-type]

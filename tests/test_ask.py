@@ -394,3 +394,23 @@ def test_a_listing_of_old_items_is_dated_and_not_called_latest():
     answer = decide.write("chrome vulnerabilities", old, [2, 1])
     assert answer.startswith("Nothing recent; the latest found:")
     assert answer.index("(2023-04-19) [1]") < answer.index("(2021-11-23) [2]")  # newest first
+
+
+def test_biggest_ranks_the_feed_the_question_names():
+    items = [
+        {
+            "feed": "earthquakes",
+            "title": "M 9.5 - 1960 Great Chilean Earthquake",
+            "date": "1960-05-22",
+        },
+        {"feed": "earthquakes", "title": "M 7.8 - Nepal", "date": "2015-04-25"},
+        {
+            "feed": "tsunami-alerts",
+            "title": "Historical tsunami: waves up to 524.6 m, Lituya Bay, USA (1958-07-10)",
+            "summary": "A tsunami after an M7.8 earthquake.",
+            "date": "1958-07-10",
+        },
+    ]
+    document = {"feeds": [{"name": "earthquakes"}, {"name": "tsunami-alerts"}], "items": items}
+    found, _ = rank(document, ["earthquake"], 3, order="most")
+    assert found[0]["title"].startswith("M 9.5")

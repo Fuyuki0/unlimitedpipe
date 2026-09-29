@@ -49,7 +49,7 @@ def day(event: dict) -> str | None:
 def place(event: dict) -> str:
     name = readable_name(event.get("locationName") or event.get("name") or "") or ""
     country = readable_name(event.get("country") or "") or ""
-    return ", ".join(part for part in (name, country) if part and part not in name)
+    return ", ".join([name] * bool(name) + [country] * bool(country and country not in name))
 
 
 def deaths(event: dict) -> str:

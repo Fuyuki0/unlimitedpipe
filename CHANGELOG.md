@@ -3,6 +3,12 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.33 - 2026-09-29
+
+- For "biggest" and "smallest" questions that name a feed ("biggest earthquake ever"), that
+  feed's items are compared: the M 9.5 of 1960 in Chile, not a tsunami whose summary names the
+  earthquake behind it.
+
 ## 0.10.32 - 2026-09-29
 
 - `ask` reads an item's size more carefully for "biggest", "strongest" and past questions:
