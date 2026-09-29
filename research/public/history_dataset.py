@@ -51,7 +51,21 @@ FEEDS = {
         "reuse permitted with the ECB named as the source",
     ),
     "stablecoin-supply": ("DefiLlama stablecoin data", "open data, attribution to DefiLlama"),
+    "us-disasters": ("FEMA disaster declarations (OpenFEMA)", "public domain"),
+    "vehicle-recalls": (
+        "NHTSA recalls (US Department of Transportation open data)",
+        "public domain",
+    ),
+    "product-recalls": ("US Consumer Product Safety Commission recalls", "public domain"),
+    "tsunami-alerts": (
+        "NOAA tsunami messages and NCEI's historical tsunami database",
+        "public domain",
+    ),
+    "volcanoes": ("NOAA NCEI significant volcanic eruptions database", "public domain"),
+    "arxiv-llm": ("arXiv metadata (cs.CL, cs.AI; language models and agents)", "CC0 1.0"),
 }
+# Feeds whose other items come from sources that are not public: only these titles are kept.
+ONLY = {"volcanoes": "Historical eruption:"}
 LEFT_OUT = ("US 30-year mortgage rate",)  # Freddie Mac's survey, not a government series
 
 
@@ -64,7 +78,10 @@ def rows_of(site: Path, insider: Path | None) -> dict[str, list[dict]]:
     for line in lines:
         item = json.loads(line)
         feed = item.get("feed")
-        if feed not in FEEDS or str(item.get("title") or "").startswith(LEFT_OUT):
+        title = str(item.get("title") or "")
+        if feed not in FEEDS or title.startswith(LEFT_OUT):
+            continue
+        if feed in ONLY and not title.startswith(ONLY[feed]):
             continue
         row = {k: item.get(k) for k in ("feed", "title", "summary", "link", "date")}
         found[feed].setdefault(f"{row['link']}\n{str(row['title']).casefold()}", row)
