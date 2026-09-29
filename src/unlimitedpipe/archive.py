@@ -284,7 +284,7 @@ _PERIOD = re.compile(
     r"|\b(?P<ever>ever|of all time|all[- ]time)\b",
     re.IGNORECASE,
 )
-EVER = "1970-01"  # the first month of "biggest hacks ever": all of the archive
+EVER = "1800-01"  # the first month of "biggest earthquake ever": all of the archive
 
 
 def named_period(text: str, today: str) -> tuple[str, str, list[str]] | None:

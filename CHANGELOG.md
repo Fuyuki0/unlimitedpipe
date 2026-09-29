@@ -3,6 +3,11 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.31 - 2026-09-29
+
+- "ever" and "all time" search the whole archive, now back to 1900, not from 1970: "biggest
+  earthquake ever" finds the M 9.5 of 1960 in Chile.
+
 ## 0.10.30 - 2026-09-29
 
 - `validate --deep` accepts archives that go back more than a century (earthquakes since 1900,

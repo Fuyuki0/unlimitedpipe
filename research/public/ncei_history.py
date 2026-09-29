@@ -13,6 +13,8 @@ import time
 
 import httpx
 
+from unlimitedpipe.names import readable_name
+
 API = "https://www.ngdc.noaa.gov/hazel/hazard-service/api/v1/{}"  # tsunamis/events, volcanoes
 VIEW = "https://www.ngdc.noaa.gov/hazel/view/hazards/{}/event-more-info/{}"
 AGENT = {"User-Agent": "UnlimitedPipe (+https://github.com/Fuyuki0/unlimitedpipe)"}
@@ -45,14 +47,16 @@ def day(event: dict) -> str | None:
 
 
 def place(event: dict) -> str:
-    name = (event.get("locationName") or event.get("name") or "").title()
-    country = (event.get("country") or "").title()
+    name = readable_name(event.get("locationName") or event.get("name") or "") or ""
+    country = readable_name(event.get("country") or "") or ""
     return ", ".join(part for part in (name, country) if part and part not in name)
 
 
 def deaths(event: dict) -> str:
+    """In the summary, not the title: a title's first number is the event's size (its height,
+    its VEI), which "biggest tsunami ever" ranks by."""
     total = event.get("deathsTotal") or event.get("deaths")
-    return f", {int(total):,} deaths" if total else ""
+    return f" {int(total):,} deaths." if total else ""
 
 
 def tsunami(event: dict) -> dict | None:
@@ -64,9 +68,9 @@ def tsunami(event: dict) -> dict | None:
     cause = f" after an M{event['eqMagnitude']:g} earthquake" if event.get("eqMagnitude") else ""
     return {
         "feed": "tsunami-alerts",
-        "title": f"Historical tsunami: {size}, {place(event)}{deaths(event)} ({when})",
-        "summary": f"A tsunami on {when}{cause}, from NOAA NCEI's global historical tsunami "
-        "database.",
+        "title": f"Historical tsunami: {size}, {place(event)} ({when})",
+        "summary": f"A tsunami on {when}{cause}.{deaths(event)} From NOAA NCEI's global "
+        "historical tsunami database.",
         "link": VIEW.format("tsunami", event["id"]),
         "date": f"{when}T00:00:00Z",
     }
@@ -79,9 +83,9 @@ def eruption(event: dict) -> dict | None:
     vei = f"VEI {event['vei']}" if event.get("vei") is not None else "VEI unknown"
     return {
         "feed": "volcanoes",
-        "title": f"Historical eruption: {vei}, {place(event)}{deaths(event)} ({when})",
-        "summary": f"A significant volcanic eruption on {when}, from NOAA NCEI's significant "
-        "volcanic eruptions database (VEI: the volcanic explosivity index, 0 to 8).",
+        "title": f"Historical eruption: {vei}, {place(event)} ({when})",
+        "summary": f"A significant volcanic eruption on {when}.{deaths(event)} From NOAA NCEI's "
+        "significant volcanic eruptions database (VEI: the volcanic explosivity index, 0 to 8).",
         "link": VIEW.format("volcano", event["id"]),
         "date": f"{when}T00:00:00Z",
     }
