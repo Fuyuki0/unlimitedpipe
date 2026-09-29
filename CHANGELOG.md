@@ -3,6 +3,12 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.30 - 2026-09-29
+
+- `validate --deep` accepts archives that go back more than a century (earthquakes since 1900,
+  disaster declarations since 1953): a date is flagged when it is before 1800, or on 1 January
+  1970 at a whole hour (an empty date read as Unix time zero), not when it is before 1990.
+
 ## 0.10.29 - 2026-09-28
 
 - `archive: false` in a pipeline file: the catalog lists the feed's latest items but never

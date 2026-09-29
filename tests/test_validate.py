@@ -106,6 +106,6 @@ def test_deep_finds_odd_dates_repeats_and_items_in_the_wrong_month(tmp_path):
 
     write_index(folder / "archive")
     messages = [f"{f.where}: {f.message}" for f in run(folder, tmp_path, deep=True).findings]
-    assert any("1970-01 line 1: date 1970-01-01T07:00:00Z is before 1990" in m for m in messages)
+    assert any("1970-01 line 1: date 1970-01-01T07:00:00Z is 1970-01-01" in m for m in messages)
     assert "archive 2026-09: 1 item(s) are in it twice (same feed, link and title)" in messages
     assert "archive 2026-09: 1 item(s) are dated in another month" in messages

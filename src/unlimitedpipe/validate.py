@@ -49,7 +49,9 @@ def _date_ok(value: Any) -> bool:
 
 
 QUIET_DAYS = 14
-EARLIEST = "1990"  # a date before this in a feed of news and records is a parsing slip (1970-01-01)
+# A date on 1 January 1970, the zero of Unix time, is an empty date read as a number; one before
+# EARLIEST is a slip too. Archives do go back that far (earthquakes since 1900).
+EARLIEST = "1800"
 FUTURE_DAYS = 2
 
 
@@ -62,6 +64,9 @@ def _date_odd(value: Any) -> str | None:
     when = parse_time(value) if isinstance(value, str) else None
     if when is None:
         return None
+    # at a whole hour: the zero in some time zone (a real earthquake at 17:11 is not flagged)
+    if (when.year, when.month, when.day, when.minute, when.second) == (1970, 1, 1, 0, 0):
+        return f"date {value} is 1970-01-01, the zero of Unix time: probably an empty record"
     if when.year < int(EARLIEST):
         return f"date {value} is before {EARLIEST}: probably an empty or misread record"
     if when > datetime.now(UTC) + timedelta(days=FUTURE_DAYS):
