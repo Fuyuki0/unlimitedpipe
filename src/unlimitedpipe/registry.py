@@ -36,6 +36,7 @@ BUILTINS: dict[str, str] = {
     "faa": "unlimitedpipe.sources.faa:Faa",
     "usaspending": "unlimitedpipe.sources.usaspending:UsaSpending",
     "hyperliquid": "unlimitedpipe.sources.hyperliquid:Hyperliquid",
+    "evm": "unlimitedpipe.sources.evm:Evm",
     "mastodon": "unlimitedpipe.sources.mastodon:Mastodon",
     "telegram": "unlimitedpipe.sources.telegram:Telegram",
     "youtube": "unlimitedpipe.sources.youtube:YouTube",

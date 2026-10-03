@@ -3,6 +3,17 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.49 - 2026-10-04
+
+- `unlimited evm aave|liquidations|transfers|new-pools --chain ethereum|base`: on-chain events
+  from public JSON-RPC endpoints (or yours: `$ETHEREUM_RPC_URL`, `$BASE_RPC_URL`). Aave V3
+  markets at 90% utilization or more, with borrowing and lending rates; Aave V3 liquidations of
+  $100K or more, priced by Aave's oracle; USDT and USDC transfers of $25M or more, mints and
+  burns included and flash loans left out; new Uniswap V2 and V3 pools against WETH, USDC or
+  USDT once $100K is in them.
+- `usaspending`: recipients decoded and named the way round ("California Department of Health
+  Care Services").
+
 ## 0.10.48 - 2026-10-04
 
 - `unlimited hyperliquid`: Hyperliquid's perpetual futures with extreme funding (0.01% an
