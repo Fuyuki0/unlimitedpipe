@@ -134,6 +134,8 @@ SAME = {
     "flaws": ("vulnerabilit",),  # stem() keeps words ending in -ws whole, as "news"
     "bug": ("vulnerabilit",),
     "sign": ("became public law",),  # "laws signed this month"
+    "congress": ("public law",),  # "laws congress passed"
+    "sanction": ("designation",),  # OFAC's "Counter Terrorism Designations"
     "xai": ("x.ai",),
 }
 # US agencies by the names the Federal Register gives them ("Environmental Protection Agency:

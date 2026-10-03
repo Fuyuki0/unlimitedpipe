@@ -63,7 +63,7 @@ QUESTION_WORDS = frozenset(
     "tell show give me today now latest new news happening happened going there should can "
     "tonight yesterday week weeks month months recent recently past currently right "
     "think thought call called know want please guess maybe really like mean update updates "
-    "lately got "
+    "lately got announce announced say said says pass passed "
     # how much something matters is the reader's call, not a word the sources use
     "significant major important notable noteworthy".split()
 )
