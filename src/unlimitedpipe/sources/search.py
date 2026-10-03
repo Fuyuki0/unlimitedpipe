@@ -673,6 +673,11 @@ class Search(Source):
         default=False,
     )
     list_feeds: bool = opt("List the catalog's feeds instead of searching", default=False)
+    exact: bool = opt(
+        "Only items with every word: no items found by meaning, no hint when none matches "
+        "(as `follow` searches)",
+        default=False,
+    )
 
     def __post_init__(self) -> None:
         from unlimitedpipe.archive import parse_since
@@ -776,11 +781,11 @@ class Search(Source):
             found += 1
             if found >= self.limit:
                 return
-        if not found and words and not wanted:
+        if not found and words and not wanted and not self.exact:
             async for event in self._by_meaning(ctx, url, items):
                 found += 1
                 yield event
-        if not found:
+        if not found and not self.exact:
             ctx.notice(self._nothing_found())
 
     async def _by_meaning(self, ctx: Context, url: str, items: list[dict[str, Any]]):

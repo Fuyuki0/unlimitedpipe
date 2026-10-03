@@ -127,3 +127,31 @@ def test_pipeline_env_references(tmp_path, monkeypatch):
     with pytest.raises(ConfigError, match="HOOK_URL is not set") as info:
         load_pipeline(path)
     assert "p.yml:4" in info.value.message
+
+
+def test_ntfy_sends_a_phone_notification_with_a_tap_to_the_source(web, make_ctx):
+    web.add("https://ntfy.sh/", "{}", content_type="application/json")
+    hook = Webhook(url="ntfy:my-quakes")
+    assert hook.url == "https://ntfy.sh/my-quakes" and detect_format(hook.url) == "ntfy"
+    event = ev({"title": "M 7.1 - Japan", "summary": "Magnitude 7.1", "link": "https://usgs/1"})
+    _, sent = send(web, make_ctx, hook, [event])
+    assert sent == [
+        {
+            "topic": "my-quakes",
+            "title": "M 7.1 - Japan",
+            "message": "Magnitude 7.1",
+            "click": "https://usgs/1",
+        }
+    ]
+    assert str(web.requests[-1].url) == "https://ntfy.sh/"
+
+
+def test_telegram_messages_are_plain_text(web, make_ctx):
+    url = "https://api.telegram.org/bot123:SECRET/sendMessage?chat_id=42"
+    web.add(url, "{}", content_type="application/json")
+    assert detect_format(url) == "telegram"
+    event = ev({"title": "*Bold* <b>claim</b>", "link": "https://src/1"})
+    _, sent = send(web, make_ctx, Webhook(url=url), [event])
+    assert sent == [
+        {"text": "*Bold* claim\nhttps://src/1", "disable_web_page_preview": True}
+    ]

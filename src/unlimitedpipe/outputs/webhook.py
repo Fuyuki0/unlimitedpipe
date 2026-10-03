@@ -1,9 +1,11 @@
-"""Send events to a webhook: Discord, Slack, or any URL that accepts JSON."""
+"""Send events to a webhook: Discord, Slack, ntfy (phone notifications), Telegram, or any URL
+that accepts JSON."""
 
 from __future__ import annotations
 
 import re
 from typing import Any, Literal
+from urllib.parse import urlsplit
 
 from unlimitedpipe.component import Output, arg, opt
 from unlimitedpipe.errors import FetchError
@@ -15,12 +17,26 @@ SLACK_LIMIT = 3000
 CHAT_SUMMARY = 280  # a chat message is a notification, not the article
 
 
+TELEGRAM_LIMIT = 4096
+
+
 def detect_format(url: str) -> str:
     if re.match(r"https://(?:\w+\.)?discord(?:app)?\.com/api/webhooks/", url):
         return "discord"
     if url.startswith("https://hooks.slack.com/"):
         return "slack"
+    if re.match(r"https://api\.telegram\.org/bot[^/]+/sendMessage\?", url):
+        return "telegram"
+    if re.match(r"https?://ntfy\.", url):  # ntfy.sh, or a server of your own at ntfy.example
+        return "ntfy"
     return "json"
+
+
+def expand_target(target: str) -> str:
+    """``ntfy:TOPIC`` as its ntfy.sh URL; any URL as it is."""
+    if target.startswith("ntfy:") and not target.startswith("ntfy://"):
+        return f"https://ntfy.sh/{target.removeprefix('ntfy:')}"
+    return target
 
 
 def _discord_escape(text: str) -> str:
@@ -65,12 +81,42 @@ def slack_message(event: Event) -> dict[str, Any]:
     return {"text": text, "unfurl_links": False}
 
 
-class Webhook(Output):
-    """Send each event to a webhook: a Discord or Slack message, or the event as JSON.
+def ntfy_message(event: Event, topic: str) -> dict[str, Any]:
+    """A phone notification: the title, the summary, and a tap that opens the source."""
+    item = feed_item(event)
+    message: dict[str, Any] = {
+        "topic": topic,
+        "title": item["title"][:250],
+        "message": _short(item["summary"]) or item["link"] or item["title"],
+    }
+    if item["link"]:
+        message["click"] = item["link"]
+    return message
 
-    The format follows the URL (Discord and Slack webhooks are recognized) unless --format is
-    given. At most --max-messages are sent per run, then one summary message, so a first run
-    over a busy feed does not flood a channel. Keep webhook URLs secret: pass them through an
+
+def telegram_message(event: Event) -> dict[str, Any]:
+    item = feed_item(event)
+    lines = [item["title"]]
+    if item["summary"]:
+        lines.append(_short(item["summary"]) or "")
+    if item["link"]:
+        lines.append(item["link"])
+    text = "\n".join(lines)
+    if len(text) > TELEGRAM_LIMIT:
+        text = text[: TELEGRAM_LIMIT - 1] + "…"
+    # plain text: no parse mode, so nothing from the web is read as markup
+    return {"text": text, "disable_web_page_preview": True}
+
+
+class Webhook(Output):
+    """Send each event to a webhook: a Discord, Slack or Telegram message, a phone notification
+    through ntfy, or the event as JSON.
+
+    The format follows the URL (Discord and Slack webhooks, Telegram's
+    `https://api.telegram.org/botTOKEN/sendMessage?chat_id=ID` and ntfy servers are recognized;
+    `ntfy:TOPIC` is short for `https://ntfy.sh/TOPIC`) unless --format is given. At most
+    --max-messages are sent per run, then one summary message, so a first run over a busy feed
+    does not flood a channel. Keep webhook URLs secret: pass them through an
     environment variable (`${DISCORD_WEBHOOK}` in pipeline files). They never appear in
     messages or logs.
     """
@@ -79,16 +125,20 @@ class Webhook(Output):
     examples = (
         'unlimited web https://shop.example/p | unlimited diff | unlimited webhook "$DISCORD_HOOK"',
         "unlimited run rss https://hnrss.org/frontpage -- grep AI -- webhook https://example.com/hook",
+        "unlimited search tsunami | unlimited diff | unlimited webhook ntfy:my-tsunami-alerts",
     )
 
     url: str = arg("Webhook URL", metavar="URL")
-    format: Literal["auto", "json", "discord", "slack"] = opt("Message format", default="auto")
+    format: Literal["auto", "json", "discord", "slack", "ntfy", "telegram"] = opt(
+        "Message format", default="auto"
+    )
     max_messages: int = opt(
         "Messages per run before summarizing the rest (0: no limit)", default=20
     )
     timeout: float = opt("Seconds to wait for each request", default=20.0)
 
     def __post_init__(self) -> None:
+        self.url = expand_target(self.url)
         if not self.url.startswith(("https://", "http://")):
             raise ValueError(
                 "the webhook URL must start with https:// (or http:// for local testing)"
@@ -107,11 +157,26 @@ class Webhook(Output):
             return discord_message(event)
         if self._format == "slack":
             return slack_message(event)
+        if self._format == "ntfy":
+            return ntfy_message(event, self._topic)
+        if self._format == "telegram":
+            return telegram_message(event)
         return event.to_dict()
+
+    @property
+    def _topic(self) -> str:
+        return urlsplit(self.url).path.strip("/")
+
+    @property
+    def _target(self) -> str:
+        if self._format == "ntfy":  # ntfy takes JSON at its root, with the topic inside
+            parts = urlsplit(self.url)
+            return f"{parts.scheme}://{parts.netloc}/"
+        return self.url
 
     async def _send(self, payload: dict[str, Any]) -> None:
         try:
-            await self._ctx.http.post(self.url, json_body=payload, timeout=self.timeout)
+            await self._ctx.http.post(self._target, json_body=payload, timeout=self.timeout)
         except FetchError as exc:
             self._ctx.fail(exc, source=self.name)
 
@@ -128,7 +193,9 @@ class Webhook(Output):
         note = f"…and {self._skipped} more (limit: {self.max_messages} messages per run)"
         if self._format == "discord":
             await self._send({"content": note, "allowed_mentions": {"parse": []}})
-        elif self._format == "slack":
+        elif self._format in ("slack", "telegram"):
             await self._send({"text": note})
+        elif self._format == "ntfy":
+            await self._send({"topic": self._topic, "message": note})
         else:
             self._ctx.warn(f"webhook: {self._skipped} event(s) not sent ({note})")

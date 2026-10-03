@@ -335,6 +335,104 @@ def watch_command(
     ).run()
 
 
+@cli.command("follow")
+@click.argument("words", nargs=-1, required=True)
+@click.option(
+    "--to",
+    "targets",
+    multiple=True,
+    metavar="TARGET",
+    help="Where to send new matches (repeatable): ntfy:TOPIC for phone notifications (free, no "
+    "account: install the ntfy app and subscribe to TOPIC), or a Discord, Slack, Telegram or "
+    "any webhook URL. Without it, new matches are printed.",
+)
+@click.option("--feed", "feeds", multiple=True, metavar="NAME", help="Only these feeds.")
+@click.option("--catalog", default=None, help="Catalog to follow (default: the public one).")
+@click.option(
+    "--every", default=None, metavar="DURATION", help="Keep following: check every 5m, 1h..."
+)
+@click.option("--test", is_flag=True, help="Send the newest match now, to check the target.")
+@click.pass_context
+def follow_command(
+    ctx: click.Context,
+    words: tuple[str, ...],
+    targets: tuple[str, ...],
+    feeds: tuple[str, ...],
+    catalog: str | None,
+    every: str | None,
+    test: bool,
+) -> None:
+    """Follow a search: get each new match of the feed catalog sent to your phone, a chat or
+    any webhook, once.
+
+    The first run notes what matches now and sends nothing (unless --test); each run after sends
+    only what is new since. Run it with --every to keep following, or from cron.
+
+    \b
+    Examples:
+      unlimited follow earthquake japan --to ntfy:my-quake-alerts --every 5m
+      unlimited follow insider nvidia --feed insider-trades --to "$DISCORD_WEBHOOK"
+      unlimited follow tsunami --to ntfy:my-tsunami-alerts --test
+    """
+    import hashlib
+    import re
+
+    from unlimitedpipe.config import Pipeline
+    from unlimitedpipe.operators.diff import Diff
+    from unlimitedpipe.outputs.webhook import Webhook
+    from unlimitedpipe.sources.search import Search
+    from unlimitedpipe.watch import MIN_INTERVAL, Watch, parse_duration
+
+    options = ctx.obj or {}
+    try:
+        outputs: list[Output] = [Webhook(url=target) for target in targets]
+    except ValueError as exc:
+        raise UsageError(str(exc), hint="use ntfy:TOPIC or a webhook URL") from None
+    if not targets or sys.stdout.isatty():
+        outputs.append(default_output())
+    if test:
+        from unlimitedpipe.context import Context
+        from unlimitedpipe.engine import run_pipeline
+
+        newest = Search(words=list(words), feed=list(feeds), catalog=catalog, limit=1, exact=True)
+        context = Context(quiet=True)
+        sent = asyncio.run(run_pipeline([newest], [], outputs, context))
+        if not sent:
+            click.echo(
+                f"--test: nothing matches {' '.join(words)!r} among the latest items now, so "
+                "nothing was sent; new matches will be",
+                err=True,
+            )
+    label = " ".join(words) + "".join(f" @{f}" for f in feeds)
+    digest = hashlib.sha256(f"{label}|{catalog or ''}".encode()).hexdigest()[:8]
+    slug = re.sub(r"[^a-z0-9]+", "-", label.lower()).strip("-")[:40]
+    pipeline = Pipeline(
+        name=f"follow-{slug}",
+        sources=[
+            Search(words=list(words), feed=list(feeds), catalog=catalog, limit=100, exact=True)
+        ],
+        operators=[Diff(only=["added"], namespace=f"follow-{slug}-{digest}", remember=True)],
+        outputs=outputs,
+    )
+    sent_to = ", ".join(targets) if targets else "this terminal"
+    if not options.get("quiet"):
+        click.echo(f"following {label!r}: new matches go to {sent_to}", err=True)
+    if every is None:
+        _run(
+            pipeline.sources,
+            pipeline.operators,
+            pipeline.outputs,
+            errors_as_events=False,
+            quiet=options.get("quiet", False),
+            piped_input=False,
+        )
+        return
+    seconds = parse_duration(every)
+    if seconds < MIN_INTERVAL:
+        raise UsageError(f"--every {every} is too frequent; the minimum is 30s")
+    Watch(lambda: pipeline, every=seconds, quiet=options.get("quiet", False)).run()
+
+
 @cli.command("new")
 @click.argument("url")
 @click.option(
@@ -456,6 +554,13 @@ def _load_for_publishing(pipelines: tuple[Path, ...]):
     help="A link in the index page's header, e.g. GitHub=https://github.com/you/feeds.",
 )
 @click.option(
+    "--example",
+    "examples",
+    multiple=True,
+    metavar="WORDS",
+    help="A search to try, shown as a button under the index page's search box (repeatable).",
+)
+@click.option(
     "--live",
     metavar="URL",
     help="The feeds.json of a live copy of some of these feeds (`unlimited watch --catalog` on "
@@ -475,6 +580,7 @@ def publish_command(
     express_every: str,
     groups: tuple[str, ...],
     links: tuple[str, ...],
+    examples: tuple[str, ...],
     live: str | None,
 ) -> None:
     """Host pipelines' outputs for free: GitHub Actions runs them, GitHub Pages serves them.
@@ -509,6 +615,7 @@ def publish_command(
             raise UsageError("--install must be a pip requirement or URL without quotes")
         p.install = install
     p.title, p.about, p.groups = title, about, list(groups)
+    p.examples = [e.strip() for e in examples if e.strip()]
     if live:
         if not live.startswith(("https://", "http://")):
             raise UsageError(f"--live takes the URL of a feeds.json, not {live!r}")

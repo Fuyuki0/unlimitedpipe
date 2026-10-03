@@ -65,6 +65,7 @@ class PublishPlan:
     about: str | None = None  # a sentence under the title on the index page
     groups: list[str] = field(default_factory=list)  # the order of the index page's topics
     links: list[tuple[str, str]] = field(default_factory=list)  # (label, url) in its header
+    examples: list[str] = field(default_factory=list)  # searches to try, under the search box
     # A live copy of part of the catalog (`unlimited watch --catalog` on a server), newer than
     # this one: readers merge its items in when they can reach it.
     live: str | None = None
@@ -751,6 +752,16 @@ SEARCH_SCRIPT = r"""    <script>
         }
         return found.sort((a, b) => (b.date || "").localeCompare(a.date || "")).slice(0, 50);
       }
+      // "Try" buttons: search for their words; one naming a year searches the archive too.
+      for (const button of document.querySelectorAll(".try button")) {
+        button.addEventListener("click", () => {
+          q.value = button.dataset.q;
+          q.dispatchEvent(new Event("input"));
+          if (/\b(19|20)\d\d\b/.test(q.value) && deep) {
+            load().then(() => deep.click());
+          }
+        });
+      }
       if (deep) deep.addEventListener("click", () => {
         deep.hidden = true;
         status.textContent = "Searching the archive…";
@@ -862,6 +873,11 @@ INDEX_STYLE = """
       .pill { background: var(--pill); color: var(--ink); text-decoration: none;
         padding: .15rem .6rem; border-radius: 6px; font-weight: 600; font-size: .8rem; }
       .warn { color: var(--live); }
+      .try { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem;
+        margin: .6rem 0 0; color: var(--muted); font-size: .88rem; }
+      .try button { font: inherit; font-size: .85rem; color: var(--ink); background: var(--pill);
+        border: 0; border-radius: 999px; padding: .25rem .7rem; cursor: pointer; }
+      .try button:hover { outline: 1px solid var(--accent); }
       .use { display: grid; gap: 1rem 2rem;
         grid-template-columns: repeat(auto-fit, minmax(min(16rem, 100%), 1fr));
         padding-block: 2.5rem; border-top: 1px solid var(--line); margin-top: 2rem; }
@@ -914,6 +930,13 @@ def index_page(p: PublishPlan, every: str) -> str:
     title = esc(p.title or p.name)
     about = f'\n      <p class="lede">{esc(p.about)}</p>' if p.about else ""
     links = "".join(f'<a href="{esc(url)}">{esc(label)}</a>' for label, url in p.links)
+    tries = ""
+    if p.examples:
+        buttons = "".join(
+            f'<button type="button" data-q="{esc(text)}">{esc(text)}</button>'
+            for text in p.examples
+        )
+        tries = f'      <p class="try">Try {buttons}</p>\n'
     fast = ""
     if p.express and p.express_every:
         from unlimitedpipe.watch import format_duration
@@ -944,7 +967,7 @@ def index_page(p: PublishPlan, every: str) -> str:
       </ul>
       <input id="q" type="search" placeholder="Search the latest items: flood, bankruptcy, Bangkok…"
         autocomplete="off" aria-label="Search every feed">
-      <p id="status"></p>
+{tries}      <p id="status"></p>
       <button id="deep" type="button" hidden>Search every past record, not only the latest</button>
       <ul id="results"></ul>
     </section>
@@ -956,6 +979,9 @@ def index_page(p: PublishPlan, every: str) -> str:
       <div><h2>Search and ask</h2><p><code>pip install unlimitedpipe</code>, then
         <code>unlimited search WORDS</code> or <code>unlimited ask "QUESTION"</code>, with a
         local model and every answer cited.</p></div>
+      <div><h2>Follow</h2><p><code>unlimited follow earthquake japan --to ntfy:TOPIC</code>
+        sends each new match to your phone (the free ntfy app, no account), or to Telegram,
+        Discord, Slack or any webhook.</p></div>
       <div><h2>History</h2><p>Every item goes into a monthly archive,
         <a href="{esc("archive/index.json")}">archive/index.json</a>, so questions about a year or a
         month reach back. Runs every {esc(every)}.</p></div>

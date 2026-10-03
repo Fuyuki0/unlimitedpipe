@@ -3,6 +3,21 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.37 - 2026-10-03
+
+- `unlimited follow WORDS --to TARGET`: each new match of the feed catalog (and its live
+  copy) is sent once, to a phone through ntfy (`--to ntfy:TOPIC`: free, no account), or to
+  Telegram, Discord, Slack or any webhook; printed without `--to`. The first run notes what
+  matches now and sends nothing; `--test` sends the newest match at once; `--every 5m` keeps
+  following. Only items with every word count (no matches by meaning).
+- `webhook` sends ntfy notifications (title, summary, a tap that opens the source) and
+  Telegram messages (`https://api.telegram.org/botTOKEN/sendMessage?chat_id=ID`), plain text.
+- `publish --example WORDS`: searches to try, as buttons under the index page's search box;
+  one naming a year also searches the archive. The page also explains `follow`.
+- `--since` takes a year (`--since 2010`).
+- `search --exact`: only items with every word, and no hint when none matches.
+- README: what people use it for, one command each.
+
 ## 0.10.36 - 2026-10-03
 
 - Questions without a rare word ("affordable care act", "berkshire hathaway 13f") read the

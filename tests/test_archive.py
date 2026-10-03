@@ -70,7 +70,8 @@ def test_archives_keyed_by_link_alone_are_rekeyed_not_duplicated(tmp_path):
 
 def test_parse_since():
     assert parse_since(" 2026-08 ") == "2026-08" and parse_since("2026-08-15") == "2026-08-15"
-    with pytest.raises(ValueError, match="like 2026-08"):
+    assert parse_since("2010") == "2010-01"  # a year: from its first month
+    with pytest.raises(ValueError, match="like 2010, 2026-08"):
         parse_since("August")
 
 

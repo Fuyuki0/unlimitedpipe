@@ -270,3 +270,15 @@ def test_the_live_copy_is_named_in_the_catalog_and_kept_between_runs(repo):
     hourly = plan([(path, load_pipeline(path))], 3600)  # `unlimited catalog` knows no --live
     assert catalog(hourly, previous=first)["live"] == first["live"]
     assert "live" not in catalog(hourly)
+
+
+def test_the_index_page_offers_searches_to_try(repo):
+    from unlimitedpipe.publish import index_page
+
+    path = repo / "feeds" / "prices.yml"
+    p = plan([(path, load_pipeline(path))], 3600)
+    p.examples = ["earthquake japan 2024", 'say "hi" & <bye>']
+    page = index_page(p, "1h")
+    assert '<button type="button" data-q="earthquake japan 2024">' in page
+    assert "&lt;bye&gt;" in page and "<bye>" not in page  # escaped
+    assert "unlimited follow" in page

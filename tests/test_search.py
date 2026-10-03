@@ -408,3 +408,47 @@ def test_a_catalog_merges_the_newer_items_of_its_live_copy(web, make_ctx):
     web.add("https://c2.example/feeds.json", json.dumps(catalog), content_type="application/json")
     document = asyncio.run(load_catalog(make_ctx(), "https://c2.example/feeds.json"))
     assert [i["title"] for i in document["items"]] == ["M 5.0 - old"]
+
+
+def test_follow_reports_each_new_match_once(tmp_path):
+    import subprocess
+    import sys
+
+    site = tmp_path / "site"
+    site.mkdir()
+    item = {"feed": "quakes", "title": "M 5.0 - Japan", "link": "q/1", "date": "2026-09-01"}
+    document = {"schema": CATALOG_SCHEMA, "feeds": [{"name": "quakes"}], "items": [item]}
+    (site / "feeds.json").write_text(json.dumps(document))
+    env = {
+        "PATH": "/usr/bin:/bin",
+        "HOME": str(tmp_path),
+        "UNLIMITEDPIPE_FORMAT": "jsonl",
+        "UNLIMITEDPIPE_STATE_DIR": str(tmp_path / "state"),
+    }
+
+    def follow():
+        run = subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "unlimitedpipe",
+                "-q",
+                "follow",
+                "japan",
+                "--catalog",
+                str(site),
+            ],
+            capture_output=True,
+            text=True,
+            env=env,
+        )
+        assert run.returncode == 0, run.stderr
+        found = [json.loads(line)["data"] for line in run.stdout.splitlines()]
+        return [d.get("after", d)["title"] for d in found]  # a change: the item as it is now
+
+    assert follow() == []  # the first run notes what matches now
+    new = {"feed": "quakes", "title": "M 6.1 - Japan", "link": "q/2", "date": "2026-09-02"}
+    document["items"] = [new, item]
+    (site / "feeds.json").write_text(json.dumps(document))
+    assert follow() == ["M 6.1 - Japan"]
+    assert follow() == []  # sent once

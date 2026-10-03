@@ -315,10 +315,13 @@ def named_period(text: str, today: str) -> tuple[str, str, list[str]] | None:
 
 
 def parse_since(value: str) -> str:
-    """``2026-08`` or ``2026-08-15`` -> the same, checked."""
+    """``2010`` -> ``2010-01``; ``2026-08`` or ``2026-08-15`` -> the same, checked."""
     value = value.strip()
+    if re.fullmatch(r"(1[89]|20)\d\d", value):
+        return f"{value}-01"
     if not re.fullmatch(r"\d{4}-(0[1-9]|1[0-2])(-(0[1-9]|[12]\d|3[01]))?", value):
         raise ValueError(
-            f"--since takes a month or a day, like 2026-08 or 2026-08-15, not {value!r}"
+            f"--since takes a year, a month or a day, like 2010, 2026-08 or 2026-08-15, "
+            f"not {value!r}"
         )
     return value

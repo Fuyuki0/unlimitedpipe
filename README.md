@@ -60,6 +60,22 @@ unlimited mirror && unlimited search flood --catalog offline    # works without 
   [on Hugging Face](https://huggingface.co/datasets/unlimitedpipe/public-records) (2.85 billion
   tokens, every document with its source).
 
+## What people use it for
+
+| You are | Try |
+| --- | --- |
+| An investor | `unlimited ask "biggest insider purchases this month"`, `unlimited follow berkshire hathaway --feed sec-fund-holdings --to ntfy:TOPIC` |
+| A journalist or researcher | `unlimited ask "sec charges in 2015"`, `unlimited search "affordable care act" --since 2010`: every record links to its source, dated when it was first seen |
+| Watching for disasters | `unlimited follow tsunami --to ntfy:TOPIC --every 5m`, `unlimited ask "earthquakes in japan in 2024"` |
+| In Thailand | `unlimited ask "bangkok weather tomorrow"`, `unlimited ask "น้ำท่วมกรุงเทพตอนนี้เป็นอย่างไร"` |
+| A developer or on call | `unlimited follow outage --feed cloud-status --to "$SLACK_WEBHOOK"`, `unlimited ask "fortinet vulnerability"` |
+| Building AI agents | `claude mcp add unlimitedpipe -- unlimited mcp`: fresh public records with sources, as tools |
+| Training or studying models | 1.25M public-record events and 2.85B tokens of government records on Hugging Face |
+
+`follow` sends each new match once: to your phone with [ntfy](https://ntfy.sh) (free, no account:
+install the app and subscribe to the topic you chose), or to Telegram, Discord, Slack or any
+webhook.
+
 ## What is UnlimitedPipe?
 
 A small set of Unix-style commands that pass **events** to each other:
