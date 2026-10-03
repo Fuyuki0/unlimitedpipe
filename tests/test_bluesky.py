@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import json
 
 import pytest
@@ -125,5 +126,7 @@ def test_author_key_is_opaque():
     event = Bluesky().post_event(message("hello"))
     assert event is not None
     key = event.data["author_key"]
-    assert len(key) == 16 and "did" not in key and "abc" not in key
+    # a salted hash: hex, and not the plain hash of the DID (random hex can hold "abc")
+    assert len(key) == 16 and set(key) <= set("0123456789abcdef")
+    assert key != hashlib.sha256(b"did:plc:abc").hexdigest()[:16]
     assert Bluesky().post_event(message("again")).data["author_key"] == key  # same run, same key
