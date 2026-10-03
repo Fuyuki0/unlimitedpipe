@@ -24,3 +24,6 @@ research/ask/real/blind3-system.json
 research/ask/data-decide6/
 research/ask/data-history7/
 research/ask/data-decide7/
+
+# local secrets
+.env
