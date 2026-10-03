@@ -53,7 +53,23 @@ _SHORT_WORDS = frozenset(
     }
 )
 # Acronyms that have vowels, so the rule for initials would miss them.
-_ACRONYMS = frozenset({"REIT", "AMEX", "NASDAQ", "NYSE", "ETF", "ETN", "ADR", "ESG", "SPAC"})
+_ACRONYMS = frozenset(
+    {"REIT", "AMEX", "NASDAQ", "NYSE", "ETF", "ETN", "ADR", "ESG", "SPAC", "PIMCO", "TIAA", "USAA"}
+)
+# Names whose owners write them with capitals inside (common in SEC filings)
+_SPELLED = {
+    "JPMORGAN": "JPMorgan",
+    "BLACKROCK": "BlackRock",
+    "SOFTBANK": "SoftBank",
+    "PAYPAL": "PayPal",
+    "FEDEX": "FedEx",
+    "ISHARES": "iShares",
+    "OPENAI": "OpenAI",
+    "LINKEDIN": "LinkedIn",
+    "YOUTUBE": "YouTube",
+    "GITHUB": "GitHub",
+    "MASTERCARD": "Mastercard",
+}
 _SMALL = frozenset({"of", "and", "the", "for", "in", "on", "to", "a", "an", "at", "by"})
 _VOWELS = frozenset("AEIOUY")
 _BREAK = re.compile(r"<(br|p|div|li)\b[^>]*>", re.IGNORECASE)
@@ -67,6 +83,8 @@ _TRACKING = re.compile(
 
 def _word(word: str) -> str:
     bare = word.strip(".,;:()&'\"")
+    if bare in _SPELLED:
+        return word.replace(bare, _SPELLED[bare])
     if bare in _SHORT_WORDS and not any(c.islower() for c in word):
         return word[0] + word[1:].lower()  # LTD -> Ltd, CO -> Co
     if (

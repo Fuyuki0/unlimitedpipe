@@ -143,6 +143,64 @@ def holdings(archive: zipfile.ZipFile) -> list[dict]:
     return found
 
 
+AMOUNT = re.compile(r"\$([\d.]+)([KMBT])")
+SCALE = {"K": 1e3, "M": 1e6, "B": 1e9, "T": 1e12}
+
+
+def amount(title: str) -> float:
+    found = AMOUNT.search(title)
+    return float(found[1]) * SCALE[found[2]] if found else 0.0
+
+
+def fix_units(items: list[dict]) -> list[dict]:
+    """13F totals before 2023 were due in thousands, but some managers filed dollars, which the
+    thousands rule turns 1,000 times too big ("$10T"). Such a total is read as dollars when the
+    same manager (by CIK) reported far less once dollars became the rule, or, for one that never
+    filed since, when it is $200B or more; read so, under $1B is left out."""
+    from unlimitedpipe.expr import short_number
+
+    def cik(item: dict) -> str:
+        return item["link"].split("/data/", 1)[1].split("/", 1)[0]
+
+    later: dict[str, float] = {}
+    for item in items:
+        if item["feed"] == "sec-fund-holdings" and item["date"] >= DOLLARS_FROM:
+            later[cik(item)] = max(later.get(cik(item), 0.0), amount(item["title"]))
+    fixed = []
+    for item in items:
+        if item["feed"] != "sec-fund-holdings" or item["date"] >= DOLLARS_FROM:
+            fixed.append(item)
+            continue
+        value = amount(item["title"])
+        top = later.get(cik(item))
+        if (top and value > 20 * top) or (not top and value >= 2e11):
+            value /= 1000
+            if value < MIN_HOLDINGS:
+                continue
+            item = {**item, "title": AMOUNT.sub(f"${short_number(value)}", item["title"], 1)}
+        fixed.append(item)
+    # Then any report 20 times its manager's usual size, in either era ("$3T" in 2024, "$3B"
+    # in 2025, from the same trust company), is read as 1,000 times too big.
+    from statistics import median
+
+    sizes: dict[str, list[float]] = {}
+    for item in fixed:
+        if item["feed"] == "sec-fund-holdings":
+            sizes.setdefault(cik(item), []).append(amount(item["title"]))
+    usual = {key: median(values) for key, values in sizes.items()}
+    final = []
+    for item in fixed:
+        if item["feed"] == "sec-fund-holdings":
+            value = amount(item["title"])
+            if value > 20 * usual[cik(item)]:
+                value /= 1000
+                if value < MIN_HOLDINGS:
+                    continue
+                item = {**item, "title": AMOUNT.sub(f"${short_number(value)}", item["title"], 1)}
+        final.append(item)
+    return final
+
+
 def main(out: str) -> None:
     agent = {"User-Agent": f"UnlimitedPipe {os.environ['SEC_CONTACT']}"}
     seen: set[str] = set()
@@ -172,6 +230,11 @@ def main(out: str) -> None:
                 print(kind, path.rsplit("/", 1)[-1], len(items), flush=True)
                 time.sleep(1)
             print(kind, total, "items", flush=True)
+    with open(out, encoding="utf-8") as lines:
+        found = [json.loads(line) for line in lines]
+    with open(out, "w", encoding="utf-8") as lines:
+        for item in fix_units(found):
+            lines.write(json.dumps(item, ensure_ascii=False) + "\n")
 
 
 if __name__ == "__main__":

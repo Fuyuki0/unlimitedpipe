@@ -3,6 +3,14 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.35 - 2026-10-03
+
+- `sec private-raises` says "reported raising $X": amounts are as filed, and some Form D
+  filings carry typos (billions for millions).
+- `sec fund-holdings` decodes manager names ("JPMorgan Chase & Co", not "&amp;").
+- Readable names keep the capitals their owners use: JPMorgan, BlackRock, SoftBank, PayPal,
+  FedEx, iShares, PIMCO, TIAA, USAA.
+
 ## 0.10.34 - 2026-10-03
 
 - `web --header "Name: value"` (repeatable; `header:` in a pipeline file, with `${VARIABLE}`):

@@ -64,7 +64,7 @@ def item(feed: str, when: str, title: str, link: str, number: str) -> dict:
 
 def main(out: str) -> None:
     contact = os.environ["SEC_CONTACT"]
-    agent = {"User-Agent": f"UnlimitedPipe (+https://github.com/Fuyuki0/unlimitedpipe) {contact}"}
+    agent = {"User-Agent": f"UnlimitedPipe {contact}"}  # the SEC turns away agents with a URL
     with (
         open(out, "w", encoding="utf-8") as lines,
         httpx.Client(headers=agent, timeout=120) as http,
@@ -74,6 +74,7 @@ def main(out: str) -> None:
             while True:
                 response = http.get(SITE + path, params={"page": page})
                 if "Request Rate Threshold Exceeded" in response.text:
+                    print("the SEC refused; waiting ten minutes", flush=True)
                     time.sleep(600)  # the SEC's ten-minute pause
                     continue
                 response.raise_for_status()

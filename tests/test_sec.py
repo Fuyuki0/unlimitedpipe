@@ -348,7 +348,10 @@ def test_form_d_and_13f_become_readable_items():
     from unlimitedpipe.sources.sec import fund_holdings, private_raise
 
     raised = private_raise(FORM_D)
-    assert raised["title"] == "Acme Robotics Inc raised $50M privately (other technology, Form D)"
+    assert (
+        raised["title"]
+        == "Acme Robotics Inc reported raising $50M privately (other technology, Form D)"
+    )
     assert raised["value"] == 50_000_000
     assert private_raise(FORM_D.replace(">false<", ">true<")) is None  # an amendment
     held = fund_holdings(THIRTEEN_F.replace("06-30-2026\n", "06-30-2026"))
@@ -356,6 +359,8 @@ def test_form_d_and_13f_become_readable_items():
         "Berkshire Hathaway Inc reported $258.7B of US-listed holdings for 2026 Q2 "
         "(13F, 41 positions)"
     )
+    named = fund_holdings(THIRTEEN_F.replace("BERKSHIRE HATHAWAY INC", "JPMORGAN CHASE &amp; CO"))
+    assert named["manager"] == "JPMorgan Chase & Co"
     # in thousands by mistake ($1,669 a position at most): left out, not shown 1,000 times too small
     assert (
         fund_holdings(THIRTEEN_F.replace("258701000000", "369178").replace(">41<", ">1669<"))

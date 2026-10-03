@@ -952,11 +952,15 @@ def private_raise(xml: str) -> dict[str, Any] | None:
         else group
     )
     place = (_tags(xml, "stateOrCountryDescription") or [None])[0]
+    # "reported": the amounts are as filed, and some filings carry typos (billions for millions)
     if sold:
-        title = f"{issuer} raised ${short_number(sold)} privately ({kind.lower()}, Form D)"
+        title = (
+            f"{issuer} reported raising ${short_number(sold)} privately ({kind.lower()}, Form D)"
+        )
     elif offered:
         title = (
-            f"{issuer} is raising up to ${short_number(offered)} privately ({kind.lower()}, Form D)"
+            f"{issuer} reported an offering of up to ${short_number(offered)} privately "
+            f"({kind.lower()}, Form D)"
         )
     else:
         title = f"{issuer} filed to raise money privately ({kind.lower()}, Form D)"
@@ -996,7 +1000,10 @@ def fund_holdings(xml: str) -> dict[str, Any] | None:
         return None
     if entries and total / entries < 1000:
         return None  # under $1,000 a position: filed in thousands, not dollars as since 2023
-    name = readable_name(" ".join(manager[1].split())) or manager[1]
+    import html
+
+    plain = html.unescape(" ".join(manager[1].split()))
+    name = readable_name(plain) or plain
     quarter = f"{when[2]} Q{(int(when[1]) - 1) // 3 + 1}"
     positions = f", {int(entries):,} positions" if entries else ""
     return {
