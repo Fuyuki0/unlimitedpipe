@@ -6,12 +6,12 @@
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/Fuyuki0/unlimitedpipe/blob/main/LICENSE)
 [![Model](https://img.shields.io/badge/%F0%9F%A4%97%20model-decide--0.5b-yellow)](https://huggingface.co/unlimitedpipe/decide-0.5b-GGUF)
 [![Dataset](https://img.shields.io/badge/%F0%9F%A4%97%20dataset-2.85B%20tokens-yellow)](https://huggingface.co/datasets/unlimitedpipe/public-records)
-[![Feeds](https://img.shields.io/badge/live%20feeds-98-brightgreen)](https://feeds.daemonfill.dev/)
+[![Feeds](https://img.shields.io/badge/live%20feeds-101-brightgreen)](https://feeds.daemonfill.dev/)
 
 **Pipe the public internet.**
 
 Watch anything public (a price, a filing, a feed, a government page) and get only what
-changed, with a link to where it came from. Search and ask 98 live feeds of public records and
+changed, with a link to where it came from. Search and ask 101 live feeds of public records and
 news in one command, even offline, answered by a 0.5B model that cites its sources.
 Local-first, free, no account, no API key.
 
@@ -29,7 +29,7 @@ and skill for Claude Code, and an offline copy of the feed catalog. Already have
 `pip install unlimitedpipe`, then `unlimited setup`.
 
 ```bash
-unlimited search "cyber attack"                     # 98 live feeds at once, one request
+unlimited search "cyber attack"                     # 101 live feeds at once, one request
 unlimited ask "what happened in Bangkok today?"     # answered from the feeds, with sources
 unlimited web https://example.com | unlimited diff               # only what changed
 unlimited new https://some-shop.example/product     # writes a price-and-stock watch for you
@@ -38,7 +38,7 @@ unlimited mirror && unlimited search flood --catalog offline    # works without 
 
 - **Change detection with proof.** Every result carries its source link and when it was
   fetched; `diff` remembers what it saw and reports only what is new, changed or gone.
-- **[98 free feeds](https://feeds.daemonfill.dev/)** of public records and news on GitHub
+- **[101 free feeds](https://feeds.daemonfill.dev/)** of public records and news on GitHub
   Actions: SEC filings and insider trades, sanctions, new rules, rate decisions, economic data
   and market closes, disasters and solar storms, disease outbreaks, crypto, business and tech,
   and news from every region. Earthquakes, tsunamis, storms, disaster alerts, solar storms,
@@ -47,9 +47,9 @@ unlimited mirror && unlimited search flood --catalog offline    # works without 
   SEC filings, headlines) about every 2 minutes; the rest every hour. Each feed is a YAML file
   of about 15 lines; [fork them](https://github.com/Fuyuki0/unlimitedpipe-feeds).
 - **History, not only the latest.** Every item the feeds ever listed stays in a monthly
-  archive, 645,000 records back to 1900 (earthquakes, tsunamis, every US law since 1973, Fed
+  archive, 660,000 records back to 1900 (earthquakes, tsunamis, every US law since 1973, Fed
   rate decisions, disaster declarations, recalls, sanctions, federal rules, SEC filings, fund
-  holdings, private raises, papers and more): ask about a year ("earthquakes in japan in
+  holdings, private raises, election spending, drug shortages, papers and more): ask about a year ("earthquakes in japan in
   2024", "crypto hacks in 2022") and the biggest come first, in about a second.
 - **Answers that cite.** `ask` finds the facts with plain search, then a small local model
   trained for the job answers from them: on 40 blind questions typed the way people type, 90%
