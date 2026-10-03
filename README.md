@@ -41,11 +41,12 @@ unlimited mirror && unlimited search flood --catalog offline    # works without 
 - **[102 free feeds](https://feeds.daemonfill.dev/)** of public records and news on GitHub
   Actions: SEC filings and insider trades, sanctions, new rules, rate decisions, economic data
   and market closes, disasters and solar storms, disease outbreaks, crypto, business and tech,
-  and news from every region. Earthquakes, tsunamis, storms, disaster alerts, solar storms,
-  cloud outages and crypto hacks reach search, ask and the page within about a minute (a live
-  copy on a small server, `unlimited watch --catalog`); other time-sensitive feeds (security,
-  SEC filings, headlines) about every 2 minutes; the rest every hour. Each feed is a YAML file
-  of about 15 lines; [fork them](https://github.com/Fuyuki0/unlimitedpipe-feeds).
+  and news from every region. A live copy on a small server (`unlimited watch --catalog`)
+  feeds search, ask and the page: it checks SEC filings every 30 seconds; earthquakes,
+  tsunamis, storms, disaster alerts, outages, security news and headlines every minute; and
+  regional news, sanctions and outbreaks every 5 minutes; the rest update every hour. Each
+  feed is a YAML file of about 15 lines;
+  [fork them](https://github.com/Fuyuki0/unlimitedpipe-feeds).
 - **History, not only the latest.** Every item the feeds ever listed stays in a monthly
   archive, 660,000 records back to 1900 (earthquakes, tsunamis, every US law since 1973, Fed
   rate decisions, disaster declarations, recalls, sanctions, federal rules, SEC filings, fund
