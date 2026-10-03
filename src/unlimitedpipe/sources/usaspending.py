@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import html
 import json
+import re
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 
@@ -39,6 +41,17 @@ def _sentence(text: str) -> str:
     return text[:1].upper() + text[1:]
 
 
+def _recipient(name: str) -> str:
+    """A recipient as people write it: entities decoded, and agencies named the way round
+    ("HEALTH CARE SERVICES, CALIFORNIA DEPARTMENT OF" California Department of Health Care
+    Services)."""
+    name = " ".join(html.unescape(name or "").split())
+    inverted = re.match(r"^(.+?),\s*(.+?)\s+(DEPARTMENT|DEPT\.?|OFFICE|DIVISION) OF$", name, re.I)
+    if inverted:
+        name = f"{inverted.group(2)} {inverted.group(3)} of {inverted.group(1)}"
+    return readable_name(name) or name
+
+
 def award(row: dict[str, Any], kind: str) -> dict[str, Any] | None:
     from unlimitedpipe.expr import short_number
 
@@ -49,7 +62,7 @@ def award(row: dict[str, Any], kind: str) -> dict[str, Any] | None:
     day = row.get("Base Obligation Date") or row.get("Start Date")
     if not (day and row.get("generated_internal_id") and row.get("Recipient Name")):
         return None
-    recipient = readable_name(row["Recipient Name"]) or row["Recipient Name"]
+    recipient = _recipient(row["Recipient Name"])
     agency = row.get("Awarding Agency") or "a federal agency"
     office = row.get("Awarding Sub Agency") or ""
     description = _sentence(row.get("Description") or "")

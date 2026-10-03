@@ -31,3 +31,12 @@ def test_an_award_reads_as_a_sentence_with_its_link():
 def test_options_are_checked():
     with pytest.raises(ValueError):
         UsaSpending(resource="contracts", days=400)
+
+
+def test_recipients_read_the_way_round():
+    from unlimitedpipe.sources.usaspending import _recipient
+
+    assert _recipient("HEALTH CARE SERVICES, CALIFORNIA DEPARTMENT OF") == (
+        "California Department of Health Care Services"
+    )
+    assert _recipient("Health &amp; Human SVC Commn TX") == "Health & Human SVC Commn TX"
