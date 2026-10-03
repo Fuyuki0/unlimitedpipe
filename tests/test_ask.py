@@ -414,3 +414,33 @@ def test_biggest_ranks_the_feed_the_question_names():
     document = {"feeds": [{"name": "earthquakes"}, {"name": "tsunami-alerts"}], "items": items}
     found, _ = rank(document, ["earthquake"], 3, order="most")
     assert found[0]["title"].startswith("M 9.5")
+
+
+def test_a_word_of_the_feeds_title_counts_for_its_items():
+    # "election" is in the feed's title, not its items' titles; one committee's name has it
+    spent = [
+        ("Gopac Election Fund spent $511.7K opposing Pat Harrigan", "2024-02-16"),
+        ("Make America Great Again Inc. spent $30M opposing Kamala Harris", "2024-10-30"),
+        ("FF PAC spent $21M supporting Kamala Harris", "2024-08-29"),
+    ] + [(f"Some PAC spent ${n}00K supporting Someone", f"2024-05-{n:02d}") for n in range(1, 20)]
+    document = {
+        "feeds": [
+            {
+                "name": "us-outside-spending",
+                "title": "Outside spending in US elections, $250K+ (FEC)",
+                "description": "What super PACs report spending (Federal Election Commission).",
+            },
+            {"name": "market-prices", "title": "Treasury yield and oil"},
+        ],
+        "items": [{"feed": "us-outside-spending", "title": t, "date": d} for t, d in spent]
+        + [
+            {"feed": "market-prices", "title": "WTI crude oil: $19.23 a barrel", "date": "2020"},
+            {"feed": "market-prices", "title": "10-year Treasury yield: 0.64%", "date": "2020"},
+        ],
+    }
+    found, covered = rank(document, ["election", "spending"], 3, order="most")
+    assert covered == {"election", "spending"}
+    assert found[0]["title"].startswith("Make America Great Again Inc. spent $30M")
+    # "oil" names some of that feed's items, which say so themselves: not the yields
+    found, _ = rank(document, ["oil", "price"], 3)
+    assert [f["title"][:3] for f in found] == ["WTI"]

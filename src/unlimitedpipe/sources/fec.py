@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import io
+import re
 import zipfile
 from datetime import UTC, datetime
 from typing import Any, Literal
@@ -52,10 +53,83 @@ def _amendment(row: dict[str, str]) -> int:
     return 0 if mark == "N" else int(digits or 1)
 
 
+SUFFIXES = {"JR", "SR", "II", "III", "IV"}
+
+
+def _cased(word: str) -> str:
+    """One word of a name written in capitals: "MCCORMICK" McCormick, "O'ROURKE" O'Rourke,
+    "J." and "III" as they are."""
+    bare = word.strip(".,").upper()
+    if len(bare) <= 1 or bare in SUFFIXES - {"JR", "SR"}:
+        return word
+    cased = "-".join(part.capitalize() for part in word.lower().split("-"))
+    cased = re.sub(r"'(\w)", lambda m: "'" + m.group(1).upper(), cased)
+    if cased.startswith("Mc") and len(cased) > 3:
+        cased = "Mc" + cased[2:].capitalize()
+    return cased
+
+
 def _person(name: str) -> str:
+    """A candidate's name as people write it: "HARRIGAN, PAT" Pat Harrigan, "BIDEN, JOSEPH R
+    JR" Joseph R Biden Jr, "TRUMP, DONALD J. / J.D. VANCE" Donald J. Trump."""
+    name = name.split("/")[0]
     last, _, first = name.partition(",")
-    whole = f"{first.strip()} {last.strip()}".strip() if first else name.strip()
+    given = first.split()
+    suffix = [w for w in given if w.strip(".").upper() in SUFFIXES]
+    given = [w for w in given if w not in suffix]
+    words = [*given, *last.split(), *suffix] if first else name.split()
+    if name.upper() == name:
+        return " ".join(_cased(w) for w in words)
+    whole = " ".join(words)
     return readable_name(whole) or whole
+
+
+# Short words in committee names that are words, not initials ("Get Our Jobs Back")
+WORDS = frozenset(
+    {
+        "ACT",
+        "BAD",
+        "CAN",
+        "CAP",
+        "DOG",
+        "END",
+        "ERA",
+        "FIX",
+        "GET",
+        "GUN",
+        "IS",
+        "IT",
+        "KEY",
+        "LET",
+        "LOS",
+        "MAD",
+        "NO",
+        "NOW",
+        "OUR",
+        "OUT",
+        "SAN",
+        "SKY",
+        "TEA",
+        "UP",
+        "WE",
+        "WHO",
+        "WIN",
+    }
+)
+
+
+def _committee(name: str) -> str:
+    """A committee's name, readable: "... EMPLOYEES P E O P L E" ... Employees People, "GET
+    OUR JOBS BACK, INC" Get Our Jobs Back, Inc."""
+    joined = re.sub(r"\b(?:[A-Za-z] ){2,}[A-Za-z]\b", lambda m: m.group(0).replace(" ", ""), name)
+    readable = readable_name(joined) or joined
+    if not joined.isupper():
+        return readable
+    return re.sub(
+        r"\b[A-Z]{2,3}\b",
+        lambda m: m.group(0).capitalize() if m.group(0) in WORDS else m.group(0),
+        readable,
+    )
 
 
 def outside_spending(table: str, known: dict[str, str], min_value: float = 0.0) -> list[dict]:
@@ -85,7 +159,7 @@ def outside_spending(table: str, known: dict[str, str], min_value: float = 0.0) 
         if not when or not row.get("cand_name"):
             continue
         amount = float(row["exp_amo"])
-        name = readable_name(known[spender]) or known[spender]
+        name = _committee(known[spender])
         candidate = _person(row["cand_name"])
         side = "supporting" if row.get("sup_opp") == "S" else "opposing"
         office = OFFICES.get(row.get("can_office") or "", "office")

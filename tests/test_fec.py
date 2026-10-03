@@ -67,3 +67,17 @@ def test_outside_spending_keeps_listed_committees_and_the_latest_amendment():
     assert found[0]["published_at"] == "2026-10-02T00:00:00Z"  # filed, not when ads run
     assert "To be seen from 2026-10-13" in found[0]["summary"]
     assert cycle_of(__import__("datetime").datetime(2025, 3, 1)) == 2026
+
+
+def test_names_read_as_people_write_them():
+    from unlimitedpipe.sources.fec import _committee, _person
+
+    assert _person("HARRIGAN, PAT") == "Pat Harrigan"
+    assert _person("BIDEN, JOSEPH R JR") == "Joseph R Biden Jr"
+    assert _person("TRUMP, DONALD J. / J.D. VANCE") == "Donald J. Trump"
+    assert _person("O'ROURKE, BETO") == "Beto O'Rourke"
+    assert _person("MCCORMICK, DAVID H") == "David H McCormick"
+    assert _person("Evans, Gabe") == "Gabe Evans"
+    assert _committee("GET OUR JOBS BACK, INC") == "Get Our Jobs Back, Inc"
+    assert _committee("MUNICIPAL EMPLOYEES P E O P L E") == "Municipal Employees People"
+    assert _committee("FF PAC") == "FF PAC"

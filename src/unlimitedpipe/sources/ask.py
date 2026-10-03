@@ -260,6 +260,32 @@ def rank(
     in_head = {w: matches_in(heads, low_heads, w) for w in words}
     in_body = {w: matches_in(bodies, low_bodies, w) - in_head[w] for w in words}
     rarity = {w: 1 + math.log((len(texts) + 1) / (1 + len(everywhere[w]))) for w in words}
+    # In a feed another word names, a word of the feed's title (not the sources it lists in
+    # brackets) is about each item, if weakly: "election spending" finds the items of
+    # "Outside spending in US elections", which never say "election".
+    named_by = {
+        w: {f for f, (spaced, _) in feeds.items() if word_pattern(w).search(spaced)} for w in words
+    }
+    titles = {
+        f.get("name"): re.sub(r"\([^)]*\)", "", str(f.get("title") or ""))
+        for f in document.get("feeds", [])
+    }
+    per_feed = Counter(item.get("feed") for item in items)
+
+    def seldom(word: str, feed: Any) -> bool:
+        # "oil" in "Treasury yield and oil" is about some items, which say so themselves
+        return sum(items[n].get("feed") == feed for n in in_head[word]) * 10 < per_feed[feed]
+
+    titled = {
+        w: {
+            f
+            for f, title in titles.items()
+            if word_pattern(w).search(title)
+            and any(f in named_by[other] for other in words if other != w)
+            and seldom(w, f)
+        }
+        for w in words
+    }
     described: dict[Any, bool] = {}
     scored = []
     for n in sorted(set().union(*in_head.values(), *in_body.values()) if words else set()):
@@ -268,6 +294,8 @@ def rank(
         for word in words:
             # A feed's name is as telling as a title: the feed exists for that topic.
             weight = 2 if n in in_head[word] else 1 if n in in_body[word] else 0
+            if not weight and item.get("feed") in titled[word]:
+                weight = 0.5
             if weight:
                 covered.add(word)
                 score += weight * rarity[word]
@@ -284,22 +312,24 @@ def rank(
     scored.sort(key=lambda s: (s[0], s[1], s[2]), reverse=True)
     best_coverage, best_score = scored[0][0], scored[0][1]
     kept = [s for s in scored if s[0] == best_coverage and s[1] >= best_score / 2]
+    # "biggest earthquake ever": the earthquakes feed's items, not a tsunami that mentions the
+    # earthquake behind it, when the question names a feed; and all of that feed's matches, not
+    # only the strongest ("election spending in 2024" is $30M of the FEC's, though "election"
+    # is in the title of a $500K one)
+    named = {
+        f for f, (spaced, _) in feeds.items() if any(word_pattern(w).search(spaced) for w in words)
+    }
+    in_named = [s for s in scored if s[0] == len(words) and s[3].get("feed") in named]
     if order == "notable":
-        sizes = [notable_size(str(s[3].get("title") or "")) for s in kept]
-        stories = len({story(s[3]) for s in kept})
+        wider = in_named + [s for s in kept if s[3].get("feed") not in named] if in_named else kept
+        sizes = [notable_size(str(s[3].get("title") or "")) for s in wider]
+        stories = len({story(s[3]) for s in wider})
         sized = sum(size is not None for size in sizes)
-        if stories >= min(NOTABLE_STORIES, len(kept)) and sized * 2 >= len(kept):
-            ordered = sorted(zip(sizes, range(len(kept)), strict=True), key=lambda p: -(p[0] or 0))
-            kept = [kept[n] for _, n in ordered]
+        if stories >= min(NOTABLE_STORIES, len(wider)) and sized * 2 >= len(wider):
+            ordered = sorted(zip(sizes, range(len(wider)), strict=True), key=lambda p: -(p[0] or 0))
+            kept = [wider[n] for _, n in ordered]
     elif order:
-        # "biggest earthquake ever": the earthquakes feed's items, not a tsunami that mentions
-        # the earthquake behind it, when the question names a feed
-        named = {
-            f
-            for f, (spaced, _) in feeds.items()
-            if any(word_pattern(w).search(spaced) for w in words)
-        }
-        if in_named := [s for s in kept if s[3].get("feed") in named]:
+        if in_named:
             kept = in_named
         sized = [(size_of(str(s[3].get("title") or "")), s) for s in kept]
         with_size = [p for p in sized if p[0] is not None]

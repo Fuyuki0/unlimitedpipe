@@ -3,6 +3,16 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.39 - 2026-10-03
+
+- `ask`: in a feed another word of the question names, a word of the feed's title counts for
+  each of its items, unless the items' own titles use it ("biggest election spending in 2024"
+  now finds the FEC's $30M, not a $500K item from a committee with "Election" in its name).
+  For superlatives and questions about the past, every item of the named feed that has all
+  the words is ranked, not only the strongest matches.
+- `fec`: candidates and committees read as people write them ("Pat Harrigan", "Joseph R Biden
+  Jr", "Donald J. Trump", "Get Our Jobs Back, Inc", "... Employees People").
+
 ## 0.10.38 - 2026-10-03
 
 - `unlimited fec outside-spending`: what super PACs, parties and other committees report
