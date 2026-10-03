@@ -68,6 +68,8 @@ FEEDS = {
     "sec-enforcement": ("SEC litigation releases", "public domain"),
     "sec-private-raises": ("SEC Form D filings ($25M+ sold, as filed)", "public domain"),
     "sec-fund-holdings": ("SEC Form 13F holdings reports ($1B+, units checked)", "public domain"),
+    "us-outside-spending": ("FEC independent expenditures ($250K+, as filed)", "public domain"),
+    "drug-shortages": ("FDA drug shortage list (openFDA)", "public domain"),
 }
 # Feeds whose other items come from sources that are not public: only these titles are kept.
 ONLY = {"volcanoes": "Historical eruption:"}
