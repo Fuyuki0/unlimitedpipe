@@ -3,6 +3,16 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.48 - 2026-10-04
+
+- `unlimited hyperliquid`: Hyperliquid's perpetual futures with extreme funding (0.01% an
+  hour either way by default) and $50M or more open, saying who pays whom ("MON funding on
+  Hyperliquid: +0.0106% an hour (+93% a year), open interest $62.9M"); `--coin BTC
+  --min-funding 0` for one market as it is.
+- research: `usaspending_history.py` collects new federal contracts and grants of $100M or
+  more since 2008 for the us-contracts and us-grants feeds.
+- (0.10.47 was tagged without its version number and not released.)
+
 ## 0.10.46 - 2026-10-04
 
 - `quakes` also reads BMKG (Indonesia: magnitude 5 or more, places in English compass points,
