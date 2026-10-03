@@ -26,7 +26,7 @@ DOC = [
 
 def test_funding_reads_as_who_pays_whom():
     btc, mon = markets(DOC)  # the delisted market is left out
-    assert round(btc["open_interest"]) == round(36980 * 84557)
+    assert round(btc["open_interest"]) == 36980 * 84557
     item = funding_item(mon, datetime(2026, 10, 4, tzinfo=UTC))
     assert item["title"] == (
         "MON funding on Hyperliquid: +0.0106% an hour (+93% a year), open interest $62.9M"
