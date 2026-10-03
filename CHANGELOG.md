@@ -3,6 +3,15 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.43 - 2026-10-03
+
+- `unlimited quakes`: earthquakes as soon as the first of three agencies reports them, one
+  item per quake. GFZ (Germany) usually locates quakes anywhere within about ten minutes, JMA
+  (Japan) reports Japan's within two or three (English place names, JMA intensity), and USGS
+  reports US quakes within minutes but many elsewhere only after 15 to 30. Reports of one
+  quake are matched by time and place; each quake keeps its first report, and the summary
+  names every agency that has reported it.
+
 ## 0.10.42 - 2026-10-03
 
 - `search`, `ask` and the index page: four-letter words match only their own endings ("noto"
