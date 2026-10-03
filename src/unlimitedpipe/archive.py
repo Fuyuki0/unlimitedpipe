@@ -3,12 +3,15 @@
 `feeds.json` holds only the latest items of each feed. After every run, new items are also
 appended to ``archive/YYYY-MM.jsonl`` (by the item's date, or when it was first seen), each
 once, so `search --since` and `ask --since` can look back months. The files only grow at the
-end, which keeps them cheap to store in Git and to serve.
+end, which keeps them cheap to store in Git and to serve. Months older than the last two are
+kept compressed (``YYYY-MM.jsonl.gz``, about a third of the size), as the index names them;
+a late item for such a month opens it again, and the next run closes it.
 """
 
 from __future__ import annotations
 
 import collections
+import gzip
 import hashlib
 import json
 import re
@@ -34,6 +37,8 @@ _FEED = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 _WORD = re.compile(r"[^\W_][\w'-]*")
 _MONTH = re.compile(r"^\d{4}-(0[1-9]|1[0-2])$")
 _DATE = re.compile(r"^\d{4}-(0[1-9]|1[0-2])(-\d{2})?")
+PACKED = ".jsonl.gz"
+OPEN_MONTHS = 2  # the current month and the one before stay plain: items still arrive there
 
 
 def item_key(item: dict[str, Any]) -> str:
@@ -48,6 +53,72 @@ def item_key(item: dict[str, Any]) -> str:
 def month_of(item: dict[str, Any], now: str) -> str:
     date = str(item.get("date") or "")
     return date[:7] if _DATE.match(date) else now[:7]
+
+
+def _text(path: Path) -> str:
+    """A month or feed file's text, compressed or not."""
+    data = path.read_bytes()
+    return (gzip.decompress(data) if data[:2] == b"\x1f\x8b" else data).decode("utf-8")
+
+
+def _month_name(path: Path) -> str:
+    return path.name.split(".", 1)[0]
+
+
+def _month_files(folder: Path) -> list[Path]:
+    """Every month file, plain or compressed, oldest first."""
+    found = [
+        p
+        for p in [*folder.glob("*.jsonl"), *folder.glob(f"*{PACKED}")]
+        if _MONTH.match(_month_name(p))
+    ]
+    return sorted(found, key=_month_name)
+
+
+def _pack_file(path: Path) -> None:
+    packed = path.with_name(path.name + ".gz")
+    packed.write_bytes(gzip.compress(path.read_bytes(), mtime=0))  # the same bytes every time
+    path.unlink()
+
+
+def _unpack_file(packed: Path) -> None:
+    plain = packed.with_name(packed.name.removesuffix(".gz"))
+    plain.write_bytes(gzip.decompress(packed.read_bytes()))
+    packed.unlink()
+
+
+def unpack_month(folder: Path, month: str) -> bool:
+    """Open a compressed month (and its files by feed) to add to it; False when it is plain."""
+    packed = folder / f"{month}{PACKED}"
+    if not packed.exists():
+        return False
+    _unpack_file(packed)
+    if (folder / month).is_dir():
+        for part in (folder / month).glob(f"*{PACKED}"):
+            _unpack_file(part)
+    return True
+
+
+def pack_old(folder: Path, now: str, keep: int = OPEN_MONTHS) -> int:
+    """Compress the plain months before the last ``keep`` (and their files by feed); returns
+    how many."""
+    if not _DATE.match(now or ""):
+        return 0
+    year, month = int(now[:4]), int(now[5:7]) - (keep - 1)
+    while month < 1:
+        year, month = year - 1, month + 12
+    first_open = f"{year:04d}-{month:02d}"
+    packed = 0
+    for path in sorted(folder.glob("*.jsonl")):
+        name = path.stem
+        if not _MONTH.match(name) or name >= first_open:
+            continue
+        _pack_file(path)
+        if (folder / name).is_dir():
+            for part in (folder / name).glob("*.jsonl"):
+                _pack_file(part)
+        packed += 1
+    return packed
 
 
 def _known(path: Path) -> set[str]:
@@ -76,6 +147,7 @@ def append(site: Path, items: list[dict[str, Any]], now: str) -> dict[str, int]:
     added: dict[str, int] = {}
     for month, entries in sorted(by_month.items()):
         path = folder / f"{month}.jsonl"
+        unpack_month(folder, month)  # a late item for a closed month
         known = _known(path)
         new = []
         for item in entries:
@@ -96,7 +168,8 @@ def append(site: Path, items: list[dict[str, Any]], now: str) -> dict[str, int]:
             added[month] = len(new)
             fresh.extend((month, entry) for entry in new)
             _heal(folder, month)
-    if added:
+    packed = pack_old(folder, now) if folder.is_dir() else 0
+    if added or packed:
         write_words(folder, fresh)
         write_index(folder)
     return added
@@ -177,10 +250,9 @@ def write_words(folder: Path, fresh: list[tuple[str, dict[str, Any]]] | None = N
     del fresh  # a whole rebuild takes a few seconds and keeps the keys by feed exact
     words: dict[str, set[str]] = collections.defaultdict(set)
     by_feed: dict[tuple[str, str], set[str]] = collections.defaultdict(set)
-    for month in sorted(folder.glob("*.jsonl")):
-        if not _MONTH.match(month.stem):
-            continue
-        for line in month.read_text(encoding="utf-8").splitlines():
+    for path in _month_files(folder):
+        name = _month_name(path)
+        for line in _text(path).splitlines():
             try:
                 entry = json.loads(line)
             except ValueError:
@@ -189,8 +261,8 @@ def write_words(folder: Path, fresh: list[tuple[str, dict[str, Any]]] | None = N
                 continue
             feed = str(entry.get("feed") or "")
             for word in title_words(entry.get("title")):
-                words[word].add(month.stem)
-                by_feed[(word, feed)].add(month.stem)
+                words[word].add(name)
+                by_feed[(word, feed)].add(name)
     table = {w: sorted(m) for w, m in words.items()}
     for (word, feed), months in by_feed.items():
         if RARE < len(words[word]) <= FEED_WORDS and len(months) < len(words[word]):
@@ -238,18 +310,19 @@ def _write_shards(folder: Path, schema: str, table: dict[str, Any], names: set[s
 
 def write_index(folder: Path) -> None:
     months = []
-    for path in sorted(folder.glob("*.jsonl"), reverse=True):
-        if _MONTH.match(path.stem):
-            with path.open(encoding="utf-8") as lines:
-                count = sum(1 for line in lines if line.strip())
-            entry: dict[str, Any] = {"month": path.stem, "file": path.name, "items": count}
-            split = folder / path.stem
-            if split.is_dir():
-                entry["feeds"] = {
-                    f.stem: sum(1 for line in f.open(encoding="utf-8") if line.strip())
-                    for f in sorted(split.glob("*.jsonl"))
-                }
-            months.append(entry)
+    for path in reversed(_month_files(folder)):
+        name = _month_name(path)
+        count = sum(1 for line in _text(path).splitlines() if line.strip())
+        entry: dict[str, Any] = {"month": name, "file": path.name, "items": count}
+        if path.name.endswith(PACKED):
+            entry["packed"] = True  # its files by feed are compressed too
+        split = folder / name
+        if split.is_dir():
+            entry["feeds"] = {
+                _month_name(f): sum(1 for line in _text(f).splitlines() if line.strip())
+                for f in sorted([*split.glob("*.jsonl"), *split.glob(f"*{PACKED}")])
+            }
+        months.append(entry)
     index: dict[str, Any] = {"schema": SCHEMA, "months": months}
     if (folder / WORD_FILES).is_dir():
         index["shards"] = sorted(f.stem for f in (folder / WORD_FILES).glob("*.json"))

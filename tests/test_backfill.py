@@ -37,10 +37,12 @@ def quakes(tmp_path: Path, uses_year: bool = True) -> Path:
 
 
 def archived(site: Path) -> list[dict]:
+    from unlimitedpipe.archive import _month_files, _text
+
     return [
         json.loads(line)
-        for path in sorted((site / "archive").glob("*.jsonl"))
-        for line in path.read_text().splitlines()
+        for path in _month_files(site / "archive")
+        for line in _text(path).splitlines()
     ]
 
 

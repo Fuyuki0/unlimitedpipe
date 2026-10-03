@@ -734,19 +734,28 @@ SEARCH_SCRIPT = r"""    <script>
         }
         const named = catalog.feeds.filter((f) => terms.some((t) => word(t).test(
           f.name.replaceAll("-", " ") + " " + (f.description || "")))).map((f) => f.name);
+        // Months before the last two are compressed (2024-01.jsonl.gz), as the index names them.
+        const whole = (m) => (entries.find((x) => x.month === m) || {}).file || m + ".jsonl";
         const files = (m) => {
           const e = entries.find((x) => x.month === m);
           const split = e && e.feeds;
           if (!split || !forms.length || !Object.keys(wanted).length
-            || Object.values(split).reduce((a, b) => a + b, 0) !== e.items) return [m + ".jsonl"];
+            || Object.values(split).reduce((a, b) => a + b, 0) !== e.items) return [whole(m)];
           const feeds = new Set([...(wanted[m] || []), ...named]);
-          return Object.keys(split).filter((f) => feeds.has(f)).map((f) => m + "/" + f + ".jsonl");
+          const ext = e.packed ? ".jsonl.gz" : ".jsonl";
+          return Object.keys(split).filter((f) => feeds.has(f)).map((f) => m + "/" + f + ext);
+        };
+        const text = async (r) => {
+          const bytes = new Uint8Array(await r.arrayBuffer());
+          if (bytes[0] !== 0x1f || bytes[1] !== 0x8b) return new TextDecoder().decode(bytes);
+          const opened = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
+          return new Response(opened).text();
         };
         const found = [];
         const texts = await Promise.all(chosen.map(async (m) => {
           const parts = await Promise.all(files(m).map((file) => fetch(base + file)
-            .then((r) => r.ok ? r.text() : null).catch(() => null)));
-          return parts.includes(null) ? (await fetch(base + m + ".jsonl")).text() : parts.join("");
+            .then((r) => r.ok ? text(r) : null).catch(() => null)));
+          return parts.includes(null) ? text(await fetch(base + whole(m))) : parts.join("");
         }));
         for (const text of texts) {
           for (const line of text.split("\n")) {

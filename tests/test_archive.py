@@ -345,7 +345,10 @@ def test_a_period_reads_only_the_feeds_that_can_hold_the_words(tmp_path):
     assert [i["feed"] for i in found] == ["quakes"]  # the trades file was not read
     everything = asyncio.run(items_since(ctx, feeds_json, document, "2024-01", "2024-12"))
     assert sorted(i["feed"] for i in everything) == ["quakes", "trades"]
-    (site / "archive" / "2024-01" / "quakes.jsonl").unlink()  # a split that does not add up
+    # 2024-01 is long closed, so it is compressed, its files by feed too
+    assert (site / "archive" / "2024-01.jsonl.gz").exists()
+    assert json.loads((site / "archive" / "index.json").read_text())["months"][0]["packed"]
+    (site / "archive" / "2024-01" / "quakes.jsonl.gz").unlink()  # a split that does not add up
     from unlimitedpipe.archive import write_index
 
     write_index(site / "archive")
@@ -404,3 +407,43 @@ def test_a_question_reads_only_the_word_files_it_needs(tmp_path):
     assert known == {"ronin", "zebra"}
     assert "words.json" not in read_files and "words/ro.json" in read_files
     assert "words/ze.json" in read_files
+
+
+def test_closed_months_are_compressed_and_open_again_for_a_late_item(tmp_path):
+    import gzip
+
+    from unlimitedpipe.archive import pack_old
+
+    late = {"feed": "quakes", "title": "M 6.0 late", "link": "https://q/9", "date": "2026-06-01"}
+    append(tmp_path, ITEMS, "2026-09-26T00:00:00Z")
+    folder = tmp_path / "archive"
+    assert (folder / "2026-08.jsonl").exists()  # last month stays open
+    assert pack_old(folder, "2026-10-01T00:00:00Z") == 1  # in October, August closes
+    assert not (folder / "2026-08.jsonl").exists()
+    packed = folder / "2026-08.jsonl.gz"
+    assert gzip.decompress(packed.read_bytes()).decode().count("\n") == 1
+    assert (folder / "2026-08" / "quakes.jsonl.gz").exists()
+    # an item for a closed month opens it, and the same run closes it again
+    assert append(tmp_path, [ITEMS[1], late], "2026-10-02T00:00:00Z") == {"2026-06": 1}
+    assert not (folder / "2026-06.jsonl").exists() and (folder / "2026-06.jsonl.gz").exists()
+    assert append(tmp_path, [ITEMS[1]], "2026-10-03T00:00:00Z") == {}  # still known
+    index = json.loads((folder / "index.json").read_text())
+    august = next(m for m in index["months"] if m["month"] == "2026-08")
+    assert august == {
+        "month": "2026-08",
+        "file": "2026-08.jsonl.gz",
+        "items": 1,
+        "packed": True,
+        "feeds": {"quakes": 1},
+    }
+    # and search reads them
+    document = {
+        "schema": CATALOG_SCHEMA,
+        "archive": "archive/index.json",
+        "feeds": [{"name": "quakes"}],
+        "items": [],
+    }
+    (tmp_path / "feeds.json").write_text(json.dumps(document))
+    ctx = Context(quiet=True, state_dir=tmp_path / "s", cache_dir=tmp_path / "c")
+    found = run_source(Search(words=["late"], catalog=str(tmp_path), since="2026-01"), ctx)
+    assert [e.data["title"] for e in found] == ["M 6.0 late"]

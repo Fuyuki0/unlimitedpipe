@@ -46,8 +46,10 @@ def load(folder: str | Path) -> list[dict]:
                 entry.get("url") or "",
                 entry.get("date_published") or "",
             )
-    for path in sorted((folder / "archive").glob("*.jsonl")):
-        for line in path.read_text(encoding="utf-8").splitlines():
+    from unlimitedpipe.archive import _month_files, _text
+
+    for path in _month_files(folder / "archive"):  # compressed months too
+        for line in _text(path).splitlines():
             entry = json.loads(line)
             add(
                 entry["feed"],

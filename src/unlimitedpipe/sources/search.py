@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import gzip
 import json
 import os
 import re
@@ -527,7 +528,8 @@ async def _read_months(
         feeds = None if wanted is None or whole else wanted.get(name, set())
         if feeds is not None:
             try:
-                files = [join(index_url, f"{name}/{feed}.jsonl") for feed in sorted(feeds)]
+                ext = ".jsonl.gz" if month.get("packed") else ".jsonl"
+                files = [join(index_url, f"{name}/{feed}{ext}") for feed in sorted(feeds)]
                 items += await _read_items(ctx, files)
                 continue
             except FetchError:
@@ -555,6 +557,8 @@ async def _read_items(ctx: Context, files: list[str]) -> list[dict[str, Any]]:
 
     items = []
     for content in await asyncio.gather(*(fetch(f) for f in files)):
+        if content[:2] == b"\x1f\x8b":  # a compressed month (a server may have opened it)
+            content = gzip.decompress(content)
         for line in content.decode("utf-8", errors="replace").splitlines():
             try:
                 item = json.loads(line)

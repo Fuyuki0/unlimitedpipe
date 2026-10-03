@@ -3,6 +3,15 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.45 - 2026-10-03
+
+- Archives keep months before the last two compressed (`YYYY-MM.jsonl.gz`, and their files by
+  feed), as the index names them (`"packed": true`): the public catalog's 633 MB of history
+  becomes 190 MB, and rebuilding its indexes takes less time and memory (39 s instead of 48).
+  A late item for a closed month opens it, and the same run closes it again. `search`, `ask`,
+  the index page, `mirror` and `validate` read compressed months; older versions of
+  UnlimitedPipe do not, so update to search the archive.
+
 ## 0.10.44 - 2026-10-03
 
 - `unlimited faa`: US airport ground stops, ground delay programs and long departure or

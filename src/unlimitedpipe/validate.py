@@ -243,6 +243,10 @@ async def _check_archive(ctx, report: Report, url: str, path: str, names: set[st
             report.error(where, exc.message)
             continue
         report.checked.append(str(month.get("file")))
+        if content[:2] == b"\x1f\x8b":  # a compressed month
+            import gzip
+
+            content = gzip.decompress(content)
         lines = [line for line in content.decode("utf-8", "replace").splitlines() if line.strip()]
         if month.get("items") != len(lines):
             report.warn(where, f"index says {month.get('items')} items, the file has {len(lines)}")
