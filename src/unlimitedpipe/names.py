@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import html
 import re
-from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
+from urllib.parse import unquote_plus, urlsplit, urlunsplit
 
 # Short words that are words, not initials, in a company's name.
 _SHORT_WORDS = frozenset(
@@ -131,7 +131,10 @@ def clean_link(url: str | None) -> str | None:
     if not url or "?" not in url:
         return url
     parts = urlsplit(url)
+    # the other parameters as written: "?202610029908511777" stays without an "="
     kept = [
-        (k, v) for k, v in parse_qsl(parts.query, keep_blank_values=True) if not _TRACKING.match(k)
+        part
+        for part in parts.query.split("&")
+        if part and not _TRACKING.match(unquote_plus(part.partition("=")[0]))
     ]
-    return urlunsplit(parts._replace(query=urlencode(kept, safe=":/,@")))
+    return urlunsplit(parts._replace(query="&".join(kept)))

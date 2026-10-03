@@ -29,3 +29,7 @@ def test_titles_lose_markup_and_links_lose_tracking():
     assert clean_title("A < b > & c") == "A < b > & c"  # not tags
     assert clean_link("https://x.eu/a/?utm_source=RSS&id=5") == "https://x.eu/a/?id=5"
     assert clean_link("https://x.eu/a/?utm_medium=RSS") == "https://x.eu/a/"
+    assert (
+        clean_link("https://f.gov/img/?2026100299&utm_source=x") == "https://f.gov/img/?2026100299"
+    )
+    assert clean_link("https://x.eu/?q=a%20b&fbclid=1") == "https://x.eu/?q=a%20b"

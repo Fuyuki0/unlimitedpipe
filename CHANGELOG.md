@@ -3,6 +3,12 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.40 - 2026-10-03
+
+- Feed links keep their parameters as written: a link like the FEC's `fecimg/?2026...777` no
+  longer gets an `=` added when tracking parameters are taken out.
+- `fec`: more short words in committee names read as words ("Americans for Tax Reform").
+
 ## 0.10.39 - 2026-10-03
 
 - `ask`: in a feed another word of the question names, a word of the feed's title counts for
