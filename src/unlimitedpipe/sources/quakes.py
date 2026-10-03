@@ -20,11 +20,20 @@ GFZ = "https://geofon.gfz.de/fdsnws/event/1/query"
 GFZ_EVENT = "https://geofon.gfz.de/eqinfo/event.php?id={id}"
 JMA = "https://www.jma.go.jp/bosai/quake/data/list.json"
 JMA_MAP = "https://www.jma.go.jp/bosai/map.html?contents=earthquake_map&lang=en#{id}"
+BMKG = "https://data.bmkg.go.id/DataMKG/TEWS/gempaterkini.json"
+BMKG_PAGE = "https://www.bmkg.go.id/gempabumi/gempabumi-terkini.bmkg#{id}"
+GEONET = "https://api.geonet.org.nz/quake?MMI=3"
+GEONET_EVENT = "https://www.geonet.org.nz/earthquake/{id}"
+# Indonesian compass points in BMKG's places ("111 km Tenggara SELAYAR-SULSEL")
+COMPASS = {
+    "baratlaut": "NW", "baratdaya": "SW", "timurlaut": "NE", "tenggara": "SE",
+    "utara": "N", "selatan": "S", "timur": "E", "barat": "W",
+}  # fmt: skip
 SAME_SECONDS = 120  # JMA gives the minute only; agencies' origin times differ by seconds
 SAME_KM = 400  # first locations of a remote quake can be far apart
 STRONG = {"5-", "5+", "6-", "6+", "7"}  # JMA intensities that matter whatever the magnitude
 # when two agencies first list a quake in the same run, the one whose report reads best
-PRIORITY = {"JMA": 0, "USGS": 1, "GFZ": 2}
+PRIORITY = {"JMA": 0, "GeoNet": 1, "USGS": 2, "BMKG": 3, "GFZ": 4}
 
 
 def _epoch(text: str) -> float:
@@ -120,6 +129,73 @@ def jma_reports(document: list[dict[str, Any]], min_magnitude: float) -> list[di
     return list(best.values())
 
 
+def bmkg_reports(document: dict[str, Any]) -> list[dict[str, Any]]:
+    """BMKG's latest quakes of magnitude 5 or more in and around Indonesia, with the place in
+    English compass points and whether BMKG sees a tsunami threat."""
+    found = []
+    for q in (document.get("Infogempa") or {}).get("gempa") or []:
+        try:
+            lat, lon = (float(x) for x in str(q.get("Coordinates") or "").split(","))
+            mag = float(q.get("Magnitude") or "")
+        except ValueError:
+            continue
+        if not q.get("DateTime"):
+            continue
+        where = re.match(r"(\d+) km (\w+(?: \w+)?) (.+)", str(q.get("Wilayah") or ""))
+        if where:
+            point = COMPASS.get(where.group(2).replace(" ", "").lower(), where.group(2))
+            area = where.group(3).replace("-", ", ").title()
+            place = f"{where.group(1)} km {point} of {area}, Indonesia"
+        else:
+            place = f"{str(q.get('Wilayah') or '').title()}, Indonesia"
+        threat = str(q.get("Potensi") or "").lower()
+        note = (
+            " (tsunami possible, BMKG)"
+            if "berpotensi tsunami" in threat and "tidak" not in threat
+            else ""
+        )
+        found.append(
+            {
+                "agency": "BMKG",
+                "id": q["DateTime"],
+                "t": _epoch(q["DateTime"]),
+                "lat": lat,
+                "lon": lon,
+                "mag": mag,
+                "title": f"M {mag:.1f} - {place}{note}",
+                "place": place,
+                "link": BMKG_PAGE.format(id=q["DateTime"]),
+            }
+        )
+    return found
+
+
+def geonet_reports(document: dict[str, Any]) -> list[dict[str, Any]]:
+    """GeoNet's felt quakes in New Zealand (not those it deleted)."""
+    found = []
+    for feature in document.get("features") or []:
+        p = feature.get("properties") or {}
+        lon, lat = (feature.get("geometry") or {}).get("coordinates", [None, None])[:2]
+        if p.get("quality") == "deleted" or p.get("magnitude") is None or lat is None:
+            continue
+        mag = float(p["magnitude"])
+        place = f"{p.get('locality') or 'New Zealand'}, New Zealand"
+        found.append(
+            {
+                "agency": "GeoNet",
+                "id": p.get("publicID"),
+                "t": _epoch(p["time"]),
+                "lat": lat,
+                "lon": lon,
+                "mag": mag,
+                "title": f"M {mag:.1f} - {place}",
+                "place": place,
+                "link": GEONET_EVENT.format(id=p.get("publicID")),
+            }
+        )
+    return found
+
+
 def km_between(a: dict[str, Any], b: dict[str, Any]) -> float:
     la1, lo1, la2, lo2 = map(math.radians, (a["lat"], a["lon"], b["lat"], b["lon"]))
     h = (
@@ -161,8 +237,9 @@ class Quakes(Source):
     """Earthquakes as soon as the first of three agencies reports them, one item per quake.
 
     GFZ (Germany) usually locates quakes anywhere in the world within about ten minutes,
-    JMA (Japan) reports Japan's within two or three, and USGS reports quakes in the US within
-    minutes but many elsewhere only after 15 to 30. Each quake keeps its first report's title
+    JMA (Japan) reports Japan's within two or three, BMKG (Indonesia) and GeoNet (New
+    Zealand) their regions' within minutes, and USGS reports quakes in the US within minutes
+    but many elsewhere only after 15 to 30. Each quake keeps its first report's title
     and link; the summary names every agency that has reported it. Reports of one quake are
     matched by time (two minutes) and place (400 km).
     """
@@ -176,7 +253,7 @@ class Quakes(Source):
     min_magnitude: float = opt("Only quakes of at least this magnitude", default=4.5)
     days: int = opt("Days back to read (1 to 7)", default=2)
     agency: list[str] = opt(
-        "Agencies to read: USGS, GFZ, JMA (repeatable; default all)",
+        "Agencies to read: USGS, GFZ, JMA, BMKG, GeoNet (repeatable; default all)",
         default_factory=list,
         metavar="NAME",
     )
@@ -184,10 +261,11 @@ class Quakes(Source):
     timeout: float = opt("Seconds to wait for each agency", default=20.0)
 
     def __post_init__(self) -> None:
-        self.agency = [a.upper() for a in self.agency] or ["USGS", "GFZ", "JMA"]
-        unknown = [a for a in self.agency if a not in PRIORITY]
+        names = {name.upper(): name for name in PRIORITY}
+        unknown = [a for a in self.agency if a.upper() not in names]
         if unknown:
-            raise ValueError(f"unknown agency {unknown[0]!r}: use USGS, GFZ or JMA")
+            raise ValueError(f"unknown agency {unknown[0]!r}: use {', '.join(PRIORITY)}")
+        self.agency = [names[a.upper()] for a in self.agency] or list(PRIORITY)
         if not 1 <= self.days <= 7:
             raise ValueError("--days must be 1 to 7")
 
@@ -206,6 +284,15 @@ class Quakes(Source):
             }
             response = await ctx.http.get(GFZ, params=params, timeout=self.timeout, robots=True)
             found = gfz_reports(response.text)
+        elif agency == "BMKG":
+            response = await ctx.http.get(BMKG, timeout=self.timeout, robots=True)
+            found = bmkg_reports(json.loads(response.text))
+        elif agency == "GeoNet":
+            headers = {"Accept": "application/vnd.geo+json;version=2"}
+            response = await ctx.http.get(
+                GEONET, headers=headers, timeout=self.timeout, robots=True
+            )
+            found = geonet_reports(json.loads(response.text))
         else:
             response = await ctx.http.get(JMA, timeout=self.timeout, robots=True)
             found = jma_reports(json.loads(response.text), self.min_magnitude)

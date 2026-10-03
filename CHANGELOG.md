@@ -3,6 +3,13 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.46 - 2026-10-04
+
+- `quakes` also reads BMKG (Indonesia: magnitude 5 or more, places in English compass points,
+  "tsunami possible" when BMKG says so) and GeoNet (New Zealand's felt quakes).
+- `sec company-events --item 2.02`: follow any 8-K item, e.g. earnings releases
+  ("Tesla, Inc.: earnings release"); the default stays the major events.
+
 ## 0.10.45 - 2026-10-03
 
 - Archives keep months before the last two compressed (`YYYY-MM.jsonl.gz`, and their files by

@@ -329,6 +329,21 @@ def test_stakes_and_events_read_the_same_from_search_and_from_the_latest_list():
     assert event["title"] == "Dyadic International Inc: delisting notice or listing transfer"
     assert event["items"] == ["3.01", "9.01"]
 
+    # a feed can follow other items: earnings releases are Item 2.02
+    earnings = {
+        **entry,
+        "summary": "<br>Item 2.02: Results of Operations and Financial Condition"
+        "<br>Item 9.01: Financial Statements and Exhibits",
+    }
+    assert listed_events([earnings]) == []  # not a major event
+    from unlimitedpipe.sources.sec import Sec
+
+    follow = Sec(resource="company-events", item=["2.02"])._follow
+    [event] = listed_events([earnings], follow)
+    assert event["title"] == "Dyadic International Inc: earnings release"
+    with pytest.raises(ValueError):
+        Sec(resource="company-events", item=["9.99"])
+
 
 FORM_D = """<edgarSubmission><primaryIssuer><entityName>ACME ROBOTICS INC</entityName>
 <issuerAddress><stateOrCountryDescription>CALIFORNIA</stateOrCountryDescription></issuerAddress>

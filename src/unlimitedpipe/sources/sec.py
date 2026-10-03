@@ -279,11 +279,30 @@ ITEMS = {  # every 8-K item, by the name the form gives it
 }
 
 
+# How titles name the other 8-K items, for feeds that follow them (--item 2.02)
+ITEM_EVENTS = {
+    "1.01": "material agreement",
+    "2.02": "earnings release",
+    "2.03": "new debt or obligation",
+    "5.02": "director or officer change",
+    "5.07": "shareholder vote results",
+    "7.01": "Regulation FD disclosure",
+    "8.01": "other event",
+}
+
+
 def company_event(
-    company: str, items: list[str], filed_at: str, link: str, accession: str, lines: list[str]
+    company: str,
+    items: list[str],
+    filed_at: str,
+    link: str,
+    accession: str,
+    lines: list[str],
+    follow: dict[str, str] | None = None,
 ) -> dict[str, Any] | None:
     """An 8-K as a company event, named after its first item the feed follows."""
-    event = next((EVENTS[i] for i in items if i in EVENTS), None)
+    follow = follow or EVENTS
+    event = next((follow[i] for i in items if i in follow), None)
     if event is None:
         return None
     company = readable_name(company) or company
@@ -300,7 +319,9 @@ def company_event(
     }
 
 
-def searched_event(hit: dict[str, Any]) -> dict[str, Any] | None:
+def searched_event(
+    hit: dict[str, Any], follow: dict[str, str] | None = None
+) -> dict[str, Any] | None:
     source = hit.get("_source") or {}
     names, ciks = source.get("display_names") or [], source.get("ciks") or []
     ident = str(hit.get("_id") or "")
@@ -317,6 +338,7 @@ def searched_event(hit: dict[str, Any]) -> dict[str, Any] | None:
         f"{accession}-index.htm",
         accession,
         [f"Item {i}: {ITEMS[i]}" for i in items if i in ITEMS],
+        follow,
     )
 
 
@@ -324,7 +346,9 @@ _8K = re.compile(r"^8-K(/A)? - (.*?) \((\d+)\) \(Filer\)$")
 _ITEM = re.compile(r"Item (\d\.\d\d):\s*(.+?)(?=\s*Item \d\.\d\d:|$)", re.DOTALL)
 
 
-def listed_events(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def listed_events(
+    entries: list[dict[str, Any]], follow: dict[str, str] | None = None
+) -> list[dict[str, Any]]:
     """Company events from EDGAR's list of current 8-K filings, each filing once."""
     from unlimitedpipe.sources.rss import strip_html
 
@@ -344,6 +368,7 @@ def listed_events(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
             link,
             accession,
             [f"Item {number}: {name}" for number, name in pairs],
+            follow,
         )
         if event and accession not in found:
             found[accession] = event
@@ -453,8 +478,22 @@ class Sec(Source):
         default=False,
     )
     timeout: float = opt("Seconds to wait for each response", default=20.0)
+    item: list[str] = opt(
+        "company-events: 8-K items to follow, e.g. 2.02 for earnings releases (repeatable; "
+        "default: bankruptcies, cyberattacks, acquisitions, layoffs and the other major events)",
+        default_factory=list,
+        metavar="ITEM",
+    )
 
     def __post_init__(self) -> None:
+        unknown_items = [i for i in self.item if i not in ITEMS]
+        if unknown_items:
+            raise ValueError(f"unknown 8-K item {unknown_items[0]!r}, e.g. 2.02 or 1.03")
+        self._follow = (
+            {i: EVENTS.get(i) or ITEM_EVENTS.get(i) or ITEMS[i].lower() for i in self.item}
+            if self.item
+            else EVENTS
+        )
         top = 1000 if self.all_new or self.resource in FORMS else 200  # those remember reads
         if not 1 <= self.limit <= top:
             raise ValueError(f"--limit must be between 1 and {top}")
@@ -684,8 +723,8 @@ class Sec(Source):
             make = searched_stake
             kind, method = "stake", "edgar-full-text-search"
         else:
-            queries = [("8-K", f'"Item {item}"') for item in EVENTS]
-            make = searched_event
+            queries = [("8-K", f'"Item {item}"') for item in self._follow]
+            make = lambda hit: searched_event(hit, self._follow)  # noqa: E731
             kind, method = "company-event", "edgar-full-text-search"
         seen: set[str] = set()
         for form, query in queries:
@@ -733,7 +772,7 @@ class Sec(Source):
                     yield error
                 return
             entries += [dict(e) for e in feedparser.parse(response.content).entries]
-        for found in listed_events(entries):
+        for found in listed_events(entries, self._follow):
             yield Event(
                 source=self.name,
                 type="company-event",

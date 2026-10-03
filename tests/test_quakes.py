@@ -110,7 +110,64 @@ def test_reports_of_one_quake_join_the_first():
 
 def test_options_are_checked():
     with pytest.raises(ValueError):
-        Quakes(agency=["EMSC"])
+        Quakes(agency=["EMSC"])  # not read
     with pytest.raises(ValueError):
         Quakes(days=30)
-    assert Quakes(agency=["jma"]).agency == ["JMA"]
+    assert Quakes(agency=["jma", "geonet"]).agency == ["JMA", "GeoNet"]
+
+
+def test_bmkg_and_geonet_read_in_english():
+    from unlimitedpipe.sources.quakes import bmkg_reports, geonet_reports
+
+    bmkg = {
+        "Infogempa": {
+            "gempa": [
+                {
+                    "DateTime": "2026-10-01T14:20:00+00:00",
+                    "Coordinates": "-7.07,120.80",
+                    "Magnitude": "5.1",
+                    "Wilayah": "111 km Tenggara SELAYAR-SULSEL",
+                    "Potensi": "Tidak berpotensi tsunami",
+                },
+                {
+                    "DateTime": "2026-10-02T01:00:00+00:00",
+                    "Coordinates": "-3.5,128.2",
+                    "Magnitude": "7.0",
+                    "Wilayah": "20 km Barat Daya AMBON-MALUKU",
+                    "Potensi": "Berpotensi tsunami",
+                },
+            ]
+        }
+    }
+    calm, strong = bmkg_reports(bmkg)
+    assert calm["title"] == "M 5.1 - 111 km SE of Selayar, Sulsel, Indonesia"
+    assert (
+        strong["title"] == "M 7.0 - 20 km SW of Ambon, Maluku, Indonesia (tsunami possible, BMKG)"
+    )
+    geonet = {
+        "features": [
+            {
+                "geometry": {"coordinates": [174.3, -39.1]},
+                "properties": {
+                    "publicID": "2026p740000",
+                    "time": "2026-10-02T13:57:00.000Z",
+                    "magnitude": 5.3,
+                    "locality": "25 km east of New Plymouth",
+                    "quality": "best",
+                },
+            },
+            {
+                "geometry": {"coordinates": [178.3, -37.9]},
+                "properties": {
+                    "publicID": "x",
+                    "time": "2026-10-02T19:46:36.555Z",
+                    "magnitude": 2.9,
+                    "locality": "Ruatoria",
+                    "quality": "deleted",
+                },
+            },
+        ]
+    }
+    (quake,) = geonet_reports(geonet)
+    assert quake["title"] == "M 5.3 - 25 km east of New Plymouth, New Zealand"
+    assert quake["link"] == "https://www.geonet.org.nz/earthquake/2026p740000"
