@@ -3,6 +3,14 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.42 - 2026-10-03
+
+- `search`, `ask` and the index page: four-letter words match only their own endings ("noto"
+  finds the Noto Peninsula earthquake, not "notoriously"; "gold" is not "Goldman"); "tech"
+  still finds "technology", and "spac" finds blank-check companies ("... Acquisition Corp").
+  On the index page, words of three letters or fewer match only whole words with plural and
+  verb endings, as `search` does ("ai" is not "aid").
+
 ## 0.10.41 - 2026-10-03
 
 - `watch --catalog`: a file can run more often than the rest (`feeds/filings.yml@30s`), in

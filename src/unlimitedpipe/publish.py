@@ -539,10 +539,16 @@ SEARCH_SCRIPT = r"""    <script>
         status = document.getElementById("status");
       let catalog = null, response = null;
       const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      // Words match at the start of a word; scripts without spaces (Thai) match anywhere.
-      const word = (w) => /^[\x00-\x7f]+$/.test(w)
-        ? new RegExp("(^|[^\\p{L}\\p{N}_])" + escape(w), "iu")
-        : new RegExp(escape(w), "i");
+      // Words match at the start of a word: five letters or more with any ending, four with
+      // their own endings ("noto" is not "notorious"), three or fewer with plural and verb
+      // endings ("ai" is not "aid"), as `unlimited search` does. Scripts without spaces (Thai)
+      // match anywhere.
+      const word = (w) => {
+        if (!/^[\x00-\x7f]+$/.test(w)) return new RegExp(escape(w), "i");
+        const end = w.length <= 3 ? "(?:s|es|'s|ed|ing)?(?![\\p{L}\\p{N}_])"
+          : w.length === 4 ? "(?:s|es|'s|e?d|ing|ers?|i?ans?|ese|ish)?(?![\\p{L}\\p{N}_])" : "";
+        return new RegExp("(^|[^\\p{L}\\p{N}_])" + escape(w) + end, "iu");
+      };
       const day = (iso) => (iso || "").slice(0, 10);
       async function load() {
         if (!catalog) {
