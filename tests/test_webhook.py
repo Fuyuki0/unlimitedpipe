@@ -152,6 +152,5 @@ def test_telegram_messages_are_plain_text(web, make_ctx):
     assert detect_format(url) == "telegram"
     event = ev({"title": "*Bold* <b>claim</b>", "link": "https://src/1"})
     _, sent = send(web, make_ctx, Webhook(url=url), [event])
-    assert sent == [
-        {"text": "*Bold* claim\nhttps://src/1", "disable_web_page_preview": True}
-    ]
+    message = {"text": "*Bold* claim\nhttps://src/1", "disable_web_page_preview": True}
+    assert sent == [message]
