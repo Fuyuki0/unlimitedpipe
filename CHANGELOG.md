@@ -3,6 +3,15 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.44 - 2026-10-03
+
+- `unlimited faa`: US airport ground stops, ground delay programs and long departure or
+  arrival delays, from the FAA's National Airspace System status ("Ground stop at Orlando
+  (MCO): thunderstorms, until 4:30 pm EDT").
+- `unlimited usaspending contracts|grants`: new US federal contracts and grants of at least
+  $100M (`--min-value`), biggest first, from USAspending.gov ("Clark Construction Group LLC won
+  a $332M contract from the Department of Homeland Security").
+
 ## 0.10.43 - 2026-10-03
 
 - `unlimited quakes`: earthquakes as soon as the first of three agencies reports them, one
