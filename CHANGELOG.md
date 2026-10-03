@@ -3,6 +3,12 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.36 - 2026-10-03
+
+- Questions without a rare word ("affordable care act", "berkshire hathaway 13f") read the
+  archive months where all their words appear, newest first, instead of finding nothing.
+- "signed" also matches "became public law" ("new laws signed this month").
+
 ## 0.10.35 - 2026-10-03
 
 - `sec private-raises` says "reported raising $X": amounts are as filed, and some Form D

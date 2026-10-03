@@ -133,6 +133,8 @@ SAME = {
     "flaw": ("vulnerabilit",),  # "cisco critical flaws": the sources say vulnerability
     "flaws": ("vulnerabilit",),  # stem() keeps words ending in -ws whole, as "news"
     "bug": ("vulnerabilit",),
+    "sign": ("became public law",),  # "laws signed this month"
+    "xai": ("x.ai",),
 }
 # US agencies by the names the Federal Register gives them ("Environmental Protection Agency:
 # ..."). Acronyms that are also common words (doe, dot, va) are left out; the rest match whole
@@ -612,6 +614,12 @@ async def items_by_words(
         if isinstance(table.get(key := f"{stem(word)}@{feed}"), list)
     ]
     anchors = in_feed + [months for months in per_word if len(months) <= RARE_MONTHS * 5]
+    if not anchors and len(per_word) >= 2 and len(per_word) == len(words):
+        # no rare word ("affordable care act", "berkshire hathaway 13f"): the months where
+        # every word appears, the newest first
+        together = set.intersection(*per_word)
+        if together:
+            anchors = [together]
     if not anchors:
         return []
     anchor = min(anchors, key=len)
