@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 import pytest
 
@@ -183,3 +184,30 @@ outputs:
     assert sorted(f["name"] for f in document["feeds"]) == ["quakes", "storms"]
     assert sorted(i["title"] for i in document["items"]) == ["quakes one", "storms one"]
     assert not (tmp_path / "public" / "archive").exists()  # a live copy keeps no archive
+
+
+def test_a_file_can_run_more_often_than_the_rest(monkeypatch):
+    from types import SimpleNamespace
+
+    import unlimitedpipe.watch as watch
+
+    clock = [1000.0]
+    monkeypatch.setattr(watch, "time", SimpleNamespace(monotonic=lambda: clock[0]))
+    ran = []
+
+    async def fake_round(self, ready):
+        ran.append(sorted(path.name for path, _ in ready))
+        self.events = 0
+        return {str(path): 0 for path, _ in ready}
+
+    monkeypatch.setattr(watch.WatchMany, "_round", fake_round)
+    monkeypatch.setattr(watch.WatchMany, "_pipelines", lambda self: [(p, None) for p in self.paths])
+    slow, fast = Path("slow.yml"), Path("fast.yml")
+
+    def sleep(seconds):
+        clock[0] += seconds
+
+    watch.WatchMany(
+        [slow, fast], intervals={fast: 30}, every=60, jitter=0, times=4, quiet=True, sleep=sleep
+    ).run()
+    assert ran == [["fast.yml", "slow.yml"], ["fast.yml"], ["fast.yml", "slow.yml"], ["fast.yml"]]

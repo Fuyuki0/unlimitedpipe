@@ -136,9 +136,22 @@ class Webhook(Output):
         "Messages per run before summarizing the rest (0: no limit)", default=20
     )
     timeout: float = opt("Seconds to wait for each request", default=20.0)
+    header: list[str] = opt(
+        "A request header, `Name: value` (repeatable), e.g. `Authorization: Bearer ${TOKEN}` for "
+        "a server that only lets you post (your own ntfy). Kept out of provenance and outputs",
+        default_factory=list,
+        metavar="HEADER",
+        secret=True,
+    )
 
     def __post_init__(self) -> None:
         self.url = expand_target(self.url)
+        self._headers: dict[str, str] = {}
+        for line in self.header:
+            name, colon, value = line.partition(":")
+            if not (colon and name.strip() and value.strip()):
+                raise ValueError("--header takes `Name: value`")
+            self._headers[name.strip()] = value.strip()
         if not self.url.startswith(("https://", "http://")):
             raise ValueError(
                 "the webhook URL must start with https:// (or http:// for local testing)"
@@ -176,7 +189,9 @@ class Webhook(Output):
 
     async def _send(self, payload: dict[str, Any]) -> None:
         try:
-            await self._ctx.http.post(self._target, json_body=payload, timeout=self.timeout)
+            await self._ctx.http.post(
+                self._target, json_body=payload, headers=self._headers or None, timeout=self.timeout
+            )
         except FetchError as exc:
             self._ctx.fail(exc, source=self.name)
 

@@ -147,10 +147,19 @@ class WatchMany(Watch):
     With ``catalog``, the round ends by writing feeds.json for these pipelines next to their
     outputs (no archive), for readers that merge it into the full catalog."""
 
-    def __init__(self, paths: list[Path], *, catalog: bool = False, **options) -> None:
+    def __init__(
+        self,
+        paths: list[Path],
+        *,
+        catalog: bool = False,
+        intervals: dict[Path, float] | None = None,
+        **options,
+    ) -> None:
         super().__init__(lambda: None, **options)  # type: ignore[arg-type, return-value]
         self.paths = paths
         self.catalog = catalog
+        # a file's own interval (`filings.yml@30s`), else --every
+        self.intervals = intervals or {}
         self.loaded: dict[Path, tuple[float | None, Pipeline]] = {}
 
     def _pipelines(self) -> list[tuple[Path, Pipeline]]:
@@ -217,18 +226,27 @@ class WatchMany(Watch):
     def run(self) -> None:
         every = format_duration(self.every)
         self.say(f"watching {len(self.paths)} pipelines every {every}; Ctrl+C to stop")
+        due: dict[Path, float] = {}
+        codes: dict[str, int] = {}
         while True:
             self.runs += 1
             started = time.monotonic()
             pipelines = self._pipelines()
-            codes = asyncio.run(self._round(pipelines))
-            failed = sum(code > 0 for code in codes.values())
+            ready = [(path, p) for path, p in pipelines if due.get(path, 0.0) <= started]
+            codes.update(asyncio.run(self._round(ready)))
+            stretch = 1 + random.uniform(0, self.jitter)  # one per round keeps files in step
+            for path, _ in ready:
+                due[path] = started + self.intervals.get(path, self.every) * stretch
+            current = {str(path): codes[str(path)] for path, _ in pipelines if str(path) in codes}
+            failed = sum(
+                code > 0 for path, code in codes.items() if path in {str(p) for p, _ in ready}
+            )
             if self.catalog and pipelines:
                 try:
-                    self._write_catalog(pipelines, codes)
+                    self._write_catalog(pipelines, current)
                 except (UnlimitedError, OSError, ValueError) as exc:
                     self.say(f"feeds.json not written: {exc}", dim=False)
-            summary = f"run {self.runs}: {self.events} event(s) from {len(codes)} pipeline(s)"
+            summary = f"run {self.runs}: {self.events} event(s) from {len(ready)} pipeline(s)"
             if failed:
                 summary += f", {failed} with failures"
             took = time.monotonic() - started
@@ -236,8 +254,8 @@ class WatchMany(Watch):
             if self.times is not None and self.runs >= self.times:
                 self.say(summary)
                 return
-            wait = max(
-                0.0, started + self.every * (1 + random.uniform(0, self.jitter)) - time.monotonic()
+            following = min(
+                (due.get(path, started) for path, _ in pipelines), default=started + self.every
             )
             self.say(summary)
-            self.sleep(wait)
+            self.sleep(max(0.0, following - time.monotonic()))

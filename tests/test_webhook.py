@@ -146,6 +146,20 @@ def test_ntfy_sends_a_phone_notification_with_a_tap_to_the_source(web, make_ctx)
     assert str(web.requests[-1].url) == "https://ntfy.sh/"
 
 
+def test_a_header_logs_in_to_your_own_ntfy_and_stays_secret(web, make_ctx):
+    web.add("https://ntfy.example.org/", "{}", content_type="application/json")
+    hook = Webhook(
+        url="https://ntfy.example.org/quakes",
+        format="ntfy",
+        header=["Authorization: Bearer tk_SECRET"],
+    )
+    send(web, make_ctx, hook, [ev({"title": "M 6.0", "link": "https://usgs/2"})])
+    assert web.requests[-1].headers["authorization"] == "Bearer tk_SECRET"
+    assert "tk_SECRET" not in json.dumps(hook.provenance_step())
+    with pytest.raises(ValueError):
+        Webhook(url="https://ntfy.example.org/quakes", header=["no colon"])
+
+
 def test_telegram_messages_are_plain_text(web, make_ctx):
     url = "https://api.telegram.org/bot123:SECRET/sendMessage?chat_id=42"
     web.add(url, "{}", content_type="application/json")

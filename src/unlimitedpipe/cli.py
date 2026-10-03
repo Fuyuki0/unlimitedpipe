@@ -282,13 +282,15 @@ def watch_command(
     A failed run is reported and the watch continues. A pipeline file is reloaded when it
     changes. Outputs run once per round: `feed` keeps its history, and jsonl files need
     `append: true` to keep earlier rounds. Combine with `diff` to see only what changed.
-    Several pipeline files run side by side each round, in the same process.
+    Several pipeline files run side by side in the same process; `file.yml@30s` runs one
+    more often than --every.
 
     \b
     Examples:
       unlimited watch --every 1h pipeline.yml
       unlimited watch --every 30m web https://store.example/p -- diff -- feed prices.xml
       unlimited watch --every 1m --catalog feeds/earthquakes.yml feeds/tsunami-alerts.yml
+      unlimited watch --every 5m --catalog feeds/news.yml feeds/filings.yml@30s
     """
     from unlimitedpipe.watch import MIN_INTERVAL, Watch, WatchMany, parse_duration
 
@@ -303,10 +305,18 @@ def watch_command(
     if not 0 <= jitter <= 1:
         raise UsageError("--jitter must be between 0 and 1")
     options = ctx.obj or {}
-    if len(target) > 1 and all(t.endswith((".yml", ".yaml")) for t in target):
+    files = [t.rpartition("@") if "@" in t else (t, "", "") for t in target]
+    if len(target) > 1 and all(f.endswith((".yml", ".yaml")) for f, _, _ in files):
+        intervals = {}
+        for name, _, own in files:
+            if own:
+                intervals[Path(name)] = parse_duration(own)
+                if intervals[Path(name)] < MIN_INTERVAL:
+                    raise UsageError(f"{name}@{own} is too frequent; the minimum is 30s")
         WatchMany(
-            [Path(t) for t in target],
+            [Path(f) for f, _, _ in files],
             catalog=write_catalog,
+            intervals=intervals,
             every=seconds,
             jitter=jitter,
             times=times,

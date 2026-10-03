@@ -3,6 +3,16 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.41 - 2026-10-03
+
+- `watch --catalog`: a file can run more often than the rest (`feeds/filings.yml@30s`), in
+  the same process and the same feeds.json.
+- `webhook --header "Name: value"`: e.g. a token for your own ntfy server, which then lets
+  only you post. Kept out of provenance and outputs.
+- `ask`: "announce", "say" and "pass" are question words; "congress" finds public laws and
+  "sanctions" finds OFAC's designations ("what new laws did congress pass?" no longer starts
+  with an EU regulation).
+
 ## 0.10.40 - 2026-10-03
 
 - Feed links keep their parameters as written: a link like the FEC's `fecimg/?2026...777` no
