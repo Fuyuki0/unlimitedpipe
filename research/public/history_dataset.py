@@ -63,6 +63,11 @@ FEEDS = {
     ),
     "volcanoes": ("NOAA NCEI significant volcanic eruptions database", "public domain"),
     "arxiv-llm": ("arXiv metadata (cs.CL, cs.AI; language models and agents)", "CC0 1.0"),
+    "us-new-laws": ("Public laws (congress.gov API, Library of Congress)", "public domain"),
+    "sec-press-releases": ("SEC press releases", "public domain"),
+    "sec-enforcement": ("SEC litigation releases", "public domain"),
+    "sec-private-raises": ("SEC Form D filings ($25M+ sold, as filed)", "public domain"),
+    "sec-fund-holdings": ("SEC Form 13F holdings reports ($1B+, units checked)", "public domain"),
 }
 # Feeds whose other items come from sources that are not public: only these titles are kept.
 ONLY = {"volcanoes": "Historical eruption:"}
