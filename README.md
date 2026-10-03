@@ -576,7 +576,9 @@ more.
 ## Research
 
 [`research/`](research) holds experiments on UnlimitedPipe's data, with their results written
-up, good or bad. Two short reads: [A 0.5B model that cites its sources: from 5% to
+up, good or bad. Three short reads: [What happened to a token after its protocol was
+hacked](docs/posts/what-happened-after-crypto-hacks.md) (190 hacks: a median of -28% against
+Bitcoin within a month), [A 0.5B model that cites its sources: from 5% to
 87%](docs/posts/a-small-model-that-cites.md) and [We tried a fruit fly's brain on the
 news](docs/posts/fruit-fly-on-the-news.md).
 
