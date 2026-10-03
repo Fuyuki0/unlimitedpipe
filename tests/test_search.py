@@ -320,7 +320,14 @@ def test_short_words_match_whole_words_only():
     assert not word_pattern("ai").search("aid package")
     assert not word_pattern("us").search("user data leaked")
     assert word_pattern("eth").search("Ethereum (ETH) price")
-    assert word_pattern("hack").search("hackers stole $5M")  # longer words keep any ending
+    assert word_pattern("hack").search("hackers stole $5M")  # its own endings
+    # four-letter words keep only their own endings; longer words any ending
+    assert word_pattern("noto").search("M 7.5 - 2024 Noto Peninsula, Japan Earthquake")
+    assert not word_pattern("noto").search("notoriously hard to train")
+    assert not word_pattern("gold").search("Goldman Sachs")
+    assert word_pattern("iran").search("Iranian oil exports")
+    assert word_pattern("tech").search("Dell Technologies")  # named as a synonym
+    assert word_pattern("vulnerability").search("vulnerabilities")
 
 
 def test_search_shows_two_updates_of_a_story_unless_asked(web, make_ctx):

@@ -137,6 +137,9 @@ SAME = {
     "congress": ("public law",),  # "laws congress passed"
     "sanction": ("designation",),  # OFAC's "Counter Terrorism Designations"
     "xai": ("x.ai",),
+    # four-letter words match only their own endings, so their long forms are named here
+    "tech": ("technolog",),
+    "spac": ("blank check", "acquisition corp"),
 }
 # US agencies by the names the Federal Register gives them ("Environmental Protection Agency:
 # ..."). Acronyms that are also common words (doe, dot, va) are left out; the rest match whole
@@ -220,11 +223,15 @@ def matches_in(texts: list[str], low: list[str], word: str) -> set[int]:
 
 
 def _start(form: str) -> str:
-    """A word's start: longer words match any ending ("hack" finds "hacker"), words of three
+    """A word's start: words of five letters or more match any ending ("vulnerabilit" finds
+    "vulnerability"), four-letter words only the endings of their own forms ("hack" finds
+    "hacker" and "hacked"; "noto" is not "notorious", "gold" not "goldman"), and words of three
     letters or fewer and acronyms only their plural and verb endings ("sec" is not "security",
     "ai" not "aid", "us" not "user")."""
     if len(form) <= 3 or form in WHOLE_WORDS:
         return r"(?<!\w)" + re.escape(form) + r"(?:s|es|'s|ed|ing)?(?!\w)"
+    if len(form) == 4:
+        return r"(?<!\w)" + re.escape(form) + r"(?:s|es|'s|e?d|ing|ers?|i?ans?|ese|ish)?(?!\w)"
     return r"(?<!\w)" + re.escape(form)
 
 
