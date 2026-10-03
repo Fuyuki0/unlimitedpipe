@@ -416,11 +416,18 @@ class Sec(Source):
         "unlimited sec activist-stakes              # who took 5%+ of which company",
         "unlimited sec ipo-filings --since 2024-02-01 --until 2024-02-29",
         "unlimited sec company-events --since 2024-03-01 --until 2024-03-31",
+        "unlimited sec private-raises --min-value 25000000   # Form D: money raised privately",
+        "unlimited sec fund-holdings --min-value 10e9         # 13F: big funds' holdings",
     )
 
-    resource: Literal["insider-trades", "activist-stakes", "company-events", "ipo-filings"] = arg(
-        "What to read"
-    )
+    resource: Literal[
+        "insider-trades",
+        "activist-stakes",
+        "company-events",
+        "ipo-filings",
+        "private-raises",
+        "fund-holdings",
+    ] = arg("What to read")
     since: str | None = opt("First day filed (YYYY-MM-DD; default a week ago)", default=None)
     until: str | None = opt("Last day filed (YYYY-MM-DD; default today)", default=None)
     contact: str | None = opt(
@@ -432,7 +439,11 @@ class Sec(Source):
         metavar="CODE",
         default_factory=list,
     )
-    min_value: float = opt("Only trades worth at least this many dollars", default=0.0)
+    min_value: float = opt(
+        "Only trades (private raises: amounts sold; fund holdings: totals) worth at least "
+        "this many dollars",
+        default=0.0,
+    )
     limit: int = opt(
         "How many of the latest filings to read, up to 200 (1,000 with --all-new)", default=60
     )
@@ -444,7 +455,7 @@ class Sec(Source):
     timeout: float = opt("Seconds to wait for each response", default=20.0)
 
     def __post_init__(self) -> None:
-        top = 1000 if self.all_new else 200
+        top = 1000 if self.all_new or self.resource in FORMS else 200  # those remember reads
         if not 1 <= self.limit <= top:
             raise ValueError(f"--limit must be between 1 and {top}")
         self._codes = [c.upper() for c in self.code] or ["P", "S"]
@@ -477,6 +488,10 @@ class Sec(Source):
             return
         if self.resource == "ipo-filings":
             async for event in self._ipos(ctx, agent):
+                yield event
+            return
+        if self.resource in ("private-raises", "fund-holdings"):
+            async for event in self._forms(ctx, agent):
                 yield event
             return
         path = state_path(ctx, "sec", "insider-trades-read")
@@ -562,6 +577,89 @@ class Sec(Source):
                 data=stake,
                 metadata={"method": "edgar-schedule-13d"},
             )
+
+    async def _forms(self, ctx: Context, agent: str):
+        """Form D (private raises) or 13F-HR (fund holdings) filings not read before, each from
+        its own primary document."""
+        form, shape = FORMS[self.resource]
+        path = state_path(ctx, "sec", f"{self.resource}-read")
+        read = _load_read(path)
+        try:
+            filings = await self._current(ctx, agent, form, read)
+        except FetchError as exc:
+            if (error := ctx.fail(exc, source=self.name, url=LATEST)) is not None:
+                yield error
+            return
+        try:
+            for index_url, filed_at in filings:
+                folder = index_url.rsplit("/", 1)[0]
+                accession = index_url.rsplit("/", 1)[-1].removesuffix("-index.htm")
+                try:
+                    response = await ctx.http.get(
+                        f"{folder}/primary_doc.xml",
+                        user_agent=agent,
+                        timeout=self.timeout,
+                        interval=SEC_INTERVAL,
+                    )
+                except FetchError as exc:
+                    if (error := ctx.fail(exc, source=self.name, url=index_url)) is not None:
+                        yield error
+                    continue  # not remembered: the next run tries it again
+                read[accession] = filed_at
+                found = shape(response.text)
+                if found is None or (found["value"] or 0) < self.min_value:
+                    continue
+                yield Event(
+                    source=self.name,
+                    type=self.resource.removesuffix("s"),
+                    source_url=index_url,
+                    key=accession,
+                    timestamp=filed_at,
+                    data={**found, "link": index_url, "accession": accession},
+                    metadata={"method": f"edgar-{form.lower()}"},
+                )
+        finally:
+            newest = sorted(read.items(), key=lambda kv: kv[1] or "", reverse=True)
+            write_json_atomic(path, dict(newest[:KEEP_READ]))
+
+    async def _current(
+        self, ctx: Context, agent: str, form: str, read: dict[str, str | None]
+    ) -> list[tuple[str, str | None]]:
+        """Index pages of the newest filings of one form (not its amendments) not read yet,
+        going back until those read before, at most --limit."""
+        import feedparser
+
+        filings: dict[str, tuple[str, str | None]] = {}
+        for start in range(0, 2000, 100):
+            params = {
+                "action": "getcurrent",
+                "type": form,
+                "count": "100",
+                "start": str(start),
+                "output": "atom",
+            }
+            response = await ctx.http.get(
+                LATEST,
+                params=params,
+                user_agent=agent,
+                timeout=self.timeout,
+                cache=False,
+                interval=SEC_INTERVAL,
+            )
+            feed = feedparser.parse(response.content)
+            known = 0
+            for entry in feed.entries:
+                link = entry.get("link") or ""
+                accession = link.rsplit("/", 1)[-1].removesuffix("-index.htm")
+                if not (str(entry.get("title") or "").startswith(f"{form} - ") and link):
+                    continue
+                if accession in read:
+                    known += 1
+                elif accession not in filings:
+                    filings[accession] = (link, entry.get("updated"))
+            if len(filings) >= self.limit or len(feed.entries) < 100 or known:
+                break
+        return list(filings.values())[: self.limit]
 
     def _past(self) -> bool:
         """A period that ends before today: the latest filings do not reach back to it."""
@@ -817,6 +915,102 @@ def ipo_filing(hit: dict[str, Any]) -> dict[str, Any] | None:
 
 
 KEEP_READ = 20000  # Form 4 accession numbers remembered by --all-new: about two months
+
+
+def _tags(xml: str, name: str) -> list[str]:
+    """The text of every element called ``name`` (any namespace prefix)."""
+    import html
+
+    found = re.findall(rf"<(?:\w+:)?{name}>(.*?)</(?:\w+:)?{name}>", xml, re.DOTALL)
+    return [html.unescape(" ".join(value.split())) for value in found]
+
+
+def _amount(value: str | None) -> float | None:
+    try:
+        return float(str(value).replace(",", ""))
+    except ValueError:
+        return None  # "Indefinite"
+
+
+def private_raise(xml: str) -> dict[str, Any] | None:
+    """A new Form D: who raised how much privately, in what kind of business; None for an
+    amendment."""
+    from unlimitedpipe.expr import short_number
+
+    if (_tags(xml, "isAmendment") or ["false"])[0].lower() == "true":
+        return None
+    names = _tags(xml, "entityName")
+    if not names:
+        return None
+    issuer = readable_name(names[0]) or names[0]
+    sold = _amount((_tags(xml, "totalAmountSold") or [None])[0])
+    offered = _amount((_tags(xml, "totalOfferingAmount") or [None])[0])
+    group = (_tags(xml, "industryGroupType") or ["other"])[0]
+    kind = (
+        (_tags(xml, "investmentFundType") or [group])[0]
+        if group == "Pooled Investment Fund"
+        else group
+    )
+    place = (_tags(xml, "stateOrCountryDescription") or [None])[0]
+    if sold:
+        title = f"{issuer} raised ${short_number(sold)} privately ({kind.lower()}, Form D)"
+    elif offered:
+        title = (
+            f"{issuer} is raising up to ${short_number(offered)} privately ({kind.lower()}, Form D)"
+        )
+    else:
+        title = f"{issuer} filed to raise money privately ({kind.lower()}, Form D)"
+    summary = f"{issuer} filed a Form D notice of an exempt offering"
+    if offered:
+        summary += f" of ${short_number(offered)}"
+    if place:
+        summary += f"; based in {readable_name(place) or place}"
+    return {
+        "title": title,
+        "issuer": issuer,
+        "kind": kind,
+        "sold": sold,
+        "offered": offered,
+        "value": sold,
+        "summary": summary + ".",
+    }
+
+
+TOO_BIG = 1e13  # a 13F total above $10 trillion is one reported in thousands by mistake
+
+
+def fund_holdings(xml: str) -> dict[str, Any] | None:
+    """A 13F holdings report: which manager, which quarter, how much in how many positions
+    (values in dollars, as filed since 2023); None for a notice or an implausible total."""
+    from unlimitedpipe.expr import short_number
+
+    kind = (_tags(xml, "reportType") or [""])[0].upper()
+    if "HOLDINGS" not in kind and "COMBINATION" not in kind:
+        return None
+    manager = re.search(r"<(?:\w+:)?filingManager>\s*<(?:\w+:)?name>(.*?)</", xml, re.DOTALL)
+    total = _amount((_tags(xml, "tableValueTotal") or [None])[0])
+    entries = _amount((_tags(xml, "tableEntryTotal") or [None])[0])
+    period = (_tags(xml, "reportCalendarOrQuarter") or [""])[0]
+    when = re.match(r"(\d\d)-\d\d-(\d{4})$", period)
+    if not (manager and total and when) or total > TOO_BIG:
+        return None
+    if entries and total / entries < 1000:
+        return None  # under $1,000 a position: filed in thousands, not dollars as since 2023
+    name = readable_name(" ".join(manager[1].split())) or manager[1]
+    quarter = f"{when[2]} Q{(int(when[1]) - 1) // 3 + 1}"
+    positions = f", {int(entries):,} positions" if entries else ""
+    return {
+        "title": f"{name} reported ${short_number(total)} of US-listed holdings for {quarter} "
+        f"(13F{positions})",
+        "manager": name,
+        "quarter": quarter,
+        "value": total,
+        "positions": int(entries) if entries else None,
+        "summary": f"{name}'s 13F holdings report for the quarter ended {period}.",
+    }
+
+
+FORMS = {"private-raises": ("D", private_raise), "fund-holdings": ("13F-HR", fund_holdings)}
 
 
 def _load_read(path) -> dict[str, str | None]:

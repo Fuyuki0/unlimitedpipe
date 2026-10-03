@@ -3,6 +3,19 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.34 - 2026-10-03
+
+- `web --header "Name: value"` (repeatable; `header:` in a pipeline file, with `${VARIABLE}`):
+  sends a request header such as an API key, kept out of provenance and outputs, unlike a key
+  in the URL.
+- `sec private-raises`: new Form D filings, who raised how much privately in what business
+  ("Acme Robotics Inc raised $50M privately (other technology, Form D)"); amendments left out.
+- `sec fund-holdings`: 13F holdings reports, which manager reported how much in how many
+  positions for which quarter. A report whose values look filed in thousands rather than
+  dollars (under $1,000 a position, or over $10 trillion) is left out, not shown 1,000 times
+  too small.
+- Both remember the filings they read, so `--limit` goes up to 1,000 for them.
+
 ## 0.10.33 - 2026-09-29
 
 - For "biggest" and "smallest" questions that name a feed ("biggest earthquake ever"), that

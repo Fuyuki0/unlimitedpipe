@@ -328,3 +328,36 @@ def test_stakes_and_events_read_the_same_from_search_and_from_the_latest_list():
     [event] = listed_events([entry, entry])
     assert event["title"] == "Dyadic International Inc: delisting notice or listing transfer"
     assert event["items"] == ["3.01", "9.01"]
+
+
+FORM_D = """<edgarSubmission><primaryIssuer><entityName>ACME ROBOTICS INC</entityName>
+<issuerAddress><stateOrCountryDescription>CALIFORNIA</stateOrCountryDescription></issuerAddress>
+</primaryIssuer><offeringData><industryGroup><industryGroupType>Other Technology</industryGroupType>
+</industryGroup><typeOfFiling><newOrAmendment><isAmendment>false</isAmendment></newOrAmendment>
+</typeOfFiling><offeringSalesAmounts><totalOfferingAmount>60000000</totalOfferingAmount>
+<totalAmountSold>50000000</totalAmountSold></offeringSalesAmounts></offeringData></edgarSubmission>"""
+
+THIRTEEN_F = """<edgarSubmission><formData><coverPage><reportCalendarOrQuarter>06-30-2026
+</reportCalendarOrQuarter><filingManager><name>BERKSHIRE HATHAWAY INC</name></filingManager>
+<reportType>13F HOLDINGS REPORT</reportType></coverPage><summaryPage>
+<tableEntryTotal>41</tableEntryTotal><tableValueTotal>258701000000</tableValueTotal>
+</summaryPage></formData></edgarSubmission>"""
+
+
+def test_form_d_and_13f_become_readable_items():
+    from unlimitedpipe.sources.sec import fund_holdings, private_raise
+
+    raised = private_raise(FORM_D)
+    assert raised["title"] == "Acme Robotics Inc raised $50M privately (other technology, Form D)"
+    assert raised["value"] == 50_000_000
+    assert private_raise(FORM_D.replace(">false<", ">true<")) is None  # an amendment
+    held = fund_holdings(THIRTEEN_F.replace("06-30-2026\n", "06-30-2026"))
+    assert held["title"] == (
+        "Berkshire Hathaway Inc reported $258.7B of US-listed holdings for 2026 Q2 "
+        "(13F, 41 positions)"
+    )
+    # in thousands by mistake ($1,669 a position at most): left out, not shown 1,000 times too small
+    assert (
+        fund_holdings(THIRTEEN_F.replace("258701000000", "369178").replace(">41<", ">1669<"))
+        is None
+    )

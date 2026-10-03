@@ -263,3 +263,25 @@ def test_not_found_is_still_an_error_by_default(web, ctx):
     web.add(url, '{"error": {"code": "NOT_FOUND"}}', status=404, content_type="application/json")
     assert run_source(Web(url=[url], records="results"), ctx) == []
     assert ctx.failures == 1
+
+
+def test_a_header_is_sent_and_kept_out_of_provenance(web, ctx, monkeypatch, tmp_path):
+    from unlimitedpipe.config import load_pipeline
+
+    web.add(
+        "https://api.example/laws.json",
+        '{"bills": [{"title": "A law"}]}',
+        content_type="application/json",
+    )
+    monkeypatch.setenv("SOME_KEY", "s3cr3t")
+    pipeline = tmp_path / "p.yml"
+    pipeline.write_text(
+        "sources:\n"
+        "  - {type: web, url: https://api.example/laws.json, records: bills,"
+        ' header: ["X-Api-Key: ${SOME_KEY}"]}\n'
+    )
+    source = load_pipeline(pipeline).sources[0]
+    events = run_source(source, ctx)
+    assert web.requests[-1].headers["x-api-key"] == "s3cr3t"
+    assert events[0].data["title"] == "A law"
+    assert "s3cr3t" not in json.dumps([e.to_dict() for e in events])

@@ -111,6 +111,14 @@ class Web(Source):
         "finds nothing that way)",
         default=False,
     )
+    header: list[str] = opt(
+        "A request header, `Name: value` (repeatable), e.g. an API key: "
+        "`X-Api-Key: ${MY_KEY}` in a pipeline file. Kept out of provenance and outputs, unlike "
+        "a key in the URL",
+        default_factory=list,
+        metavar="HEADER",
+        secret=True,
+    )
 
     def __post_init__(self) -> None:
         if self.pages < 1:
@@ -128,6 +136,14 @@ class Web(Source):
             raise ValueError("use either --selector or --field, not both")
         if self.timeout <= 0:
             raise ValueError("--timeout must be positive")
+        self._headers: dict[str, str] = {}
+        for line in self.header:
+            name, colon, value = line.partition(":")
+            if not (colon and name.strip() and value.strip()):
+                raise ValueError("--header takes `Name: value`")
+            self._headers[name.strip()] = value.strip()
+        if self._headers and self.browser:
+            raise ValueError("--header does not work with --browser")
         self._screenshots: dict[str, str | None] = {}
 
     async def collect(self, ctx: Context):
@@ -157,6 +173,7 @@ class Web(Source):
             return response
         return await ctx.http.get(
             url,
+            headers=self._headers or None,
             timeout=self.timeout,
             user_agent=self.user_agent,
             robots=not self.ignore_robots,
