@@ -31,6 +31,7 @@ BUILTINS: dict[str, str] = {
     "file": "unlimitedpipe.sources.file:File",
     "github": "unlimitedpipe.sources.github:GitHub",
     "sec": "unlimitedpipe.sources.sec:Sec",
+    "fec": "unlimitedpipe.sources.fec:Fec",
     "mastodon": "unlimitedpipe.sources.mastodon:Mastodon",
     "telegram": "unlimitedpipe.sources.telegram:Telegram",
     "youtube": "unlimitedpipe.sources.youtube:YouTube",

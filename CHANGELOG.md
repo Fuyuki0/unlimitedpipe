@@ -3,6 +3,15 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.38 - 2026-10-03
+
+- `unlimited fec outside-spending`: what super PACs, parties and other committees report
+  spending for or against US federal candidates, from the FEC's daily bulk files ("America PAC
+  spent $1.1M opposing James Talarico for the Senate (TX)"). Only committees in the FEC's
+  committee list count (the files also hold forms filed with made-up amounts); the latest
+  amendment of each expenditure wins; dated when filed. www.fec.gov's ten-second crawl delay
+  is kept.
+
 ## 0.10.37 - 2026-10-03
 
 - `unlimited follow WORDS --to TARGET`: each new match of the feed catalog (and its live
