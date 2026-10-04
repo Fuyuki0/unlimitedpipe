@@ -90,6 +90,11 @@ class GitHub(Source):
                     yield error
                 continue
             items = payload if isinstance(payload, list) else [payload]
+            if self.resource == "releases" and not items:
+                ctx.notice(
+                    f"github: {repo} has no GitHub releases; some projects only tag their "
+                    f"versions: unlimited github tags {repo}"
+                )
             for item in items:
                 if isinstance(item, dict):
                     yield self._event(repo, url, item)
