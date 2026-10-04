@@ -15,7 +15,7 @@ rate decisions, earthquakes and storms, crypto, government announcements, news),
 to its official source, and get an alert within a minute when something new matches. Built
 from open YAML pipelines you can fork, with no server, no account and no API key.
 
-![unlimited ask answering "any big crypto hacks this week?", "earthquakes in japan in 2024" and "strongest hurricane in 2005" with cited sources](https://raw.githubusercontent.com/Fuyuki0/unlimitedpipe/main/docs/assets/ask.svg)
+![unlimited ask answering "what happened in march 2011?", "strongest hurricane in 2005" and "any big crypto hacks this week?" with cited sources](https://raw.githubusercontent.com/Fuyuki0/unlimitedpipe/main/docs/assets/ask.svg)
 
 Three ways in; use the one you need:
 

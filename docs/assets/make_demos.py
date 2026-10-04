@@ -50,22 +50,27 @@ async def main() -> None:
     await record(
         [
             (
-                'unlimited ask "any big crypto hacks this week?" --sources 3',
-                Ask(question=["any big crypto hacks this week?"], sources=3),
-            ),
-            (
-                'unlimited ask "earthquakes in japan in 2024" --sources 3',
-                Ask(question=["earthquakes in japan in 2024"], sources=3),
+                'unlimited ask "what happened in march 2011?" --sources 2',
+                Ask(question=["what happened in march 2011?"], sources=2),
             ),
             (
                 'unlimited ask "strongest hurricane in 2005" --sources 3',
                 Ask(question=["strongest hurricane in 2005"], sources=3),
             ),
+            (
+                'unlimited ask "any big crypto hacks this week?" --sources 3',
+                Ask(question=["any big crypto hacks this week?"], sources=3),
+            ),
         ],
         HERE / "ask.svg",
     )
     await record(
-        [("unlimited search flood bangkok --limit 3", Search(words=["flood", "bangkok"], limit=3))],
+        [
+            (
+                "unlimited search hurricane katrina --limit 3",
+                Search(words=["hurricane", "katrina"], limit=3),
+            )
+        ],
         HERE / "search.svg",
     )
 
