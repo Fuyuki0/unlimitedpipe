@@ -127,14 +127,52 @@ NOTABLE_STORIES = 5  # items of fewer stories than this are a series ("bitcoin p
 
 def notable_size(title: str) -> float | None:
     """How big an event is where its title says so plainly: its largest dollar amount
-    ("Ronin Bridge: $624M lost") or an earthquake's magnitude ("M 7.5 - Noto Peninsula")."""
+    ("Ronin Bridge: $624M lost"), an earthquake's magnitude ("M 7.5 - Noto Peninsula") or how
+    many it killed ("an earthquake strikes Ishikawa Prefecture, killing 241 people")."""
     if money := [
         float(m[1].replace(",", "")) * _SCALE.get(m[2] or "", 1) for m in _MONEY.finditer(title)
     ]:
         return max(money)
     if match := _MAGNITUDE.search(title):
         return float(match[1] or match[2])
+    if deaths := [int((m[1] or m[2]).replace(",", "")) for m in _DEATHS.finditer(title)]:
+        # a death counted as $10M (about what US agencies value a life at), so a disaster that
+        # kills thousands outranks a big aid package in the same feed
+        return max(deaths) * 1e7
     return None
+
+
+_QUALIFIER = r"(?:at least |more than |over |nearly |about |around |some |almost )?"
+_DEATHS = re.compile(
+    r"\b(?:kill(?:s|ing|ed)?\s+"
+    r"|death toll (?:rises |increases |reaches |climbs )?(?:to |of |at )?)"
+    rf"{_QUALIFIER}(\d[\d,]{{0,8}})\b(?! (?:years?|percent|%))"
+    rf"|\b{_QUALIFIER}(\d[\d,]{{0,8}}) (?:people |civilians |soldiers |others |persons )?"
+    rf"(?:are |were |have been |had been )?(?:killed|dead|die)\b"
+)
+
+
+def by_feed_size(scored: list[Any], sizes: list[float | None]) -> list[int]:
+    """The order of notable items: dollars and magnitudes are not one scale, so each item is
+    placed by its rank among its own feed's items (the biggest earthquake beside the biggest
+    filing, not the filing first because $4.3B is more than 7.5), the feed with the most items
+    first at each rank (what the question is mostly about), sized items before the rest."""
+    feeds = [s[3].get("feed") for s in scored]
+    per_feed = Counter(feeds)
+    rank_in_feed: dict[int, int] = {}
+    for feed in per_feed:
+        members = [n for n, f in enumerate(feeds) if f == feed and sizes[n] is not None]
+        members.sort(key=lambda n: -(sizes[n] or 0))
+        rank_in_feed.update({n: place for place, n in enumerate(members)})
+    return sorted(
+        range(len(scored)),
+        key=lambda n: (
+            sizes[n] is None,
+            rank_in_feed.get(n, 0),
+            -per_feed[feeds[n]],
+            n,
+        ),
+    )
 
 
 def by_size(question: str, items: list[dict[str, Any]]) -> str:
@@ -219,6 +257,14 @@ def needed(words: list[str]) -> int:
     return len(words) if len(words) <= 2 else -(-len(words) * 3 // 5)
 
 
+# Feeds whose titles name everyday things in passing ("Procurement of apple saplings", "MRI
+# system < 1.5 Tesla"): their items answer only questions that ask for them, with one of these
+# words or all the words of one of these phrases.
+ASKED_ONLY = {
+    "world-bank-tenders": ("tender", "tenders", "procurement", "bid", "bids", "world bank"),
+}
+
+
 def rank(
     document: dict[str, Any],
     words: list[str],
@@ -243,10 +289,15 @@ def rank(
         f.get("name"): (str(f.get("name", "")).replace("-", " "), f.get("description") or "")
         for f in document.get("feeds", [])
     }
+    said = {w.casefold() for w in words}
+    asked_for = {
+        feed for feed, keys in ASKED_ONLY.items() if any(set(key.split()) <= said for key in keys)
+    }
     items = [
         item
         for item in document.get("items", [])
         if not (since and item.get("date") and str(item["date"]) < since)
+        and (item.get("feed") not in ASKED_ONLY or item.get("feed") in asked_for)
     ]
     # Rare words say more than common ones: "bitcoin" picks items out, "price" hardly does.
     texts = [text_of(item, feeds.get(item.get("feed"), ("", ""))[0]) for item in items]
@@ -323,14 +374,16 @@ def rank(
         f for f, (spaced, _) in feeds.items() if any(word_pattern(w).search(spaced) for w in words)
     }
     in_named = [s for s in scored if s[0] == len(words) and s[3].get("feed") in named]
-    if order == "notable":
+    if order in ("notable", "deadliest"):
         wider = in_named + [s for s in kept if s[3].get("feed") not in named] if in_named else kept
         sizes = [notable_size(str(s[3].get("title") or "")) for s in wider]
         stories = len({story(s[3]) for s in wider})
         sized = sum(size is not None for size in sizes)
-        if stories >= min(NOTABLE_STORIES, len(wider)) and sized * 2 >= len(wider):
-            ordered = sorted(zip(sizes, range(len(wider)), strict=True), key=lambda p: -(p[0] or 0))
-            kept = [wider[n] for _, n in ordered]
+        # "deadliest": a whole period's events, where only some say how big they were
+        if (order == "deadliest" and sized) or (
+            stories >= min(NOTABLE_STORIES, len(wider)) and sized * 2 >= len(wider)
+        ):
+            kept = [wider[n] for n in by_feed_size(wider, sizes)]
     elif order:
         if in_named:
             kept = in_named
@@ -472,6 +525,8 @@ class Ask(Source):
             # "earthquakes in 2023": that period's items from the archive, not the latest ones
             first, last, said = named
             asked = [w for w in asked if w not in said]
+            if not asked:  # "what happened in 2011": the world's events of that time
+                asked, order = ["world", "events"], order or "deadliest"
             try:
                 items = await items_since(ctx, url, document, first, last, words=asked)
             except FetchError as exc:
