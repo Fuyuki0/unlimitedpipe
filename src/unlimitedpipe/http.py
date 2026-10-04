@@ -15,6 +15,7 @@ import os
 import random
 import re
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from email.utils import parsedate_to_datetime
 from pathlib import Path
@@ -210,9 +211,11 @@ class HttpClient:
         transport: httpx.AsyncBaseTransport | None = None,
         interval: float = DEFAULT_INTERVAL,
         public_only: bool = False,
+        notice: Callable[[str], None] | None = None,
     ) -> None:
         self.cache_dir = cache_dir
         self.interval = interval
+        self._notice = notice
         hooks = {"request": [_refuse_private_hosts]} if public_only else {}
         self._client = httpx.AsyncClient(
             follow_redirects=True,
@@ -228,6 +231,17 @@ class HttpClient:
 
     async def aclose(self) -> None:
         await self._client.aclose()
+
+    async def _wait_to_retry(self, url: str, status: int, delay: float, attempt: int) -> None:
+        """Sleep before a retry, saying so when the wait is long enough to look like a hang."""
+        delay = min(delay, 60.0)
+        if delay >= 5 and self._notice:
+            self._notice(
+                f"{urlsplit(url).netloc} answered HTTP {status}"
+                + (" (too many requests)" if status == 429 else "")
+                + f"; trying again in {delay:.0f} s (retry {attempt + 1})"
+            )
+        await asyncio.sleep(delay)
 
     async def _throttle(self, host: str, interval: float) -> None:
         lock = self._host_locks.setdefault(host, asyncio.Lock())
@@ -374,7 +388,7 @@ class HttpClient:
                 ) as raw:
                     if raw.status_code in RETRY_STATUS and attempt < retries:
                         delay = _retry_after(raw) or (2**attempt + random.random())
-                        await asyncio.sleep(min(delay, 60.0))
+                        await self._wait_to_retry(url, raw.status_code, delay, attempt)
                         continue
                     chunks: list[bytes] = []
                     size = 0
@@ -481,7 +495,7 @@ class HttpClient:
                 delay = (
                     _retry_after(raw) or _json_retry_after(raw) or (2**attempt + random.random())
                 )
-                await asyncio.sleep(min(delay, 60.0))
+                await self._wait_to_retry(shown, raw.status_code, delay, attempt)
                 continue
             response = Response(
                 url=shown,

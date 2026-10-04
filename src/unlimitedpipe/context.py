@@ -93,6 +93,7 @@ class Context:
                 transport=self._transport,
                 interval=interval,
                 public_only=self.public_only,
+                notice=self.notice,
             )
         return self._http
 
