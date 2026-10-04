@@ -1,0 +1,37 @@
+name: Ask training data
+
+# Builds the ask model's questions about the archive's history on a GitHub machine (the feeds
+# catalog's archive is public), for research/ask/history7.py; too big for a small server.
+on:
+  workflow_dispatch:
+    inputs:
+      only:
+        description: "Which feeds: new (build 8's) or all"
+        default: new
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/checkout@v5
+        with:
+          repository: Fuyuki0/unlimitedpipe-feeds
+          path: feeds-site
+          sparse-checkout: public
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e . -r research/requirements.txt
+      - name: Build the questions
+        run: python -u research/ask/history7.py feeds-site/public out "${{ inputs.only }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ask-history
+          path: out/
+          retention-days: 7
