@@ -101,6 +101,8 @@ def size_of(title: str) -> float | None:
         return float(affected[1].replace(",", ""))
     if move := _MOVE.search(title):  # "Hedera Hashgraph +20.4% in 24 hours"
         return float(move[1])
+    if wind := _WIND.search(title):  # "Typhoon Haiyan (2013) peaked at 125-knot winds"
+        return float(wind[1])
     _, colon, after = title.partition(": ")
     if not colon:
         return None
@@ -114,6 +116,7 @@ def size_of(title: str) -> float | None:
 _YEAR = re.compile(r"(1[89]|20)\d\d")
 _AFFECTED = re.compile(r"\(([\d,]+) affected\)")
 _MOVE = re.compile(r"(?<![\w.])[+-](\d+(?:\.\d+)?)%")
+_WIND = re.compile(r"\b(\d+)-knot winds\b")
 
 
 # "M 7.5 - Noto", "bulletin: M5.5 near", and NASA's "Papua New Guinea Earthquake 7.5M", which

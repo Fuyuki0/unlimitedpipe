@@ -303,6 +303,7 @@ def test_superlative_questions_are_answered_by_size_in_code():
     assert size_of("Bybit: $1.5B lost (key compromise)") == 1.5e9
     assert size_of("S&P 500: 7,743.41 on 2026-09-25") == 7743.41
     assert size_of("CVE-2023-4966: Citrix Bleed") is None
+    assert size_of("Typhoon Haiyan (2013) peaked at 125-knot winds and 895 hPa") == 125
     assert superlative("strongest earthquake in japan?") == "most"
     assert superlative("lowest mortgage rate") == "least"
     quakes = {

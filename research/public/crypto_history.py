@@ -2,8 +2,8 @@
 stablecoin-depegs feeds, written the way those feeds write them.
 
 - crypto-big-moves: the feed's large coins moving 10% or more from one day's price (00:00 UTC)
-  to the next, from the coin's 30th day of prices on. A one-day spike that is undone the next
-  day (back within 3% of where it started) is taken as a bad price and left out.
+  to the next, from the coin's 30th day of prices on. A jump of 20% or more undone within a
+  week (back within 10% of where it started) is taken as bad prices and left out.
 - stablecoin-depegs: dollar stablecoins with 100M or more in circulation closing a day at $0.99
   or less, one item a coin a day, for the first 14 days of a depeg (a coin that never comes back
   is not listed for years).
@@ -75,9 +75,9 @@ def big_moves(http: httpx.Client, coins: list[str]) -> list[dict]:
             value = (prices[day] / before - 1) * 100
             if abs(value) < 10:
                 continue
-            after = prices.get(days[index + 1]) if index + 1 < len(days) else None
-            if after is not None and abs(value) >= 20 and abs(after / before - 1) < 0.03:
-                continue  # a spike undone the next day: a bad price
+            later = [prices[d] for d in days[index + 1 : index + 8]]
+            if abs(value) >= 20 and any(abs(p / before - 1) < 0.1 for p in later):
+                continue  # a jump undone within a week, back near where it started: bad prices
             name = coin_name(coin)
             moved = f"{value:+.1f}"
             found.append(
@@ -117,11 +117,12 @@ def depegs(http: httpx.Client) -> list[dict]:
             _day(row["date"]): float((row.get("totalCirculating") or {}).get("peggedUSD") or 0)
             for row in _get(http, STABLE_CHART.format(id=coin["id"]))
         }
-        streak = 0
+        streak, known = 0, 0.0
         for day in sorted(prices):
             price = prices[day]
+            known = supply.get(day) or known  # supply data can stop before prices do
             streak = streak + 1 if price <= 0.99 else 0
-            if not (0 < price <= 0.99) or streak > 14 or supply.get(day, 0) < 100e6:
+            if not (0 < price <= 0.99) or streak > 14 or known < 100e6:
                 continue
             off = round((1 - price) * 100, 1)
             symbol = coin["symbol"]
@@ -130,7 +131,7 @@ def depegs(http: httpx.Client) -> list[dict]:
                     "feed": "stablecoin-depegs",
                     "title": f"{symbol} at ${round(price, 4)}, {off}% below its $1 peg",
                     "summary": f"{coin['name']} ({symbol}) traded at ${round(price, 4)}, {off}% "
-                    f"below its $1 peg, on {day}, with ${_short(supply[day])} in circulation "
+                    f"below its $1 peg, on {day}, with ${_short(known)} in circulation "
                     f"(DefiLlama). {ADVICE}",
                     "link": f"https://defillama.com/stablecoin/{gecko}",
                     "date": f"{day}T00:00:00Z",

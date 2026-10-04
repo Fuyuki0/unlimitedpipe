@@ -34,7 +34,7 @@ def _get(http: httpx.Client, url: str):
 def main(out: str, before: str) -> None:
     written = 0
     with (
-        httpx.Client(headers=AGENT, timeout=60) as http,
+        httpx.Client(headers=AGENT, timeout=30) as http,
         open(out, "w", encoding="utf-8") as lines,
     ):
         skip, bills = 0, []
@@ -64,7 +64,7 @@ def main(out: str, before: str) -> None:
                 }
                 lines.write(json.dumps(entry, ensure_ascii=False) + "\n")
                 written += 1
-            if number % 200 == 0:
+            if number % 50 == 0:
                 print(number, len(bills), written, flush=True)
     print(written, "stages")
 

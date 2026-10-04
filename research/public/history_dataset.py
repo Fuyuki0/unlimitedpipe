@@ -70,6 +70,25 @@ FEEDS = {
     "sec-fund-holdings": ("SEC Form 13F holdings reports ($1B+, units checked)", "public domain"),
     "us-outside-spending": ("FEC independent expenditures ($250K+, as filed)", "public domain"),
     "drug-shortages": ("FDA drug shortage list (openFDA)", "public domain"),
+    "us-contracts": ("USAspending.gov new contract awards ($100M+)", "public domain"),
+    "us-grants": ("USAspending.gov new grant awards ($100M+)", "public domain"),
+    "earnings-releases": (
+        "SEC 8-K Item 2.02 filings of large accelerated filers (EDGAR)",
+        "public domain",
+    ),
+    "world-events": ("Wikipedia, Current events portal (since 2002)", "CC BY-SA 4.0"),
+    "typhoons": (
+        "JMA RSMC Tokyo best track data (since 1951); JTWC warnings (US Navy)",
+        "JMA terms of use (CC BY 4.0 compatible); public domain",
+    ),
+    "space-weather": (
+        "GFZ Potsdam Kp index (Matzka et al. 2021) since 1932; NOAA SWPC alerts",
+        "CC BY 4.0; public domain",
+    ),
+    "crypto-big-moves": ("DefiLlama coin prices", "open data, attribution to DefiLlama"),
+    "stablecoin-depegs": ("DefiLlama stablecoin data", "open data, attribution to DefiLlama"),
+    "defi-drops": ("DefiLlama protocol TVL", "open data, attribution to DefiLlama"),
+    "uk-bills": ("UK Parliament bills service", "Open Parliament Licence v3.0"),
 }
 # Feeds whose other items come from sources that are not public: only these titles are kept.
 ONLY = {"volcanoes": "Historical eruption:"}
@@ -107,7 +126,7 @@ def card(counts: dict[str, int], spans: dict[str, tuple[str, str]]) -> str:
     )
     return f"""---
 license: other
-license_name: public-domain-and-cc-by
+license_name: public-domain-cc-by-and-cc-by-sa
 language: [en]
 pretty_name: UnlimitedPipe feed history (public records)
 task_categories: [text-retrieval, question-answering]
@@ -134,7 +153,11 @@ Titles and summaries are written by UnlimitedPipe from the records ("NVIDIA (NVD
 (CEO) sold 120,000 shares at $180.50 ($21.7M)"); every item links to the record it comes from.
 Insider trades are open-market purchases and sales of $100,000 or more.
 
-Attribution: breach data by Have I Been Pwned (CC BY 4.0); crypto hack data by DefiLlama.
+Attribution: breach data by Have I Been Pwned (CC BY 4.0); crypto data by DefiLlama; world
+events from Wikipedia's Current events portal by Wikipedia contributors (CC BY-SA 4.0: the
+world-events file is shared under the same licence); Kp index by GFZ Potsdam (CC BY 4.0,
+doi:10.5880/Kp.0001); typhoon tracks by the Japan Meteorological Agency; UK bills contain
+Parliamentary information licensed under the Open Parliament Licence v3.0.
 """
 
 

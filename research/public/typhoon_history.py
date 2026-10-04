@@ -29,7 +29,8 @@ PLACES = {
     "eastern China": (27.0, 38.0, 117.0, 123.0),
     "Guam": (12.9, 14.0, 144.2, 145.4),
 }
-GRADES = {3: "Tropical storm", 4: "Severe tropical storm", 5: "Typhoon"}
+# Grade 9 (before 1977) is "tropical storm or stronger", without the finer grades.
+GRADES = {3: "Tropical storm", 4: "Severe tropical storm", 5: "Typhoon", 9: "Tropical cyclone"}
 
 
 def _year(two: str) -> int:
