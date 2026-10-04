@@ -38,6 +38,15 @@ def test_select_falls_back_to_alternative_paths():
     ]
 
 
+def test_select_names_a_field_the_events_have_when_one_is_missing(capsys):
+    events = [ev({"title": "A", "link": "https://a"}), ev({"title": "B", "link": "https://b"})]
+    out = run_ops(events, Select(fields=["title", "url"]), ctx=Context())
+    assert [e.data for e in out] == [{"title": "A", "url": None}, {"title": "B", "url": None}]
+    assert "no event has 'url'; did you mean 'link'?" in capsys.readouterr().err
+    run_ops([ev({"url": "https://a"}), ev({"title": "B"})], Select(fields=["url"]), ctx=Context())
+    assert "no event has" not in capsys.readouterr().err
+
+
 def test_select_rejects_name_clashes():
     with pytest.raises(ValueError, match="both be named"):
         Select(fields=["a.title", "b.title"])

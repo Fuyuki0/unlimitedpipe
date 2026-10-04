@@ -1,8 +1,24 @@
 from __future__ import annotations
 
-from unlimitedpipe.component import Operator, arg
+from collections.abc import AsyncIterator
+from typing import TYPE_CHECKING
+
+from unlimitedpipe.component import Operator, arg, suggest
 from unlimitedpipe.event import Event
 from unlimitedpipe.fields import MISSING, resolve, split_path
+
+if TYPE_CHECKING:
+    from unlimitedpipe.context import Context
+
+# The same thing under other names, for the hint when a field is missing ("url" for "link")
+OTHER_NAMES = {
+    "url": ("link", "source_url"),
+    "link": ("url", "source_url"),
+    "date": ("published_at", "timestamp"),
+    "published_at": ("date", "timestamp"),
+    "text": ("summary", "content"),
+    "summary": ("text", "content"),
+}
 
 
 def parse_field_specs(specs: list[str]) -> list[tuple[str, list[list[str]]]]:
@@ -49,6 +65,30 @@ class Select(Operator):
         if not self.fields:
             raise ValueError("select needs at least one field")
         self._specs = parse_field_specs(self.fields)
+
+    async def apply(self, events: AsyncIterator[Event], ctx: Context) -> AsyncIterator[Event]:
+        missing = {name for name, _ in self._specs}  # names no event has had yet
+        have: set[str] = set()
+        seen = False
+        async for event in events:
+            seen = True
+            if missing:
+                have.update(event.data)
+                missing = {
+                    name
+                    for name, candidates in self._specs
+                    if name in missing
+                    and all(resolve(event, parts) in (MISSING, None) for parts in candidates)
+                }
+            yield self.process(event)
+        for name in sorted(missing) if seen else []:
+            other = next((o for o in OTHER_NAMES.get(name, ()) if o in have), None)
+            other = other or suggest(name, have)
+            ctx.notice(
+                f"select: no event has {name!r}"
+                + (f"; did you mean {other!r}?" if other else "")
+                + (f" (they have: {', '.join(sorted(have)[:12])})" if have else "")
+            )
 
     def process(self, event: Event) -> Event:
         selected = {}
