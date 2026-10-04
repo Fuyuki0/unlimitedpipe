@@ -342,6 +342,23 @@ def test_a_period_s_big_events_sit_beside_its_world_events():
     assert "Director buys $2B of stock" not in titles  # not an event of the world
 
 
+def test_hacker_news_stories_are_sized_by_points_and_are_not_hacks():
+    from unlimitedpipe.sources.ask import HACKER_NEWS, item_size, size_of
+    from unlimitedpipe.sources.search import word_pattern
+
+    story = {
+        "feed": "hn-top",
+        "title": "Microsoft to buy LinkedIn for $26B",
+        "summary": "4,512 points",
+    }
+    assert item_size(story, size_of) == 4512  # its points, not the $26B in its title
+    assert item_size({**story, "feed": "us-news"}, size_of) == 26e9
+    assert HACKER_NEWS.sub("hn", "Top Hacker News stories") == "Top hn stories"
+    hacks = word_pattern("hacks")
+    assert hacks.search("Ronin hack") and hacks.search("hackers stole $5M")
+    assert not hacks.search("Happy 15th birthday Hacker News")
+
+
 def test_superlative_questions_are_answered_by_size_in_code():
     from unlimitedpipe.sources.ask import by_size, size_of, superlative
 
