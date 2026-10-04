@@ -150,6 +150,7 @@ def test_the_ai_step_pulls_the_ask_model(home, tmp_path, monkeypatch):
             return {"models": [{"name": "qwen2.5:0.5b"}]}
 
     monkeypatch.setattr(httpx, "get", lambda *a, **k: Tags())
+    monkeypatch.setattr(onboard, "ollama_command", lambda: "ollama")  # wherever it is installed
     commands = []
 
     def run(command, **kwargs):

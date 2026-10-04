@@ -11,6 +11,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 from collections.abc import Callable
 from pathlib import Path
 
@@ -70,6 +71,52 @@ def pip_install(*requirements: str) -> list[str] | None:
     if uv := next((c for c in candidates if c and Path(c).is_file()), None):
         return [uv, "pip", "install", "--quiet", "--python", sys.executable, *requirements]
     return None
+
+
+# Where Ollama's installers put the command when the PATH does not have it yet.
+OLLAMA_PLACES = (
+    "/Applications/Ollama.app/Contents/Resources/ollama",
+    "/usr/local/bin/ollama",
+    "/usr/bin/ollama",
+)
+
+
+def ollama_command() -> str:
+    """The `ollama` command: on the PATH, or where its installers put it."""
+    return shutil.which("ollama") or next(
+        (place for place in OLLAMA_PLACES if Path(place).is_file()), "ollama"
+    )
+
+
+def ollama_ready(host: str) -> bool:
+    import httpx
+
+    try:
+        return httpx.get(f"{host}/api/tags", timeout=3).status_code == 200
+    except httpx.HTTPError:
+        return False
+
+
+def start_ollama(host: str, wait: float = 30.0) -> bool:
+    """Start `ollama serve` in the background when Ollama is installed but not running."""
+    command = ollama_command()
+    if command == "ollama" and shutil.which("ollama") is None:
+        return False
+    try:
+        subprocess.Popen(
+            [command, "serve"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+    except OSError:
+        return False
+    deadline = time.monotonic() + wait
+    while time.monotonic() < deadline:
+        if ollama_ready(host):
+            return True
+        time.sleep(1)
+    return False
 
 
 def this_command() -> str:
@@ -192,15 +239,23 @@ class Setup:
                 return self.note(
                     "later: install Ollama from https://ollama.com, or set ANTHROPIC_API_KEY"
                 )
-            if not self.sh(["sh", "-c", "curl -fsSL https://ollama.com/install.sh | sh"]):
+            installed = self.sh(["sh", "-c", "curl -fsSL https://ollama.com/install.sh | sh"])
+            # the installer can put Ollama in place and still fail to open it (no desktop
+            # session, a Mac that has not seen the new app yet): start it here then
+            if not (ollama_ready(host) or start_ollama(host)):
                 self.skipped.append("ai")
-                return self.note("the Ollama installer failed; see https://ollama.com/download")
+                return self.note(
+                    "the Ollama installer failed; see https://ollama.com/download"
+                    if not installed
+                    else "Ollama was installed but did not start: open it, then unlimited setup"
+                )
             models = []
+        ollama = ollama_command()
         from unlimitedpipe.meaning import EMBED_MODEL, pick
 
         if ASK_MODEL in models or f"{ASK_MODEL}:latest" in models:
             if pick(models) is None:  # finding by meaning came later: add its small model
-                self.sh(["ollama", "pull", EMBED_MODEL])
+                self.sh([ollama, "pull", EMBED_MODEL])
             return self.ok("the ask model is ready (it answers from sources, with citations)")
         if "ai" in self.skip or not self.ask(
             "Download the ask model (about 0.5 GB), trained to pick the sources that answer, "
@@ -208,8 +263,8 @@ class Setup:
         ):
             self.skipped.append("ai")
             return self.note(f"later: ollama pull {ASK_MODEL}; ollama pull {EMBED_MODEL}")
-        if self.sh(["ollama", "pull", ASK_MODEL]):
-            self.sh(["ollama", "pull", EMBED_MODEL])
+        if self.sh([ollama, "pull", ASK_MODEL]):
+            self.sh([ollama, "pull", EMBED_MODEL])
             self.done.append("ai")
             self.ok('ask ready: unlimited ask "what is happening in Bangkok?"')
             if (memory_gb() or 0) >= 8:

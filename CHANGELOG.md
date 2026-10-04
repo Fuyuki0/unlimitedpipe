@@ -3,6 +3,14 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.53 - 2026-10-04
+
+- Install on a new Mac: with only Apple's Python 3.9, `install.sh` installs uv (its own Python,
+  into your home folder, no admin password) and UnlimitedPipe from PyPI (no git needed).
+- `setup`: finds uv in ~/.local/bin for the browser step; when Ollama's installer puts Ollama in
+  place but cannot open it, starts it and goes on to the ask model.
+- Install test on real macOS (Apple Silicon, Intel, Apple's Python only), Linux and Windows.
+
 ## 0.10.52 - 2026-10-04
 
 - Archive: the word index is updated with each append's new items instead of rebuilt from every
