@@ -523,6 +523,18 @@ async def _ollama_models(client: httpx.AsyncClient, host: str) -> list[str] | No
         return None
 
 
+async def _loading_notice(ctx: Context, client: httpx.AsyncClient, host: str, model: str) -> None:
+    """Say so when Ollama has the model to load first, which can take a while on a slow
+    machine (later answers come faster)."""
+    try:
+        response = await client.get(f"{host}/api/ps", timeout=3)
+        loaded = {m.get("name") for m in response.json().get("models", [])}
+    except (httpx.HTTPError, ValueError, AttributeError):
+        return
+    if model not in loaded and f"{model}:latest" not in loaded:
+        ctx.notice(f"ask: loading {model} (the first answer can take up to 30 s on a slow machine)")
+
+
 class Ask(Source):
     """Ask a question about the latest public records and news, answered from a feed catalog
     with sources.
@@ -789,6 +801,7 @@ class Ask(Source):
                     )
                 return None
             decider = installed
+            await _loading_notice(ctx, client, host, decider)
             ctx.notice(f"ask: {len(prompt)} characters of sources to {decider} (decides)")
             try:
                 response = await client.post(
@@ -874,6 +887,7 @@ class Ask(Source):
                 size = re.search(r"(\d+(?:\.\d+)?)b\b", model.lower())
                 small = size is not None and float(size.group(1)) < 3
                 prompt = prompt_for(2 if small else 5)
+                await _loading_notice(ctx, client, host, model)
                 ctx.notice(f"ask: {len(prompt)} characters of sources to {model} (local)")
                 try:
                     response = await client.post(

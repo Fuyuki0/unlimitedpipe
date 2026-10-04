@@ -30,11 +30,25 @@ and skill for Claude Code, and an offline copy of the feed catalog. Already have
 
 ```bash
 unlimited search "cyber attack"                     # 124 live feeds at once, one request
-unlimited ask "what happened in Bangkok today?"     # answered from the feeds, with sources
+unlimited ask "what happened in march 2011?"        # answered from the feeds, with sources
 unlimited web https://example.com | unlimited diff               # only what changed
 unlimited new https://some-shop.example/product     # writes a price-and-stock watch for you
 unlimited mirror && unlimited search flood --catalog offline    # works without the internet
 ```
+
+**What works right away, and what needs setup.** `search`, the pipes (`web`, `rss`, `diff`,
+`follow`), the [feed page](https://feeds.daemonfill.dev/) and phone alerts need nothing more: a
+search takes about a second. `ask` without a model lists the best matching records with their
+sources. For written answers it needs a model: `unlimited setup` installs the 531 MB local one
+(with Ollama), whose first answer takes up to 30 seconds on a slow machine while it loads and
+about 5 seconds after that; or set `ANTHROPIC_API_KEY` and Claude answers, with no download.
+
+**What the local model does.** It only picks which of the sources answer the question; the code
+then writes the answer from those sources' own titles and dates. So its answers are short and
+read like a list of what the sources say, and they never hold a word or number the sources do
+not. It is sometimes wrong about which sources answer (see the
+[model card](https://huggingface.co/unlimitedpipe/decide-0.5b-GGUF)); the sources are always
+shown. For answers that explain, use Claude.
 
 - **Change detection with proof.** Every result carries its source link and when it was
   fetched; `diff` remembers what it saw and reports only what is new, changed or gone.
@@ -49,7 +63,7 @@ unlimited mirror && unlimited search flood --catalog offline    # works without 
   feed is a YAML file of about 15 lines;
   [fork them](https://github.com/Fuyuki0/unlimitedpipe-feeds).
 - **History, not only the latest.** Every item the feeds ever listed stays in a monthly
-  archive, 1.58 million records back to 1851: the world's events day by day since 2002 and
+  archive, 1.66 million records back to 1851: the world's events day by day since 2002 and
   each country's year by year (from Wikipedia), earthquakes since 1900, Atlantic hurricanes
   since 1851 and typhoons since 1951, every orbital launch since 1957, every US law since 1973,
   rate decisions of the Fed, ECB, Bank of England, Bank of Canada and RBA, SEC filings, insider
@@ -60,7 +74,7 @@ unlimited mirror && unlimited search flood --catalog offline    # works without 
   about a second; [On this day](https://feeds.daemonfill.dev/on-this-day.html) shows each
   date's biggest past events.
 - **Answers that cite.** `ask` finds the facts with plain search, then a small local model
-  trained for the job answers from them: on 40 blind questions typed the way people type, 90%
+  trained for the job answers from them: on 40 blind questions typed the way people type, 92%
   of its answers pass (Qwen3.5 2B, four times its size, 87%), ahead of the 3 to 4B models we
   tried.
 - **Open.** What it publishes is an [open protocol](docs/protocol.md) any tool can read or
@@ -75,7 +89,6 @@ unlimited mirror && unlimited search flood --catalog offline    # works without 
 | An investor | `unlimited ask "biggest insider purchases this month"`, `unlimited follow berkshire hathaway --feed sec-fund-holdings --to ntfy:TOPIC` |
 | A journalist or researcher | `unlimited ask "sec charges in 2015"`, `unlimited search "affordable care act" --since 2010`: every record links to its source, dated when it was first seen |
 | Watching for disasters | Phone alerts with nothing to run: subscribe to `earthquakes`, `tsunami-alerts` or `typhoons` on [ntfy.daemonfill.dev](https://ntfy.daemonfill.dev/) in the ntfy app; or `unlimited follow tsunami --to ntfy:TOPIC --every 5m` for your own words |
-| In Thailand | `unlimited ask "bangkok weather tomorrow"`, `unlimited ask "น้ำท่วมกรุงเทพตอนนี้เป็นอย่างไร"` |
 | A developer or on call | `unlimited follow outage --feed cloud-status --to "$SLACK_WEBHOOK"`, `unlimited ask "fortinet vulnerability"` |
 | Building AI agents | `claude mcp add unlimitedpipe -- unlimited mcp`: fresh public records with sources, as tools |
 | Training or studying models | 1.25M public-record events and 2.85B tokens of government records on Hugging Face |
@@ -433,7 +446,8 @@ Three blind rounds, written before the model was trained:
 
 | Model | Size | Blind (40) | Blind 2 (42) | Blind 3, the past (43) |
 | --- | --- | --- | --- | --- |
-| **unlimitedpipe/decide-0.5b, build 7** (decides; the code writes) | **0.5B** | **36 (90%)** | 27 (64%) | **37 (86%)** |
+| **unlimitedpipe/decide-0.5b, build 8** (decides; the code writes) | **0.5B** | **37 (92%)** | 28 (67%) | **37 (86%)** |
+| unlimitedpipe/decide-0.5b, build 7 | 0.5B | 36 (90%) | 27 (64%) | 37 (86%) |
 | unlimitedpipe/decide-0.5b, build 6 | 0.5B | 36 (90%) | 28 (67%) | 26 (60%) |
 | unlimitedpipe/ask-0.5b (writes its answers) | 0.5B | 35 (87%) | | |
 | Qwen3.5 2B | 1.9B | 35 (87%) | | |
@@ -441,11 +455,11 @@ Three blind rounds, written before the model was trained:
 | Qwen3.5 4B | 4.2B | 31 (77%) | | |
 | Llama 3.2 3B | 3.2B | 25 (62%) | | |
 
-On the first round the 0.5B model is level with Qwen3.5 2B, a model four times its size (one
-question ahead), and ahead of the 3 to 4B models. Build 7 learned questions about the past;
-blind 3 is scored on 43 of its 46 questions, as three turn up word for word among build 7's
-generated training questions, and it flatters build 7, whose data was made to fix build 6's
-misses there. Its weak spot is saying "not covered" for some current questions a source does
+On the first round the 0.5B model is ahead of Qwen3.5 2B, a model four times its size (two
+questions), and of the 3 to 4B models. Build 7 learned questions about the past and build 8 the
+history added since; blind 3 is scored on 43 of its 46 questions, as three turn up word for word
+among the generated training questions, and it flatters builds 7 and 8, whose data was made to
+fix build 6's misses there. Its weak spot is saying "not covered" for some current questions a source does
 answer ("crude oil price"); `ask` then still shows the closest sources. The model card has
 every set and the other models' scores.
 
@@ -489,7 +503,7 @@ a disaster area):
 ```bash
 unlimited mirror --since 2026-08                    # run it again to refresh
 unlimited search flood --catalog offline            # the offline copy, on purpose
-unlimited ask "what happened in Bangkok?" --catalog offline   # with a local model
+unlimited ask "what happened this week?" --catalog offline   # with a local model
 unlimited serve --lan                               # phones on the same Wi-Fi get the search page
 unlimited mirror ~/feeds && unlimited serve ~/feeds # or any folder
 ```
@@ -634,8 +648,8 @@ news](docs/posts/fruit-fly-on-the-news.md).
 - **v0.9 Setup**: a one-line installer and `unlimited setup`, which sets up the
   browser, a local AI model, Claude Code's tools and skill, and an offline catalog.
 - **v0.10 Open** (current): the Feed Catalog Protocol with `unlimited validate`, a 0.5B model
-  trained for `ask` on public data (90% on blind questions typed the way people type, level
-  with Qwen3.5 2B), and the public dataset unlimitedpipe/public-records.
+  trained for `ask` on public data (92% on blind questions typed the way people type, ahead
+  of Qwen3.5 2B), and the public dataset unlimitedpipe/public-records.
 - **Next**: searching the archive from the web page,
   bot-network filtering for trends, a network of catalogs.
 
