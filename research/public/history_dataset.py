@@ -167,40 +167,119 @@ def rows_of(site: Path, insider: Path | None) -> dict[str, list[dict]]:
     }
 
 
-def card(counts: dict[str, int], spans: dict[str, tuple[str, str]]) -> str:
-    table = "\n".join(
-        f"| {feed} | {counts[feed]:,} | {spans[feed][0]} to {spans[feed][1]} | {FEEDS[feed][0]} |"
-        f" {FEEDS[feed][1]} |"
-        for feed in sorted(counts, key=lambda f: -counts[f])
-    )
+def share_alike(feed: str) -> bool:
+    """Feeds under CC BY-SA 4.0 (Wikipedia's): kept in their own config, so the default one
+    carries no share-alike terms."""
+    return "CC BY-SA" in FEEDS[feed][1]
+
+
+def card(counts: dict[str, int], spans: dict[str, tuple[str, str]], day: str) -> str:
+    def table(feeds: list[str]) -> str:
+        return "\n".join(
+            f"| {feed} | {counts[feed]:,} | {spans[feed][0]} to {spans[feed][1]} | "
+            f"{FEEDS[feed][0]} | {FEEDS[feed][1]} |"
+            for feed in sorted(feeds, key=lambda f: -counts[f])
+        )
+
+    open_feeds = [f for f in counts if not share_alike(f)]
+    wiki_feeds = [f for f in counts if share_alike(f)]
+    total = sum(counts.values())
+    in_open = sum(counts[f] for f in open_feeds)
+    header = "| Feed | Items | Dates | Source | License |\n| --- | --- | --- | --- | --- |"
     return f"""---
 license: other
-license_name: public-domain-cc-by-and-cc-by-sa
+license_name: public-domain-open-licences-and-cc-by-sa
 language: [en]
 pretty_name: UnlimitedPipe feed history (public records)
-task_categories: [text-retrieval, question-answering]
+task_categories: [text-retrieval, question-answering, time-series-forecasting]
+tags: [public-records, events, sec, government, disasters, crypto, time-series]
+size_categories: [1M<n<10M]
 configs:
   - config_name: default
     data_files: data/*.parquet
+  - config_name: wikipedia
+    data_files: wikipedia/*.parquet
 ---
 
 # feed-history
 
-The history of UnlimitedPipe's public-record feeds (https://feeds.daemonfill.dev):
-{sum(counts.values()):,} items, each with the feed it belongs to, a readable title, a short
-summary, a link to the record at its source, and its date. Built with `unlimited backfill`,
-which runs each feed's own pipeline over the past; from the SEC's Form 345 data sets for
-insider trades; and, where a source keeps its history elsewhere, with the scripts in
-research/public (FRED, the ECB, NASA EONET, OFAC, DefiLlama), which write the feeds' own
-titles (https://github.com/Fuyuki0/unlimitedpipe).
+The history of UnlimitedPipe's public-record feeds (https://feeds.daemonfill.dev): {total:,}
+dated events back to 1851, each with a readable title, a short summary and a link to the record
+at its official source. SEC filings and insider trades, new laws and rules, sanctions, rate
+decisions, earnings releases, earthquakes, hurricanes, typhoons and solar storms, recalls,
+vulnerabilities, government announcements of the US, UK, Canada, the EU, Australia and New
+Zealand, federal contracts and grants, and crypto market and on-chain events. Updated {day}.
 
-| Feed | Items | Dates | Source | License |
-| --- | --- | --- | --- | --- |
-{table}
+## Load it
 
-Titles and summaries are written by UnlimitedPipe from the records ("NVIDIA (NVDA): Jensen Huang
-(CEO) sold 120,000 shares at $180.50 ($21.7M)"); every item links to the record it comes from.
-Insider trades are open-market purchases and sales of $100,000 or more.
+```python
+from datasets import load_dataset
+
+events = load_dataset("unlimitedpipe/feed-history", split="train")  # every open-licence feed
+quakes = load_dataset("unlimitedpipe/feed-history", data_files="data/earthquakes.parquet")
+world = load_dataset("unlimitedpipe/feed-history", "wikipedia", split="train")  # CC BY-SA
+```
+
+Each feed is one Parquet file, so a single feed can be read on its own (`pandas.read_parquet`).
+
+## Columns
+
+| Column | Type | Meaning |
+| --- | --- | --- |
+| `feed` | string | The feed it belongs to (the file's name) |
+| `title` | string | One line written by UnlimitedPipe from the record ("M 9.1 - Tohoku, Japan") |
+| `summary` | string | A short summary, or null (about 0.03% of rows) |
+| `link` | string | The record at its official source |
+| `date` | string | When it happened or was published, ISO 8601 (UTC) |
+
+## The default config: public domain and open licences ({in_open:,} items)
+
+{header}
+{table(open_feeds)}
+
+## The wikipedia config: CC BY-SA 4.0 ({total - in_open:,} items)
+
+The world's events day by day since 2002 (Wikipedia's Current events portal) and each
+country's year by year ("<year> in <country>" articles). Anything built from them must be
+shared under CC BY-SA 4.0 too, which is why they are kept apart.
+
+{header}
+{table(wiki_feeds)}
+
+## How it was made, and its limits
+
+Built with `unlimited backfill`, which runs each feed's own pipeline over the past, and the
+scripts in [research/public](https://github.com/Fuyuki0/unlimitedpipe/tree/main/research/public)
+(FRED, the ECB, NASA EONET, OFAC, DefiLlama, BigQuery's public Ethereum data, JMA, HURDAT2 and
+more), all through official APIs, bulk files and robots.txt-allowed pages.
+
+- Titles and summaries are UnlimitedPipe's sentences, not the documents' full text ("NVIDIA
+  (NVDA): Jensen Huang (CEO) sold 120,000 shares at $180.50 ($21.7M)"); follow `link` for the
+  record. For full text of US government documents, see
+  [unlimitedpipe/public-records](https://huggingface.co/datasets/unlimitedpipe/public-records).
+- Feeds keep what crosses their bar: insider trades of $100,000 or more, earthquakes of
+  magnitude 4.5 or more (6 and more before 1973), stablecoin transfers of $25M or more,
+  and so on, as each feed's description on the site says.
+- Coverage is strongest for the United States. Some old place names keep the "?" the source
+  itself has (USGS: "47 km E of ?arai, Japan").
+- News headlines, Hacker News titles and licensed market indices (S&P 500, Dow, Nasdaq,
+  Nikkei, VIX) are left out.
+
+## Updates
+
+Rebuilt from the live catalog's archive about once a month; the catalog itself adds new
+items every minute to every hour at https://feeds.daemonfill.dev.
+
+## Cite
+
+```bibtex
+@misc{{unlimitedpipe_feed_history,
+  title  = {{feed-history: dated public-record events with their sources}},
+  author = {{UnlimitedPipe}},
+  year   = {{2026}},
+  url    = {{https://huggingface.co/datasets/unlimitedpipe/feed-history}}
+}}
+```
 
 Attribution: breach data by Have I Been Pwned (CC BY 4.0); crypto data by DefiLlama; world
 events from Wikipedia's Current events portal by Wikipedia contributors (CC BY-SA 4.0: the
@@ -211,16 +290,19 @@ Parliamentary information licensed under the Open Parliament Licence v3.0.
 
 
 def main(site: str, out: str, insider: str | None = None) -> None:
+    from datetime import UTC, datetime
+
     rows = rows_of(Path(site), Path(insider) if insider else None)
-    folder = Path(out) / "data"
-    folder.mkdir(parents=True, exist_ok=True)
     counts, spans = {}, {}
     for feed, items in rows.items():
+        folder = Path(out) / ("wikipedia" if share_alike(feed) else "data")
+        folder.mkdir(parents=True, exist_ok=True)
         pq.write_table(pa.Table.from_pylist(items), folder / f"{feed}.parquet", compression="zstd")
         counts[feed] = len(items)
         spans[feed] = (str(items[0]["date"])[:7], str(items[-1]["date"])[:7])
         print(feed, len(items), spans[feed])
-    (Path(out) / "README.md").write_text(card(counts, spans), encoding="utf-8")
+    day = datetime.now(UTC).strftime("%Y-%m-%d")
+    (Path(out) / "README.md").write_text(card(counts, spans, day), encoding="utf-8")
 
 
 if __name__ == "__main__":

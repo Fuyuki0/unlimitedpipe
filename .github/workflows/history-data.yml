@@ -1,0 +1,35 @@
+name: History dataset
+
+# Builds the Hugging Face dataset unlimitedpipe/feed-history from the feeds catalog's public
+# archive (research/public/history_dataset.py) on a GitHub machine: it holds every record in
+# memory, too much for a small server. The Parquet files and card come back as an artifact,
+# uploaded to Hugging Face from wherever the token is.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/checkout@v5
+        with:
+          repository: Fuyuki0/unlimitedpipe-feeds
+          path: feeds-site
+          sparse-checkout: public/archive
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e . pyarrow
+      - name: Build the dataset
+        run: python -u research/public/history_dataset.py feeds-site/public out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: feed-history
+          path: out/
+          retention-days: 7
