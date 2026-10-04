@@ -3,11 +3,12 @@ network. `search --catalog DIR` and `ask --catalog DIR` then work without the in
 
 from __future__ import annotations
 
+import gzip
 import json
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from unlimitedpipe.archive import WORDS
+from unlimitedpipe.archive import WORDS, WORDS_GZ
 from unlimitedpipe.context import Context
 from unlimitedpipe.errors import FetchError, UsageError
 from unlimitedpipe.sources.search import catalog_url, join, load_catalog, read
@@ -68,7 +69,13 @@ async def mirror(
         (folder / _safe(index_path)).write_text(
             json.dumps(listed, indent=1) + "\n", encoding="utf-8"
         )
-        await copy(f"{archive_dir}/{WORDS}", required=False)  # for questions without a date
+        # for questions without a date: the whole word index, sent gzipped, kept plain
+        packed = await copy(f"{archive_dir}/{WORDS_GZ}", required=False)
+        if packed is not None:
+            (folder / _safe(f"{archive_dir}/{WORDS}")).write_bytes(gzip.decompress(packed))
+            (folder / _safe(f"{archive_dir}/{WORDS_GZ}")).unlink(missing_ok=True)
+        else:
+            await copy(f"{archive_dir}/{WORDS}", required=False)  # an older catalog
     if feeds:
         for feed in document.get("feeds", []):
             for relative in feed.get("files", []):

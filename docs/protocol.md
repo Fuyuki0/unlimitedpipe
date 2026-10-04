@@ -121,8 +121,10 @@ The word index is also split by the first two letters of its words, lowercased, 
 other than `a`-`z` and `0`-`9` written `_` (`archive/words/ja.json` holds "japan", `x_.json`
 "x-ray"), each file with the same schema. The archive index then lists the files as `"shards":
 ["ja", ...]`, and a reader fetches only those its words need, a few kilobytes rather than the
-whole index; a listed file may be empty. Without `shards`, readers use `archive/words.json`,
-which stays for older readers.
+whole index; a listed file may be empty. Without `shards`, readers use `archive/words.json`.
+A catalog that writes `shards` may publish the whole index only gzipped, as
+`archive/words.json.gz` (UnlimitedPipe does since 0.10.58: 53 MB of JSON is about 8 MB), for
+tools that copy a catalog in one request; `unlimited mirror` unpacks it into `words.json`.
 
 ## 4. Events
 

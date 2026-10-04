@@ -27,6 +27,7 @@ SCHEMA = "unlimitedpipe.archive/1"
 # (words/ja.json), so a question reads a few small files rather than the whole index; the
 # index lists those files as "shards".
 WORDS = "words.json"
+WORDS_GZ = "words.json.gz"  # the whole word index in one file, for copies (mirror)
 WORD_FILES = "words"
 WORDS_SCHEMA = "unlimitedpipe.archive-words/1"
 # Each month also split by feed (archive/2024-02/sec-ipo-filings.jsonl), with the feeds each word
@@ -305,7 +306,10 @@ def write_words(folder: Path, fresh: list[tuple[str, dict[str, Any]]] | None = N
                 if len(in_feed) < len(months):
                     table[f"{word}@{feed}"] = sorted(in_feed)
     table = dict(sorted(table.items()))
-    _write_json(folder / WORDS, {"schema": WORDS_SCHEMA, "words": table})
+    # Readers fetch the small files; the one whole file is kept gzipped for copies (53 MB of
+    # JSON is about 8 MB), and the plain one, past GitHub's 50 MB warning, is gone.
+    _write_gzip_json(folder / WORDS_GZ, {"schema": WORDS_SCHEMA, "words": table})
+    (folder / WORDS).unlink(missing_ok=True)
     feeds = {
         word: {feed: sorted(months) for feed, months in sorted(feeds_of.items())}
         for word, feeds_of in sorted(by_feed.items())
@@ -348,6 +352,15 @@ def _write_json(path: Path, content: dict[str, Any]) -> None:
     text = json.dumps(content, ensure_ascii=False, separators=(",", ":")) + "\n"
     if not path.exists() or path.read_text(encoding="utf-8") != text:
         path.write_text(text, encoding="utf-8")
+
+
+def _write_gzip_json(path: Path, content: dict[str, Any]) -> None:
+    """Gzipped JSON, the same bytes for the same content (no time in the header), written only
+    when it changed."""
+    text = json.dumps(content, ensure_ascii=False, separators=(",", ":")) + "\n"
+    data = gzip.compress(text.encode("utf-8"), compresslevel=9, mtime=0)
+    if not path.exists() or path.read_bytes() != data:
+        path.write_bytes(data)
 
 
 def _write_shards(

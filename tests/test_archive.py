@@ -1,3 +1,4 @@
+import gzip
 import json
 import subprocess
 import sys
@@ -83,6 +84,14 @@ def test_parse_since():
     assert parse_since("2010") == "2010-01"  # a year: from its first month
     with pytest.raises(ValueError, match="like 2010, 2026-08"):
         parse_since("August")
+
+
+def whole_words(archive: Path) -> dict:
+    """The archive's whole word index, which is kept gzipped."""
+    from unlimitedpipe.archive import WORDS, WORDS_GZ
+
+    assert not (archive / WORDS).exists()  # only the gzipped copy is written
+    return json.loads(gzip.decompress((archive / WORDS_GZ).read_bytes()))
 
 
 def local_catalog(folder: Path) -> Path:
@@ -255,17 +264,17 @@ def test_search_looks_in_the_archive_when_no_latest_item_has_the_words(tmp_path)
 def test_the_word_index_leads_undated_questions_to_their_months(tmp_path):
     import asyncio
 
-    from unlimitedpipe.archive import WORDS, write_words
+    from unlimitedpipe.archive import WORDS_GZ, write_words
     from unlimitedpipe.sources.search import items_by_words
 
     site = local_catalog(tmp_path)
-    table = json.loads((site / "archive" / WORDS).read_text())["words"]
+    table = whole_words(site / "archive")["words"]
     assert table["tonga"] == ["2026-08"] and table["loyalt"] == ["2026-09"]  # stemmed
     append(site, [{**ITEMS[1], "title": "Tonga tsunami warning", "link": "https://t/1"}], "T")
-    assert json.loads((site / "archive" / WORDS).read_text())["words"]["tonga"] == ["2026-08"]
-    (site / "archive" / WORDS).unlink()
+    assert whole_words(site / "archive")["words"]["tonga"] == ["2026-08"]
+    (site / "archive" / WORDS_GZ).unlink()
     write_words(site / "archive")  # rebuilt from every month
-    assert json.loads((site / "archive" / WORDS).read_text())["words"]["tsunami"] == ["2026-08"]
+    assert whole_words(site / "archive")["words"]["tsunami"] == ["2026-08"]
 
     async def find(words):
         ctx = Context(quiet=True, state_dir=tmp_path / "s", cache_dir=tmp_path / "c")
@@ -285,7 +294,6 @@ def test_the_word_index_leads_undated_questions_to_their_months(tmp_path):
 def test_a_word_naming_a_feed_narrows_the_others_to_that_feed(tmp_path):
     import asyncio
 
-    from unlimitedpipe.archive import WORDS
     from unlimitedpipe.sources.search import items_by_words
 
     site = tmp_path / "site"
@@ -312,7 +320,7 @@ def test_a_word_naming_a_feed_narrows_the_others_to_that_feed(tmp_path):
         "date": "2024-06-10T00:00:00Z",
     }
     append(site, [*trades, ipo], "2026-01-01T00:00:00Z")
-    table = json.loads((site / "archive" / WORDS).read_text())["words"]
+    table = whole_words(site / "archive")["words"]
     assert table["acme@ipo-filings"] == ["2024-06"] and len(table["acme"]) == 14
     document = {
         "archive": "archive/index.json",
@@ -493,8 +501,10 @@ def test_word_index_updated_in_place_matches_a_full_rebuild(tmp_path):
 
     def index() -> dict[str, str]:
         return {
-            p.relative_to(folder).as_posix(): p.read_text()
-            for p in [folder / "words.json", *folder.glob("words*/*.json")]
+            p.relative_to(folder).as_posix(): gzip.decompress(p.read_bytes())
+            if p.suffix == ".gz"
+            else p.read_text()
+            for p in [folder / "words.json.gz", *folder.glob("words*/*.json")]
         }
 
     updated = index()
