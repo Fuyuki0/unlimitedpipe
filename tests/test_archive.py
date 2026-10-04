@@ -444,6 +444,9 @@ def test_closed_months_are_compressed_and_open_again_for_a_late_item(tmp_path):
         "file": "2026-08.jsonl.gz",
         "items": 1,
         "packed": True,
+        "bytes": (folder / "2026-08.jsonl.gz")
+        .stat()
+        .st_size,  # its counts are kept until it changes
         "feeds": {"quakes": 1},
     }
     # and search reads them
@@ -457,3 +460,31 @@ def test_closed_months_are_compressed_and_open_again_for_a_late_item(tmp_path):
     ctx = Context(quiet=True, state_dir=tmp_path / "s", cache_dir=tmp_path / "c")
     found = run_source(Search(words=["late"], catalog=str(tmp_path), since="2026-01"), ctx)
     assert [e.data["title"] for e in found] == ["M 6.0 late"]
+
+
+def test_word_index_updated_in_place_matches_a_full_rebuild(tmp_path):
+    from unlimitedpipe.archive import write_words
+
+    folder = tmp_path / "archive"
+    append(tmp_path, ITEMS, "2026-09-26T00:00:00Z")
+    later = [
+        {
+            "feed": "news",
+            "title": "Quake damages homes",
+            "link": "https://a/9",
+            "date": "2026-09-27",
+        },
+        {"feed": "quakes", "title": "M 6.0 - Chile", "link": "https://a/10", "date": "2026-08-05"},
+    ]
+    append(tmp_path, later, "2026-09-28T00:00:00Z")  # updates the index with the two items
+
+    def index() -> dict[str, str]:
+        return {
+            p.relative_to(folder).as_posix(): p.read_text()
+            for p in [folder / "words.json", *folder.glob("words*/*.json")]
+        }
+
+    updated = index()
+    assert json.loads((folder / "words-by-feed" / "qu.json").read_text())["complete"] is True
+    write_words(folder)  # every month read again
+    assert index() == updated

@@ -3,6 +3,17 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.52 - 2026-10-04
+
+- Archive: the word index is updated with each append's new items instead of rebuilt from every
+  month (the same files, written in a fraction of the time; the index by feed now keeps every
+  word and says it is complete); the month index keeps the counts of compressed months that
+  have not changed; stems are remembered.
+- `ask`: notable events are ranked within their own feed, so a $4.3B filing no longer outranks
+  an M7.5 earthquake; death tolls count as size ("killing 241 people"); "what happened in 2011"
+  answers with that year's deadliest world events; World Bank tenders appear only when asked
+  for.
+
 ## 0.10.51 - 2026-10-04
 
 - Archive: records are written with Unicode line separators (U+2028, U+2029, U+0085) escaped and

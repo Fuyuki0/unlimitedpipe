@@ -11,6 +11,7 @@ a late item for such a month opens it again, and the next run closes it.
 from __future__ import annotations
 
 import collections
+import functools
 import gzip
 import hashlib
 import json
@@ -248,10 +249,17 @@ def split_by_feed(folder: Path) -> int:
 
 def title_words(title: Any) -> set[str]:
     """The searchable words of a title, as `search` stems them (no numbers, no short words)."""
+    words = _WORD.findall(str(title or "").casefold())
+    return {_stem(w) for w in words if len(w) > 2 and not w.isdigit()}
+
+
+@functools.lru_cache(maxsize=1 << 18)
+def _stem(word: str) -> str:
+    """`search`'s stem, remembered: an archive's titles repeat the same words millions of
+    times."""
     from unlimitedpipe.sources.search import stem
 
-    words = _WORD.findall(str(title or "").casefold())
-    return {stem(w) for w in words if len(w) > 2 and not w.isdigit()}
+    return stem(word)
 
 
 # Words in more months than this also get keys by feed ("reddit@sec-ipo-filings"), up to
@@ -262,48 +270,78 @@ FEED_WORDS = 120
 
 
 def write_words(folder: Path, fresh: list[tuple[str, dict[str, Any]]] | None = None) -> None:
-    """Write the word index from every month (``fresh``, the items just added, is in them):
-    the months each title word appears in, and for words that are not rare, the months it
-    appears in each feed."""
-    del fresh  # a whole rebuild takes a few seconds and keeps the keys by feed exact
-    words: dict[str, set[str]] = collections.defaultdict(set)
-    by_feed: dict[tuple[str, str], set[str]] = collections.defaultdict(set)
-    for path in _month_files(folder):
-        name = _month_name(path)
-        for line in lines_of(_text(path)):
-            try:
-                entry = json.loads(line)
-            except ValueError:
-                continue
-            if not isinstance(entry, dict):
-                continue
+    """Write the word index: the months each title word appears in, and for words that are not
+    rare, the months it appears in each feed. With ``fresh`` (the items an append just added),
+    the existing index by feed is updated with them; without it, or when that index is missing
+    or from an older version, every month is read again."""
+    by_feed = _load_by_feed(folder) if fresh is not None else None
+    if by_feed is not None:
+        for month, entry in fresh or []:
             feed = str(entry.get("feed") or "")
             for word in title_words(entry.get("title")):
-                words[word].add(name)
-                by_feed[(word, feed)].add(name)
-    table = {w: sorted(m) for w, m in words.items()}
-    for (word, feed), months in by_feed.items():
-        if RARE < len(words[word]) <= FEED_WORDS and len(months) < len(words[word]):
-            table[f"{word}@{feed}"] = sorted(months)
+                by_feed.setdefault(word, {}).setdefault(feed, set()).add(month)
+    else:
+        by_feed = {}
+        for path in _month_files(folder):
+            name = _month_name(path)
+            pairs: set[tuple[str, str]] = set()  # each word and feed once a month
+            for line in lines_of(_text(path)):
+                try:
+                    entry = json.loads(line)
+                except ValueError:
+                    continue
+                if not isinstance(entry, dict):
+                    continue
+                feed = str(entry.get("feed") or "")
+                pairs.update((word, feed) for word in title_words(entry.get("title")))
+            for word, feed in pairs:
+                by_feed.setdefault(word, {}).setdefault(feed, set()).add(name)
+    table: dict[str, list[str]] = {}
+    for word, feeds_of in by_feed.items():
+        months = set().union(*feeds_of.values())
+        table[word] = sorted(months)
+        if RARE < len(months) <= FEED_WORDS:
+            for feed, in_feed in feeds_of.items():
+                if len(in_feed) < len(months):
+                    table[f"{word}@{feed}"] = sorted(in_feed)
     table = dict(sorted(table.items()))
     _write_json(folder / WORDS, {"schema": WORDS_SCHEMA, "words": table})
-    from unlimitedpipe.operators.extract import STOPWORDS
-
-    stop = {w.casefold() for w in STOPWORDS}  # a search never asks for them
-    feeds: dict[str, dict[str, list[str]]] = collections.defaultdict(dict)
-    for (word, feed), months in sorted(by_feed.items()):
-        if word not in stop:
-            feeds[word][feed] = sorted(months)
+    feeds = {
+        word: {feed: sorted(months) for feed, months in sorted(feeds_of.items())}
+        for word, feeds_of in sorted(by_feed.items())
+    }
     names = {shard_of(word) for word in table}
     _write_shards(folder / WORD_FILES, WORDS_SCHEMA, table, names)
-    _write_shards(folder / BY_FEED, BY_FEED_SCHEMA, feeds, names)
+    _write_shards(folder / BY_FEED, BY_FEED_SCHEMA, feeds, names, complete=True)
     (folder / f"{BY_FEED}.json").unlink(missing_ok=True)  # the one file of version 0.10.18
+
+
+def _load_by_feed(folder: Path) -> dict[str, dict[str, set[str]]] | None:
+    """The archive's index by feed, as word -> feed -> months, when it is complete (written by
+    a version that keeps every word in it); else None."""
+    shards = sorted((folder / BY_FEED).glob("*.json"))
+    if not shards:
+        return None
+    found: dict[str, dict[str, set[str]]] = {}
+    for shard in shards:
+        try:
+            content = json.loads(shard.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            return None
+        if not (isinstance(content, dict) and content.get("complete")):
+            return None
+        for word, feeds_of in content.get("words", {}).items():
+            found[word] = {feed: set(months) for feed, months in feeds_of.items()}
+    return found
 
 
 def shard_of(word: str) -> str:
     """The file of a split word index that holds a word: its first two letters or digits, any
     other character as "_" ("ja" for "japan", "x_" for "x-ray")."""
-    return re.sub(r"[^a-z0-9]", "_", word.lower()[:2]).ljust(2, "_")
+    head = word[:2].lower()
+    if len(head) == 2 and head.isascii() and head.isalnum():
+        return head  # most words: no pattern needed
+    return re.sub(r"[^a-z0-9]", "_", head).ljust(2, "_")
 
 
 def _write_json(path: Path, content: dict[str, Any]) -> None:
@@ -312,9 +350,12 @@ def _write_json(path: Path, content: dict[str, Any]) -> None:
         path.write_text(text, encoding="utf-8")
 
 
-def _write_shards(folder: Path, schema: str, table: dict[str, Any], names: set[str]) -> None:
+def _write_shards(
+    folder: Path, schema: str, table: dict[str, Any], names: set[str], complete: bool = False
+) -> None:
     """A word index split into one file per shard name (a name without words gets an empty
-    file, so every listed shard can be read); files of older names are removed."""
+    file, so every listed shard can be read); files of older names are removed. ``complete``
+    marks an index that holds every word, so it can be updated instead of rebuilt."""
     shards: dict[str, dict[str, Any]] = {name: {} for name in names}
     for word, value in table.items():
         shards.setdefault(shard_of(word), {})[word] = value
@@ -323,17 +364,34 @@ def _write_shards(folder: Path, schema: str, table: dict[str, Any], names: set[s
         if old.stem not in shards:
             old.unlink()
     for name, words in shards.items():
-        _write_json(folder / f"{name}.json", {"schema": schema, "words": words})
+        content: dict[str, Any] = {"schema": schema, "words": words}
+        if complete:
+            content["complete"] = True
+        _write_json(folder / f"{name}.json", content)
 
 
 def write_index(folder: Path) -> None:
+    # a compressed month is closed: its counts stand while its file keeps its size
+    try:
+        before = {
+            m["file"]: m
+            for m in json.loads((folder / INDEX).read_text(encoding="utf-8")).get("months", [])
+            if m.get("packed") and m.get("bytes")
+        }
+    except (OSError, ValueError, AttributeError, TypeError):
+        before = {}
     months = []
     for path in reversed(_month_files(folder)):
         name = _month_name(path)
+        size = path.stat().st_size
+        if (known := before.get(path.name)) and known["bytes"] == size and known.get("feeds"):
+            months.append(known)
+            continue
         count = sum(1 for line in lines_of(_text(path)) if line.strip())
         entry: dict[str, Any] = {"month": name, "file": path.name, "items": count}
         if path.name.endswith(PACKED):
             entry["packed"] = True  # its files by feed are compressed too
+            entry["bytes"] = size
         split = folder / name
         if split.is_dir():
             entry["feeds"] = {
