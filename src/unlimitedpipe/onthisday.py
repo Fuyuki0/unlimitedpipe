@@ -90,7 +90,7 @@ def build(site: Path) -> int:
     return len(days)
 
 
-def page(title: str, style: str) -> str:
+def page(title: str, style: str, brand: str | None = None) -> str:
     """The page that shows a day's events, today's by default (the reader's own date)."""
     return f"""<!doctype html>
 <html lang="en">
@@ -116,7 +116,7 @@ def page(title: str, style: str) -> str:
   </head>
   <body>
     <div class="wrap">
-    <header class="top"><a class="brand" href="./">{title}</a>
+    <header class="top"><a class="brand" href="./">{brand or title}</a>
       <nav><a href="./">All feeds</a></nav></header>
     <section class="hero">
       <h1 id="heading">On this day</h1>

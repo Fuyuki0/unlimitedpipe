@@ -649,11 +649,12 @@ def publish_command(
     days = 0
     if wrote_index and (site / "archive" / "index.json").exists():
         from unlimitedpipe import onthisday
-        from unlimitedpipe.publish import INDEX_STYLE
+        from unlimitedpipe.publish import INDEX_STYLE, wordmark
 
         days = onthisday.build(site)  # the biggest events of each date in past years
         (site / onthisday.PAGE).write_text(
-            onthisday.page(p.title or p.name, INDEX_STYLE), encoding="utf-8"
+            onthisday.page(p.title or p.name, INDEX_STYLE, wordmark(p.title or p.name)),
+            encoding="utf-8",
         )
         if days and not any(url == onthisday.PAGE for _, url in p.links):
             p.links.insert(0, ("On this day", onthisday.PAGE))

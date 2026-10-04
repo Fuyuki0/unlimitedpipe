@@ -3,6 +3,11 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.62 - 2026-10-05
+
+- The feed page is always white, whatever the reader's system theme, with the site's name as a
+  text logo ("Unlimited**Pipe** feeds"); On this day matches.
+
 ## 0.10.61 - 2026-10-05
 
 - The feed page is a dashboard: the catalog in numbers, a chart of the last 30 days by topic,

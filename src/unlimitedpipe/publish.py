@@ -1101,10 +1101,11 @@ def _readable(name: str) -> str:
 INDEX_STYLE = """
       /* A control room for public records: calm navy surfaces, one colour per topic, numbers
          that line up. System fonts only: the page loads nothing from anyone else. */
-      :root { --bg: #f2f4f8; --card: #ffffff; --ink: #0f1729; --muted: #5b6579;
-        --line: #e1e6ef; --accent: #4338ca; --accent-ink: #ffffff; --live: #e11d48;
-        --pill: #eef1f7; --link: #3730a3; --shade: 0 1px 2px rgba(15, 23, 41, .06),
-          0 4px 16px rgba(15, 23, 41, .05); --grid: #e9edf4;
+      /* One look, white, whatever the reader's system theme. */
+      :root { --bg: #ffffff; --card: #ffffff; --ink: #0f1729; --muted: #5b6579;
+        --line: #e5e9f0; --accent: #4338ca; --accent-ink: #ffffff; --live: #e11d48;
+        --pill: #f2f4f8; --link: #3730a3; --shade: 0 1px 3px rgba(15, 23, 41, .07);
+        --grid: #eef1f5; --soft: #f7f8fb;
         --c0: #4e79a7; --c1: #e15759; --c2: #f28e2b; --c3: #59a14f; --c4: #b07aa1;
         --c5: #edc948; --c6: #76b7b2; --c7: #9c755f; --c8: #ff9da7; --c9: #8b8f99;
         color-scheme: light;
@@ -1112,22 +1113,6 @@ INDEX_STYLE = """
         --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
         --mono: ui-monospace, "SF Mono", "Cascadia Mono", "Segoe UI Mono", Menlo, Consolas,
           monospace; }
-      @media (prefers-color-scheme: dark) {
-        :root:not([data-theme="light"]) { --bg: #0a0f1c; --card: #111a2c; --ink: #e7ebf3;
-          --muted: #96a1b6; --line: #1f2a40; --accent: #8b8cff; --accent-ink: #0a0f1c;
-          --live: #ff5d7a; --pill: #18233a; --link: #a5b4fc; --grid: #1a2438;
-          --shade: 0 1px 2px rgba(0, 0, 0, .4), 0 6px 20px rgba(0, 0, 0, .25);
-          --c0: #78a6d9; --c1: #ff7b7d; --c2: #ffa85a; --c3: #7fc96f; --c4: #d39ec5;
-          --c5: #f5d76e; --c6: #93d3cd; --c7: #c39b84; --c8: #ffb8c0; --c9: #a4a9b4;
-          color-scheme: dark; }
-      }
-      :root[data-theme="dark"] { --bg: #0a0f1c; --card: #111a2c; --ink: #e7ebf3;
-        --muted: #96a1b6; --line: #1f2a40; --accent: #8b8cff; --accent-ink: #0a0f1c;
-        --live: #ff5d7a; --pill: #18233a; --link: #a5b4fc; --grid: #1a2438;
-        --shade: 0 1px 2px rgba(0, 0, 0, .4), 0 6px 20px rgba(0, 0, 0, .25);
-        --c0: #78a6d9; --c1: #ff7b7d; --c2: #ffa85a; --c3: #7fc96f; --c4: #d39ec5;
-        --c5: #f5d76e; --c6: #93d3cd; --c7: #c39b84; --c8: #ffb8c0; --c9: #a4a9b4;
-        color-scheme: dark; }
       * { box-sizing: border-box; }
       html { scroll-padding-top: 1rem; }
       body { margin: 0; background: var(--bg); color: var(--ink);
@@ -1135,12 +1120,15 @@ INDEX_STYLE = """
       a { color: var(--link); text-underline-offset: .15em; }
       .wrap { max-width: 78rem; margin: 0 auto; }
       .top { display: flex; flex-wrap: wrap; gap: .5rem 1.5rem; align-items: center;
-        justify-content: space-between; padding-block: 1rem; }
-      .brand { font-weight: 750; font-size: 1.05rem; letter-spacing: -.01em; color: var(--ink);
-        text-decoration: none; display: inline-flex; gap: .55rem; align-items: center; }
-      .brand::before { content: ""; width: 1.4rem; height: 1.4rem; border-radius: 6px;
-        background: conic-gradient(from 200deg, var(--c0), var(--c3), var(--c6), var(--c2),
-          var(--c1), var(--c0)); }
+        justify-content: space-between; padding-block: 1.1rem;
+        border-bottom: 1px solid var(--line); }
+      .brand { color: var(--ink); text-decoration: none; display: inline-flex; gap: .5rem;
+        align-items: baseline; font-size: 1.3rem; font-weight: 850; letter-spacing: -.045em;
+        line-height: 1; }
+      .brand em { font-style: normal; color: var(--accent); }
+      .brand small { font: 600 .66rem/1 var(--mono); letter-spacing: .14em;
+        text-transform: uppercase; color: var(--muted); border: 1px solid var(--line);
+        border-radius: 999px; padding: .28rem .55rem; translate: 0 -.15rem; }
       .top nav { display: flex; flex-wrap: wrap; gap: .25rem 1.1rem; font-size: .9rem; }
       .top nav a { color: var(--muted); text-decoration: none; }
       .top nav a:hover { color: var(--ink); }
@@ -1183,8 +1171,8 @@ INDEX_STYLE = """
       .kpis { display: grid; gap: .8rem; margin-block: 1.2rem;
         grid-template-columns: repeat(auto-fit, minmax(min(9rem, 100%), 1fr)); }
       @media (max-width: 40rem) { .kpi b { font-size: 1.35rem; } .kpi small { font-size: .74rem; } }
-      .kpi { background: var(--card); border: 1px solid var(--line); border-radius: 14px;
-        padding: .9rem 1.1rem; box-shadow: var(--shade); min-width: 0; }
+      .kpi { background: var(--soft); border: 1px solid var(--line); border-radius: 14px;
+        padding: .9rem 1.1rem; min-width: 0; }
       .kpi span { display: block; color: var(--muted); font-size: .78rem; font-weight: 600;
         letter-spacing: .04em; text-transform: uppercase; }
       .kpi b { display: block; font-size: 1.65rem; font-weight: 800; letter-spacing: -.02em;
@@ -1233,7 +1221,8 @@ INDEX_STYLE = """
       .tile svg { width: 100%; height: 28px; display: block; }
       .browse { padding-block: 1.5rem 1rem; }
       .toolbar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 3;
-        background: var(--bg); padding-block: .6rem; display: flex; flex-wrap: wrap;
+        background: rgba(255, 255, 255, .94); backdrop-filter: blur(6px);
+        padding-block: .6rem; display: flex; flex-wrap: wrap;
         gap: .5rem; align-items: center; border-bottom: 1px solid var(--line);
         margin-bottom: 1rem; }
       .tabs { display: flex; gap: .35rem; overflow-x: auto; scrollbar-width: none; flex: 1 1 30rem;
@@ -1324,6 +1313,19 @@ def live_feed_names(url: str) -> set[str]:
         return set()
 
 
+def wordmark(title: str) -> str:
+    """The site's name as its logo: a CamelCase first word with its second half in the accent
+    colour ("Unlimited<em>Pipe</em>"), the rest as a small tag ("feeds")."""
+    esc = html.escape
+    first, _, rest = title.strip().partition(" ")
+    parts = re.findall(r"[A-Z][a-z0-9]+|[^A-Z]+|[A-Z]+(?![a-z])", first)
+    if len(parts) >= 2 and "".join(parts) == first:
+        name = esc("".join(parts[:-1])) + f"<em>{esc(parts[-1])}</em>"
+    else:
+        name = esc(first)
+    return f"<span>{name}</span>" + (f"<small>{esc(rest)}</small>" if rest else "")
+
+
 COLORS = 10  # topic colours in the page's palette (--c0 to --c9)
 FIRST_CARDS_PHONE = 3  # the fewest first feeds a topic shows (on a phone; 6 elsewhere)
 
@@ -1397,6 +1399,7 @@ def index_page(p: PublishPlan, every: str) -> str:
             + f"\n      </div>{more}\n    </section>"
         )
     title = esc(p.title or p.name)
+    brand = wordmark(p.title or p.name)
     headline = esc(p.headline or p.title or p.name)
     about = f'\n      <p class="lede">{esc(p.about)}</p>' if p.about else ""
     links = "".join(f'<a href="{esc(url)}">{esc(label)}</a>' for label, url in p.links)
@@ -1433,7 +1436,8 @@ def index_page(p: PublishPlan, every: str) -> str:
   </head>
   <body>
     <div class="wrap">
-    <header class="top"><a class="brand" href="./">{title}</a><nav>{links}</nav></header>
+    <header class="top"><a class="brand" href="./" aria-label="{title}">{brand}</a>
+      <nav>{links}</nav></header>
     <section class="hero">
       <p class="kicker">Open feed catalog · every item linked to its source</p>
       <h1>{headline}</h1>{about}
