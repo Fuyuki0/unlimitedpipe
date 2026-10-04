@@ -508,3 +508,14 @@ def test_a_word_of_the_feeds_title_counts_for_its_items():
     # "oil" names some of that feed's items, which say so themselves: not the yields
     found, _ = rank(document, ["oil", "price"], 3)
     assert [f["title"][:3] for f in found] == ["WTI"]
+
+
+def test_a_source_whose_title_has_every_word_answers_though_the_model_said_none():
+    from unlimitedpipe.sources.ask import plainly_answers
+
+    oil = {"feed": "market-prices", "title": "WTI crude oil: $96.16 a barrel on 2026-09-29"}
+    assert plainly_answers("crude oil price", oil)  # "price" is in the feed's name
+    assert not plainly_answers("crude oil price in 1990", {**oil, "feed": "us-news"})
+    baht = {"feed": "usd-rates", "title": "US dollar on 2026-10-02: 33.595 baht, 157.67 yen"}
+    assert plainly_answers("usd thb rate", baht)
+    assert not plainly_answers("usd brl rate", baht)

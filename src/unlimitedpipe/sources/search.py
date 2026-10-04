@@ -138,6 +138,13 @@ SAME = {
     "congress": ("public law",),  # "laws congress passed"
     "sanction": ("designation",),  # OFAC's "Counter Terrorism Designations"
     "xai": ("x.ai",),
+    # currency codes, as the rate feeds name the currencies ("US dollar: 33.595 baht")
+    "usd": ("us dollar", "dollar"),
+    "thb": ("baht",),
+    "jpy": ("yen",),
+    "cny": ("yuan",),
+    "inr": ("rupee",),
+    "eur": ("euro",),
     # four-letter words match only their own endings, so their long forms are named here
     "tech": ("technolog",),
     "spac": ("blank check", "acquisition corp"),

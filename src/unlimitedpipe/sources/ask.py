@@ -220,6 +220,15 @@ def with_big_events(
     return chosen[:limit]
 
 
+def plainly_answers(question: str, item: dict[str, Any]) -> bool:
+    """Whether an item's title (with its feed's name) has every word of the question."""
+    words = [
+        w for w in terms(HACKER_NEWS.sub("hn", question)) if w not in SUPERLATIVES and w not in BIG
+    ]
+    text = f"{item.get('title') or ''} {str(item.get('feed') or '').replace('-', ' ')}"
+    return bool(words) and all(word_pattern(w).search(text) for w in words)
+
+
 def by_size(question: str, items: list[dict[str, Any]]) -> str:
     """The answer to "strongest earthquake in 2024" from items ordered by their number."""
     from unlimitedpipe.decide import headline, short
@@ -821,6 +830,10 @@ class Ask(Source):
         picked = decide.parse(str(body.get("response", "")), len(items))
         if picked is None:
             return None
+        if not picked and plainly_answers(question, items[0]):
+            # "crude oil price" -> NONE, though the first source is "WTI crude oil: $96.16 a
+            # barrel": a title with every word of the question answers it
+            picked = [1]
         first = (body.get("logprobs") or [{}])[0].get("logprob")
         confidence = round(math.exp(first), 2) if isinstance(first, (int, float)) else 1.0
         return decide.write(question, items, picked), decider, prompt, confidence
