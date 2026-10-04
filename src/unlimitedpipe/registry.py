@@ -33,6 +33,7 @@ BUILTINS: dict[str, str] = {
     "sec": "unlimitedpipe.sources.sec:Sec",
     "fec": "unlimitedpipe.sources.fec:Fec",
     "quakes": "unlimitedpipe.sources.quakes:Quakes",
+    "current-events": "unlimitedpipe.sources.wikipedia:CurrentEvents",
     "faa": "unlimitedpipe.sources.faa:Faa",
     "usaspending": "unlimitedpipe.sources.usaspending:UsaSpending",
     "hyperliquid": "unlimitedpipe.sources.hyperliquid:Hyperliquid",

@@ -3,6 +3,19 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.50 - 2026-10-04
+
+- `unlimited current-events`: the day's events from Wikipedia's Current events portal, one item
+  per event, with its section, topic and the news reports it cites (text under CC BY-SA 4.0,
+  credited in each summary).
+- History scripts in research/public for world events since 2002 (Wikipedia), western Pacific
+  typhoons since 1951 (JMA best track), strong geomagnetic storms since 1932 (GFZ Kp), crypto
+  moves and stablecoin depegs (DefiLlama), DeFi deposit drops (DefiLlama), Hacker News top
+  stories and Show HN since 2007, orbital launches since 1957 (Launch Library 2), central bank
+  rate decisions (ECB, Bank of England, Bank of Canada, RBA), earnings releases of large
+  companies since 2018 (SEC bulk submissions), FDA new molecular entities before 2022
+  (Drugs@FDA) and UK bills since 2007.
+
 ## 0.10.49 - 2026-10-04
 
 - `unlimited evm aave|liquidations|transfers|new-pools --chain ethereum|base`: on-chain events
