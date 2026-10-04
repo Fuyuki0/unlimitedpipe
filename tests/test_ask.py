@@ -296,6 +296,33 @@ def test_a_decision_model_picks_the_sources_and_the_answer_is_written_from_them(
     assert answer.data["model"] == DECIDER and answer.data["confidence"] == 0.95
 
 
+def test_a_decision_model_named_with_model_decides_too(catalog, make_ctx):
+    from unlimitedpipe.sources.ask import is_decider
+
+    assert is_decider("hf.co/unlimitedpipe/decide-0.5b-GGUF") and is_decider(
+        "unlimitedpipe-decide:v8"
+    )
+    assert not is_decider("qwen2.5:3b") and not is_decider("hf.co/unlimitedpipe/ask-0.5b-GGUF")
+    catalog.add(
+        "http://127.0.0.1:11434/api/tags",
+        json.dumps({"models": [{"name": "unlimitedpipe-decide:v8"}, {"name": "qwen2.5:3b"}]}),
+        content_type="application/json",
+    )
+    asked = []
+
+    def generate(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        asked.append(body["model"])
+        assert body["prompt"].startswith("Decide which numbered sources answer the question.")
+        return httpx.Response(200, json={"response": "USE 1", "logprobs": [{"logprob": -0.05}]})
+
+    catalog.pages["http://127.0.0.1:11434/api/generate"] = generate
+    ask = Ask(question=["weather in Bangkok?"], catalog=URL, model="unlimitedpipe-decide:v8")
+    [answer] = run_source(ask, make_ctx())
+    assert asked == ["unlimitedpipe-decide:v8"]
+    assert answer.data["answer"].startswith("Bangkok: rain, 24°C now (2026-09-26) [1].")
+
+
 def test_superlative_questions_are_answered_by_size_in_code():
     from unlimitedpipe.sources.ask import by_size, size_of, superlative
 

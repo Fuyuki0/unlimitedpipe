@@ -43,6 +43,15 @@ ANTHROPIC_MODEL = "claude-haiku-4-5"
 # Small local models that summarize well, best first; any installed model works with --model.
 # The decision model: it picks the sources that answer and the code writes the answer.
 DECIDER = "hf.co/unlimitedpipe/decide-0.5b-GGUF:latest"
+
+
+def is_decider(model: str) -> bool:
+    """A decision model (it replies `USE 2 5` or `NONE`), whatever it was installed as:
+    hf.co/unlimitedpipe/decide-0.5b-GGUF, a branch of it, or a local unlimitedpipe-decide copy."""
+    name = model.casefold()
+    return "unlimitedpipe/decide" in name or name.startswith("unlimitedpipe-decide")
+
+
 PREFERRED = (
     # Trained for ask with research/ask: on questions typed the way people type it passes more
     # answers than general models eight times its size (research/ask), so it goes first.
@@ -655,7 +664,7 @@ class Ask(Source):
                 )
 
             decided = None
-            if self.provider != "anthropic" and self.model in (None, DECIDER):
+            if self.provider != "anthropic" and (self.model is None or is_decider(self.model)):
                 decided = await self._decide(ctx, question, items)
             if decided is not None:
                 answer, model, prompt, confidence = decided
@@ -704,16 +713,30 @@ class Ask(Source):
             sources=source_lines(items),
             question=question,
         )
+        decider = self.model if self.model and is_decider(self.model) else DECIDER
         async with httpx.AsyncClient(timeout=self.timeout, transport=ctx.transport) as client:
             models = await _ollama_models(client, host) or []
-            if DECIDER not in models and DECIDER.removesuffix(":latest") not in models:
+            installed = next(
+                (
+                    m
+                    for m in (decider, f"{decider}:latest", decider.removesuffix(":latest"))
+                    if m in models
+                ),
+                None,
+            )
+            if installed is None:
+                if self.model:
+                    raise UsageError(
+                        f"the model {self.model!r} is not installed", hint=f"ollama pull {decider}"
+                    )
                 return None
-            ctx.notice(f"ask: {len(prompt)} characters of sources to {DECIDER} (decides)")
+            decider = installed
+            ctx.notice(f"ask: {len(prompt)} characters of sources to {decider} (decides)")
             try:
                 response = await client.post(
                     f"{host}/api/generate",
                     json={
-                        "model": DECIDER,
+                        "model": decider,
                         "prompt": prompt,
                         "stream": False,
                         "logprobs": True,
@@ -729,7 +752,7 @@ class Ask(Source):
             return None
         first = (body.get("logprobs") or [{}])[0].get("logprob")
         confidence = round(math.exp(first), 2) if isinstance(first, (int, float)) else 1.0
-        return decide.write(question, items, picked), DECIDER, prompt, confidence
+        return decide.write(question, items, picked), decider, prompt, confidence
 
     async def _by_meaning(
         self, ctx: Context, question: str, document: dict[str, Any], after: str | None
@@ -781,8 +804,10 @@ class Ask(Source):
                     )
                 from unlimitedpipe.meaning import is_embedding
 
-                chat = [m for m in models if not is_embedding(m) and m != DECIDER] or models
-                model = self.model or next((m for m in PREFERRED if m in chat), chat[0])
+                chat = [m for m in models if not is_embedding(m) and not is_decider(m)] or models
+                # a decision model that gave no decision: a writing model answers instead
+                asked = self.model if self.model and not is_decider(self.model) else None
+                model = asked or next((m for m in PREFERRED if m in chat), chat[0])
                 if model not in models and f"{model}:latest" not in models:
                     raise UsageError(
                         f"the model {model!r} is not installed", hint=f"ollama pull {model}"
