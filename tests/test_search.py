@@ -304,7 +304,7 @@ def test_a_site_title_shows_and_survives_the_hourly_rebuild(repo):
     p.title, p.about = "City alerts", "Floods & roads"
     page = index_page(p, "1h")
     assert "<title>City alerts</title>" in page and '<p class="lede">Floods &amp; roads</p>' in page
-    assert "<li><b>2</b> feeds</li>" in page and "Runs every 1h." in page
+    assert "<span>Feeds</span><b>2</b>" in page and "Runs every 1h." in page
     assert catalog(p)["title"] == "City alerts"
     hourly = repo_plan(repo)  # `unlimited catalog` in the workflow has no title
     assert catalog(hourly, previous={"title": "City alerts"})["title"] == "City alerts"

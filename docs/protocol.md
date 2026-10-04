@@ -126,6 +126,13 @@ A catalog that writes `shards` may publish the whole index only gzipped, as
 `archive/words.json.gz` (UnlimitedPipe does since 0.10.58: 53 MB of JSON is about 8 MB), for
 tools that copy a catalog in one request; `unlimited mirror` unpacks it into `words.json`.
 
+`archive/days.json` (optional) counts the items of the months not yet compressed by day and
+feed, for charts that should not read whole months:
+
+```json
+{"schema": "unlimitedpipe.archive-days/1", "days": {"2026-10-03": {"earthquakes": 41}}}
+```
+
 ## 4. Events
 
 Full items are `unlimitedpipe.event/1` events, described in [events.md](events.md): the data,

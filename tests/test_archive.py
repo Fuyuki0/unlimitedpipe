@@ -530,3 +530,16 @@ def test_titles_are_cleaned_as_they_are_added(tmp_path):
     append(tmp_path, [{**item, "title": "Ha'apai"}], "2026-09-03T00:00:00Z")  # the same item
     lines = (tmp_path / "archive" / "2026-09.jsonl").read_text().splitlines()
     assert len(lines) == 1 and json.loads(lines[0])["title"] == "Ha'apai"
+
+
+def test_the_archive_counts_items_by_day_for_charts(tmp_path):
+    from unlimitedpipe.archive import DAYS
+
+    items = [
+        {"feed": "quakes", "title": "M 5", "link": "https://q/a", "date": "2026-09-01T10:00:00Z"},
+        {"feed": "quakes", "title": "M 6", "link": "https://q/b", "date": "2026-09-01T11:00:00Z"},
+        {"feed": "news", "title": "Hi", "link": "https://n/a", "date": "2026-09-02T00:00:00Z"},
+    ]
+    append(tmp_path, items, "2026-09-03T00:00:00Z")
+    days = json.loads((tmp_path / "archive" / DAYS).read_text())["days"]
+    assert days == {"2026-09-01": {"quakes": 2}, "2026-09-02": {"news": 1}}

@@ -3,6 +3,15 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.61 - 2026-10-05
+
+- The feed page is a dashboard: the catalog in numbers, a chart of the last 30 days by topic,
+  the whole archive year by year since its first record (on a log scale), topic tiles with
+  each topic's last two weeks, and a feed browser with topic tabs, a filter and "live only";
+  each topic shows its first feeds until you open it. New colours, one per topic, in light
+  and dark. The charts are drawn by the page itself; nothing loads from other sites.
+- The archive writes `archive/days.json`: its newest items counted by day and feed.
+
 ## 0.10.60 - 2026-10-05
 
 - The feed page is redesigned: a "Just in" desk of the newest items, four ways to use the

@@ -28,6 +28,10 @@ SCHEMA = "unlimitedpipe.archive/1"
 # (words/ja.json), so a question reads a few small files rather than the whole index; the
 # index lists those files as "shards".
 WORDS = "words.json"
+DAYS = "days.json"  # items by day and feed in the months not yet compressed, for charts
+DAYS_SCHEMA = "unlimitedpipe.archive-days/1"
+_DAY = re.compile(r'"date":\s*"(\d{4}-\d\d-\d\d)')
+_FEED_FIELD = re.compile(r'"feed":\s*"([^"]+)"')
 WORDS_GZ = "words.json.gz"  # the whole word index in one file, for copies (mirror)
 WORD_FILES = "words"
 WORDS_SCHEMA = "unlimitedpipe.archive-words/1"
@@ -437,13 +441,21 @@ def write_index(folder: Path) -> None:
     except (OSError, ValueError, AttributeError, TypeError):
         before = {}
     months = []
+    days: dict[str, dict[str, int]] = {}  # the open months' items by day and feed, for charts
     for path in reversed(_month_files(folder)):
         name = _month_name(path)
         size = path.stat().st_size
         if (known := before.get(path.name)) and known["bytes"] == size and known.get("feeds"):
             months.append(known)
             continue
-        count = sum(1 for line in lines_of(_text(path)) if line.strip())
+        lines = [line for line in lines_of(_text(path)) if line.strip()]
+        count = len(lines)
+        if not path.name.endswith(PACKED):
+            for line in lines:
+                day, feed = _DAY.search(line), _FEED_FIELD.search(line)
+                if day and feed:
+                    by_feed = days.setdefault(day[1], {})
+                    by_feed[feed[1]] = by_feed.get(feed[1], 0) + 1
         entry: dict[str, Any] = {"month": name, "file": path.name, "items": count}
         if path.name.endswith(PACKED):
             entry["packed"] = True  # its files by feed are compressed too
@@ -459,6 +471,13 @@ def write_index(folder: Path) -> None:
     if (folder / WORD_FILES).is_dir():
         index["shards"] = sorted(f.stem for f in (folder / WORD_FILES).glob("*.json"))
     (folder / INDEX).write_text(json.dumps(index, indent=1) + "\n", encoding="utf-8")
+    _write_json(
+        folder / DAYS,
+        {
+            "schema": DAYS_SCHEMA,
+            "days": {d: dict(sorted(f.items())) for d, f in sorted(days.items())},
+        },
+    )
 
 
 MONTH_NAMES = {
