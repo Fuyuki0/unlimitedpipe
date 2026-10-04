@@ -138,6 +138,7 @@ SAME = {
     "congress": ("public law",),  # "laws congress passed"
     "sanction": ("designation",),  # OFAC's "Counter Terrorism Designations"
     "xai": ("x.ai",),
+    "sp": ("s&p",),  # "sp 500"
     # currency codes, as the rate feeds name the currencies ("US dollar: 33.595 baht")
     "usd": ("us dollar", "dollar"),
     "thb": ("baht",),
