@@ -747,7 +747,8 @@ class Search(Source):
             for f in document.get("feeds", [])
         }
         items = document.get("items", [])
-        asked = list(self.words)
+        # "nvidia earnings" quoted is two words, each of which must appear, as unquoted
+        asked = [term for word in self.words for term in word.split()]
         named = None if self.since else named_period(" ".join(asked), utcnow())
         if self.since or named:
             # "earthquake 2023": that period's items from the archive, not the latest ones
@@ -763,9 +764,61 @@ class Search(Source):
                     yield error
                 return
         words, fixed = corrected(asked, {**document, "items": items})
+        if fixed and not (self.since or named):
+            # "haiyan" is not a typo when the archive has it
+            try:
+                known = await archive_words(ctx, url, document, list(fixed))
+            except FetchError:
+                known = set()
+            if known:
+                words, fixed = corrected(asked, {**document, "items": items}, known)
         for typo, word in fixed.items():
             ctx.notice(f"search: no item has {typo!r}; searched for {word!r}")
         found = 0
+        for event in self._matching(url, items, words, wanted, about):
+            yield event
+            found += 1
+            if found >= self.limit:
+                return
+        if not found and words and not (self.since or named):
+            # "hurricane katrina": no latest item has the words, so the months of the archive
+            # its word index has them in: items with every word in the title first, those of a
+            # feed a word names next (the storm itself before the news about it), then the newest
+            try:
+                past = await items_by_words(ctx, url, document, split_words(words))
+            except FetchError:
+                past = []
+            past.sort(
+                key=lambda item: (
+                    matches({"title": item.get("title")}, words),
+                    any(word_pattern(w).search(about.get(item.get("feed"), "")) for w in words),
+                    str(item.get("date") or ""),
+                ),
+                reverse=True,
+            )
+            for event in self._matching(url, past, words, wanted, about):
+                if not found:
+                    ctx.notice("search: no latest item has these words; these are from the archive")
+                yield event
+                found += 1
+                if found >= self.limit:
+                    return
+        if not found and words and not wanted and not self.exact:
+            async for event in self._by_meaning(ctx, url, items):
+                found += 1
+                yield event
+        if not found and not self.exact:
+            ctx.notice(self._nothing_found())
+
+    def _matching(
+        self,
+        url: str,
+        items: list[dict[str, Any]],
+        words: list[str],
+        wanted: set[str],
+        about: dict[Any, str],
+    ):
+        """The items with every word, as events: a story's first few updates only."""
         updates: Counter[str] = Counter()
         for item in items:
             if wanted and item.get("feed") not in wanted:
@@ -791,15 +844,6 @@ class Search(Source):
                 },
                 metadata={"catalog": url},
             )
-            found += 1
-            if found >= self.limit:
-                return
-        if not found and words and not wanted and not self.exact:
-            async for event in self._by_meaning(ctx, url, items):
-                found += 1
-                yield event
-        if not found and not self.exact:
-            ctx.notice(self._nothing_found())
 
     async def _by_meaning(self, ctx: Context, url: str, items: list[dict[str, Any]]):
         """Items alike the words in meaning, with a local embedding model, when none has them."""

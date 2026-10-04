@@ -239,6 +239,19 @@ def test_search_and_ask_use_the_archive_for_a_period_they_name(tmp_path):
     assert answer.data["answer"].startswith("Nothing in the catalog from 2025 matches")
 
 
+def test_search_looks_in_the_archive_when_no_latest_item_has_the_words(tmp_path):
+    site = local_catalog(tmp_path)
+    append(site, [{**ITEMS[1], "title": "Tonga news", "link": "https://t/2"}], "T")
+    ctx = Context(quiet=True, state_dir=tmp_path / "s", cache_dir=tmp_path / "c")
+    # quoted words are words, each of which must appear (here "quakes" as the feed's name)
+    found = run_source(Search(words=["tonga quakes"], catalog=str(site), exact=True), ctx)
+    assert sorted(e.data["title"] for e in found) == ["M6.1 Tonga", "Tonga news"]
+    ctx = Context(quiet=True, state_dir=tmp_path / "s", cache_dir=tmp_path / "c")
+    # an archive word is no typo, though no latest item has it
+    found = run_source(Search(words=["tonga"], catalog=str(site), exact=True), ctx)
+    assert [e.data["title"] for e in found] == ["M6.1 Tonga", "Tonga news"]
+
+
 def test_the_word_index_leads_undated_questions_to_their_months(tmp_path):
     import asyncio
 
