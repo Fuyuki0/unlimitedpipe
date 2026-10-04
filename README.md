@@ -8,16 +8,24 @@
 [![Dataset](https://img.shields.io/badge/%F0%9F%A4%97%20dataset-2.85B%20tokens-yellow)](https://huggingface.co/datasets/unlimitedpipe/public-records)
 [![Feeds](https://img.shields.io/badge/live%20feeds-124-brightgreen)](https://feeds.daemonfill.dev/)
 
-**Pipe the public internet.**
+**Public records as they happen, and back to 1851.**
 
-Watch anything public (a price, a filing, a feed, a government page) and get only what
-changed, with a link to where it came from. Search and ask 124 live feeds of public records and
-news in one command, even offline, answered by a 0.5B model that cites its sources.
-Local-first, free, no account, no API key.
+Search and ask a free archive of 1.66 million public records (SEC filings, sanctions, laws,
+rate decisions, earthquakes and storms, crypto, government announcements, news), each linked
+to its official source, and get an alert within a minute when something new matches. Built
+from open YAML pipelines you can fork, with no server, no account and no API key.
 
 ![unlimited ask answering "any big crypto hacks this week?", "earthquakes in japan in 2024" and "strongest hurricane in 2005" with cited sources](https://raw.githubusercontent.com/Fuyuki0/unlimitedpipe/main/docs/assets/ask.svg)
 
-Install and set everything up with one command (it asks before each step):
+Three ways in; use the one you need:
+
+| | Try it |
+| --- | --- |
+| 🔎 **Search and ask the history** | In a browser: [feeds.daemonfill.dev](https://feeds.daemonfill.dev/), nothing to install. In a terminal: `unlimited ask "what happened in march 2011?"`, `unlimited search "hurricane katrina"` |
+| 🔔 **Get alerts** | Phone: the free [ntfy](https://ntfy.sh) app, server [ntfy.daemonfill.dev](https://ntfy.daemonfill.dev/), topics like `earthquakes`, `crypto-hacks`, `sanctions-actions`. Your own words: `unlimited follow "vehicle recall" --to ntfy:my-topic` |
+| 🛠 **Watch anything yourself** | `unlimited web https://example.com \| unlimited diff` shows only what changed; `unlimited new URL` writes a watch; `unlimited publish` hosts yours free on GitHub |
+
+Install with one command (it asks before each step):
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Fuyuki0/unlimitedpipe/main/install.sh | sh
@@ -27,14 +35,6 @@ It installs the `unlimited` command and runs `unlimited setup`, which adds what 
 use: the browser for JavaScript pages, the `ask` model (531 MB, runs on any laptop), the tools
 and skill for Claude Code, and an offline copy of the feed catalog. Already have Python?
 `pip install unlimitedpipe`, then `unlimited setup`.
-
-```bash
-unlimited search "cyber attack"                     # 124 live feeds at once, one request
-unlimited ask "what happened in march 2011?"        # answered from the feeds, with sources
-unlimited web https://example.com | unlimited diff               # only what changed
-unlimited new https://some-shop.example/product     # writes a price-and-stock watch for you
-unlimited mirror && unlimited search flood --catalog offline    # works without the internet
-```
 
 **What works right away, and what needs setup.** `search`, the pipes (`web`, `rss`, `diff`,
 `follow`), the [feed page](https://feeds.daemonfill.dev/) and phone alerts need nothing more: a
