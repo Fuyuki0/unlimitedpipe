@@ -650,8 +650,31 @@ news](docs/posts/fruit-fly-on-the-news.md).
 - **v0.10 Open** (current): the Feed Catalog Protocol with `unlimited validate`, a 0.5B model
   trained for `ask` on public data (92% on blind questions typed the way people type, ahead
   of Qwen3.5 2B), and the public dataset unlimitedpipe/public-records.
-- **Next**: searching the archive from the web page,
-  bot-network filtering for trends, a network of catalogs.
+- **Next**: searching the archive from the web page, the feeds on a second free machine so
+  no one host can stop them, more countries' official sources, bot-network filtering for
+  trends, a network of catalogs.
+
+## Status, and how it runs
+
+- **Pre-1.0.** Commands and pipeline options may still change between 0.x releases, and the
+  [changelog](CHANGELOG.md) says when. The event format (`unlimitedpipe.event/1`) and the
+  [catalog protocol](docs/protocol.md) are versioned and change only under a new version
+  number. 1.0 will freeze the commands.
+- **How it is built.** One maintainer, writing with AI help (Claude Code; the commits say so).
+  Every change goes through over 550 tests on Linux and macOS, and after each release the
+  one-line install is tested on macOS (Apple Silicon and Intel, with and without Homebrew's
+  Python), Linux and Windows.
+- **How the feeds run.** The catalog runs on GitHub Actions and Pages, for free. The live copy
+  (checks every 30 seconds to 5 minutes) and the phone alerts run on one small server. If that
+  server is down, `search`, `ask` and the page use the GitHub copy after a 3-second wait; only
+  the phone alerts stop until it is back. Its health is watched and alerts its maintainer.
+- **Coverage.** Strongest for the United States (SEC filings, federal laws and rules,
+  election spending, recalls). Beyond it: the governments of the UK, Canada, the EU,
+  Australia and New Zealand, eight central banks, earthquakes, storms and disasters worldwide,
+  and news from every region. [Ask for a feed](https://github.com/Fuyuki0/unlimitedpipe/issues/new?template=feed.yml)
+  for your country or topic.
+- **Python 3.11 or newer.** The one-line installer brings its own Python when the machine has
+  an older one (a new Mac has 3.9).
 
 ## Responsible use
 

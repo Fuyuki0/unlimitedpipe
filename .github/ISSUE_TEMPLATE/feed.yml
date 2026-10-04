@@ -1,0 +1,29 @@
+name: Feed request
+description: Ask for a feed in the public catalog (feeds.daemonfill.dev), for any country or topic
+labels: [feed]
+body:
+  - type: input
+    id: what
+    attributes:
+      label: What should the feed list?
+      placeholder: e.g. Japan's government press releases, Brazil's central bank decisions
+    validations:
+      required: true
+  - type: input
+    id: source
+    attributes:
+      label: Official source
+      description: A link to the official API, RSS feed, data file or public page that has it.
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Who would use it, and for what?
+  - type: checkboxes
+    id: front-door
+    attributes:
+      label: Front-door rule
+      options:
+        - label: The source is public, without logins, CAPTCHAs or blocks to get around.
+          required: true
