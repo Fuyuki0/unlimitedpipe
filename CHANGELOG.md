@@ -3,6 +3,17 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.55 - 2026-10-04
+
+- `quakes --listen SECONDS`: EMSC's live stream as one more agency (often minutes ahead of the
+  rest for quakes outside the US); what it said is kept between runs.
+- Pipeline variables with a fallback: `${QUAKE_LISTEN:-0}`.
+- On this day: `publish` writes on-this-day.html and one small JSON file per date with the
+  biggest events of that date in past years (great quakes and storms, deadly disasters, record
+  hacks, rate decisions), and links it from the page.
+- The page counts and marks the live copy's feeds (checked every 30 seconds to 5 minutes).
+- Death tolls no longer count animals ("12,000 dead pigs").
+
 ## 0.10.54 - 2026-10-04
 
 - `watch`: a pipeline that uses `${TODAY}`, `${DAYS_AGO_N}` and the like is loaded again for
