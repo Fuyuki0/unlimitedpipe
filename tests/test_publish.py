@@ -127,6 +127,18 @@ def test_index_page_escapes_names(repo):
     assert "&lt;prices&gt;" in page and "Prices &amp; more" in page and 'href="prices.xml"' in page
 
 
+def test_index_page_has_a_headline_a_desk_and_a_link_to_each_feed(repo):
+    path = repo / "feeds" / "prices.yml"
+    p = plan([(path, load_pipeline(path))], 3600, name="Prices")
+    assert "<h1>Prices</h1>" in index_page(p, "1h")  # the title, by default
+    p.headline = "Prices <as they change>"
+    page = index_page(p, "1h")
+    assert "<h1>Prices &lt;as they change&gt;</h1>" in page
+    name = p.pipelines[0].name
+    assert f'id="feed-{name}"' in page and f'href="#feed-{name}"' in page
+    assert 'id="wire"' in page and 'id="topics"' in page
+
+
 def test_publish_command_writes_files_and_refuses_to_overwrite(repo):
     env = {**os.environ, "UNLIMITEDPIPE_STATE_DIR": str(repo / "state")}
     command = [
@@ -231,7 +243,7 @@ def test_express_lane_runs_its_pipelines_every_time_and_the_rest_when_due(repo):
     lane = yaml.safe_load(workflow(p))[True]["workflow_dispatch"]["inputs"]["lane"]
     assert lane["options"] == ["all", "express"] and lane["default"] == "all"
     page = index_page(p, "1h")
-    assert page.count('<span class="live"') == 1 and "live feeds: 15m" in page
+    assert page.count('<span class="live" title=') == 1 and "live feeds: 15m" in page
     with pytest.raises(UsageError, match="names no pipeline"):
         plan(items, 3600, express=["volcanoes"])
     with pytest.raises(UsageError, match="shorter than --every"):

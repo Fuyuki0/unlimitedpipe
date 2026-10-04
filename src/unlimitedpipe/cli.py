@@ -535,6 +535,7 @@ def _load_for_publishing(pipelines: tuple[Path, ...]):
 )
 @click.option("--title", default=None, help="The site's title (default: the workflow name).")
 @click.option("--about", default=None, help="A sentence under the title on the index page.")
+@click.option("--headline", default=None, help="The index page's big line (default: the title).")
 @click.option(
     "--express",
     multiple=True,
@@ -586,6 +587,7 @@ def publish_command(
     install: str | None,
     title: str | None,
     about: str | None,
+    headline: str | None,
     express: tuple[str, ...],
     express_every: str,
     groups: tuple[str, ...],
@@ -624,7 +626,7 @@ def publish_command(
         if '"' in install or "\n" in install:
             raise UsageError("--install must be a pip requirement or URL without quotes")
         p.install = install
-    p.title, p.about, p.groups = title, about, list(groups)
+    p.title, p.about, p.headline, p.groups = title, about, headline, list(groups)
     p.examples = [e.strip() for e in examples if e.strip()]
     if live:
         if not live.startswith(("https://", "http://")):

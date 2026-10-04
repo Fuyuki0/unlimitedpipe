@@ -103,11 +103,15 @@ def page(title: str, style: str) -> str:
       .day {{ display: flex; gap: .5rem; align-items: center; flex-wrap: wrap; margin: 1rem 0; }}
       .day button, .day input {{ font: inherit; padding: .35rem .7rem; border-radius: .5rem;
         border: 1px solid var(--line); background: var(--card); color: var(--ink); }}
-      .year {{ margin-top: 1.4rem; }}
-      .year h2 {{ font-size: 1.05rem; margin: 0 0 .4rem; }}
-      .event {{ margin: .3rem 0; line-height: 1.45; }}
-      .event a {{ color: var(--ink); }}
-      .event small {{ color: var(--muted); }}
+      .year {{ margin-top: 1.6rem; display: grid; gap: .2rem 1.5rem; max-width: 52rem; }}
+      @media (min-width: 44rem) {{ .year {{ grid-template-columns: 5rem minmax(0, 1fr); }} }}
+      .year h2 {{ font: 700 1.5rem/1.2 var(--serif, Georgia, serif); margin: 0; }}
+      .year div {{ border-left: 2px solid var(--line); padding-left: 1rem; min-width: 0; }}
+      .event {{ margin: 0 0 .7rem; line-height: 1.45; overflow-wrap: anywhere; }}
+      .event a {{ color: var(--ink); text-decoration: none; }}
+      .event a:hover {{ text-decoration: underline; }}
+      .event small {{ display: block; color: var(--accent); font: .7rem/1.6 var(--mono, monospace);
+        letter-spacing: .08em; text-transform: uppercase; }}
     </style>
   </head>
   <body>
@@ -136,8 +140,8 @@ def page(title: str, style: str) -> str:
       const pick = document.getElementById("pick");
       let shown = new Date();
       const pad = (n) => String(n).padStart(2, "0");
-      const label = (feed) =>
-        names[feed] || String(feed || "").replace(/-news$/, "").replace(/-/g, " ");
+      const label = (feed) => names[feed] || String(feed || "").replace(/-news$/, "")
+        .replace(/-/g, " ").replace(/^(us|uk|eu|un)\b/, (m) => m.toUpperCase());
       const esc = (t) => String(t ?? "").replace(/[&<>"]/g,
         (c) => ({{"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}}[c]));
       async function show(date) {{
@@ -159,9 +163,10 @@ def page(title: str, style: str) -> str:
         const years = {{}};
         for (const item of items) (years[item.date.slice(0, 4)] ||= []).push(item);
         box.innerHTML = Object.keys(years).sort().reverse().map((year) =>
-          `<div class="year"><h2>${{year}}</h2>` + years[year].map((i) =>
-            `<p class="event"><small>${{esc(label(i.feed))}}</small> ` +
-            `<a href="${{esc(i.link)}}">${{esc(i.title)}}</a></p>`).join("") + "</div>").join("");
+          `<section class="year"><h2>${{year}}</h2><div>` + years[year].map((i) =>
+            `<p class="event"><small>${{esc(label(i.feed))}}</small>` +
+            `<a href="${{esc(i.link)}}">${{esc(i.title)}}</a></p>`).join("") + "</div></section>")
+          .join("");
       }}
       const shift = (days) => {{
         const d = new Date(shown);

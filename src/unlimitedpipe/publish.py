@@ -63,6 +63,7 @@ class PublishPlan:
     browser_pipelines: list[str] = field(default_factory=list)
     title: str | None = None  # the site's title (default: the workflow name)
     about: str | None = None  # a sentence under the title on the index page
+    headline: str | None = None  # the index page's big line (default: the title)
     groups: list[str] = field(default_factory=list)  # the order of the index page's topics
     links: list[tuple[str, str]] = field(default_factory=list)  # (label, url) in its header
     examples: list[str] = field(default_factory=list)  # searches to try, under the search box
@@ -537,7 +538,7 @@ SEARCH_SCRIPT = r"""    <script>
       const FRESH = { cache: "no-cache" };
       const q = document.getElementById("q"), list = document.getElementById("results"),
         status = document.getElementById("status");
-      let catalog = null, response = null;
+      let catalog = null, response = null, pastTimer = null;
       const escape = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       // Words match at the start of a word: five letters or more with any ending, four with
       // their own endings ("noto" is not "notorious"), three or fewer with plural and verb
@@ -582,6 +583,13 @@ SEARCH_SCRIPT = r"""    <script>
           (i.title || "") + " " + (i.summary || "") + " " + (about[i.feed] || "")))).slice(0, 50);
         status.textContent = hits.length ? hits.length + " result(s) among the latest items"
           : "Nothing among the latest items matches.";
+        // nothing recent ("hurricane katrina"): the archive, once the typing stops
+        clearTimeout(pastTimer);
+        if (!hits.length && deep && catalog.archive) {
+          const asked = q.value;
+          status.textContent += " Searching the archive…";
+          pastTimer = setTimeout(() => { if (q.value === asked) deep.click(); }, 700);
+        }
         const title = names();
         for (const i of hits) {
           const li = document.createElement("li"), a = document.createElement("a");
@@ -592,8 +600,38 @@ SEARCH_SCRIPT = r"""    <script>
           list.append(li);
         }
       }
+      // "/" goes to the search box, as on many sites.
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "/" && document.activeElement !== q
+          && !/^(input|textarea|select)$/i.test(document.activeElement.tagName)) {
+          e.preventDefault(); q.focus();
+        }
+      });
+      // The newest items across every feed, for the "Just in" desk.
+      function wire() {
+        const box = document.getElementById("wire");
+        if (!box) return;
+        const title = names(), now = Date.now();
+        const ago = (iso) => {
+          const minutes = Math.round((now - Date.parse(iso)) / 60000);
+          if (!(minutes >= 0)) return day(iso);
+          return minutes < 60 ? minutes + " min ago" : minutes < 1440
+            ? Math.round(minutes / 60) + " h ago" : day(iso);
+        };
+        const newest = catalog.items.filter((i) => i.date && Date.parse(i.date) <= now + 6e4)
+          .slice(0, 8);
+        box.replaceChildren(...newest.map((i) => {
+          const li = document.createElement("li"), a = document.createElement("a");
+          a.href = i.link || "#"; a.textContent = i.title || i.link; a.rel = "noopener";
+          const meta = document.createElement("small");
+          meta.textContent = ago(i.date) + " · " + (title[i.feed] || i.feed);
+          li.append(a, meta);
+          return li;
+        }));
+      }
       // Each feed's latest item and health, how fresh the catalog is, how far back it goes.
       load().then(() => {
+        wire();
         const seen = new Set();
         for (const i of catalog.items) {
           if (seen.has(i.feed)) continue;
@@ -825,88 +863,148 @@ def _readable(name: str) -> str:
 
 
 INDEX_STYLE = """
-      :root { --bg: #f6f7f9; --card: #ffffff; --ink: #15181d; --muted: #5a6270;
-        --line: #e2e5ea; --accent: #0f766e; --accent-ink: #ffffff; --live: #b42318;
-        --pill: #eef1f4; color-scheme: light; }
+      /* A wire desk for public records: paper and ink, serif headlines, monospace datelines.
+         System fonts only: the page loads nothing from anyone else. */
+      :root { --bg: #f5f3ec; --card: #fffdf8; --ink: #1b1a17; --muted: #5d5a52;
+        --line: #dcd7c9; --accent: #9a3412; --accent-ink: #fffdf8; --live: #c0261a;
+        --pill: #ebe7db; --link: #1d3f8f; --shade: rgba(27, 26, 23, .06); color-scheme: light;
+        --serif: "Iowan Old Style", "Charter", "Bitstream Charter", "Sitka Text", Cambria,
+          Georgia, serif;
+        --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+        --mono: ui-monospace, "SF Mono", "Cascadia Mono", "Segoe UI Mono", Menlo, Consolas,
+          monospace; }
       @media (prefers-color-scheme: dark) {
-        :root:not([data-theme="light"]) { --bg: #0e1116; --card: #161a21; --ink: #e7e9ee;
-          --muted: #9aa3b2; --line: #262c36; --accent: #2dd4bf; --accent-ink: #062521;
-          --live: #f97066; --pill: #1f2530; color-scheme: dark; }
+        :root:not([data-theme="light"]) { --bg: #13130f; --card: #1b1b16; --ink: #ece8dc;
+          --muted: #a29d8f; --line: #34332b; --accent: #f0915f; --accent-ink: #1b1209;
+          --live: #ff6b5b; --pill: #26261f; --link: #9db8ff; --shade: rgba(0, 0, 0, .35);
+          color-scheme: dark; }
       }
-      :root[data-theme="dark"] { --bg: #0e1116; --card: #161a21; --ink: #e7e9ee;
-        --muted: #9aa3b2; --line: #262c36; --accent: #2dd4bf; --accent-ink: #062521;
-        --live: #f97066; --pill: #1f2530; color-scheme: dark; }
+      :root[data-theme="dark"] { --bg: #13130f; --card: #1b1b16; --ink: #ece8dc;
+        --muted: #a29d8f; --line: #34332b; --accent: #f0915f; --accent-ink: #1b1209;
+        --live: #ff6b5b; --pill: #26261f; --link: #9db8ff; --shade: rgba(0, 0, 0, .35);
+        color-scheme: dark; }
       * { box-sizing: border-box; }
+      html { scroll-padding-top: 4rem; }
       body { margin: 0; background: var(--bg); color: var(--ink);
-        font: 16px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-        padding-inline: 16px; }
-      a { color: var(--accent); }
-      .wrap { max-width: 72rem; margin: 0 auto; }
+        font: 16px/1.55 var(--sans); padding-inline: 16px; }
+      a { color: var(--link); text-underline-offset: .15em; }
+      .wrap { max-width: 74rem; margin: 0 auto; }
       .top { display: flex; flex-wrap: wrap; gap: .5rem 1.5rem; align-items: center;
-        justify-content: space-between; padding-block: 1rem;
-        border-bottom: 1px solid var(--line); }
-      .brand { font-weight: 700; letter-spacing: -.01em; color: var(--ink); text-decoration: none; }
-      .top nav { display: flex; flex-wrap: wrap; gap: .25rem 1rem; font-size: .95rem; }
+        justify-content: space-between; padding-block: 1rem .9rem;
+        border-bottom: 3px double var(--line); }
+      .brand { font: 700 1.1rem/1 var(--serif); letter-spacing: -.01em; color: var(--ink);
+        text-decoration: none; display: inline-flex; gap: .5rem; align-items: center; }
+      .brand::before { content: ""; width: .7rem; height: .7rem; border-radius: 2px;
+        background: var(--accent); }
+      .top nav { display: flex; flex-wrap: wrap; gap: .25rem 1.1rem; font-size: .92rem; }
       .top nav a { color: var(--muted); text-decoration: none; }
-      .top nav a:hover { color: var(--ink); }
+      .top nav a:hover { color: var(--ink); text-decoration: underline; }
       .hero { padding-block: 2.5rem 1.5rem; max-width: 46rem; }
-      h1 { font-size: clamp(1.9rem, 4vw, 2.6rem); line-height: 1.15; margin: 0 0 .75rem;
+      .front { display: grid; gap: 2rem 3rem; padding-block: 2.5rem 1.5rem; }
+      @media (min-width: 62rem) {
+        .front { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); } }
+      .front .hero { padding: 0; max-width: none; min-width: 0; }
+      .kicker { font: 600 .74rem/1.5 var(--mono); letter-spacing: .12em; text-transform: uppercase;
+        color: var(--accent); margin: 0 0 .9rem; }
+      h1 { font: 700 clamp(2rem, 4.6vw, 3.05rem)/1.08 var(--serif); margin: 0 0 .9rem;
         letter-spacing: -.02em; text-wrap: balance; }
-      .lede { color: var(--muted); font-size: 1.1rem; margin: 0 0 1.25rem; }
-      .stats { display: flex; flex-wrap: wrap; gap: .5rem 1.75rem; list-style: none;
-        padding: 0; margin: 0 0 1.5rem; color: var(--muted); font-variant-numeric: tabular-nums; }
-      .stats b { color: var(--ink); font-size: 1.15rem; }
-      #q { width: 100%; font: inherit; font-size: 1.05rem; padding: .8rem 1rem;
+      .lede { color: var(--muted); font-size: 1.08rem; margin: 0 0 1.25rem; max-width: 40rem; }
+      .stats { display: flex; flex-wrap: wrap; gap: .4rem 1.6rem; list-style: none;
+        padding: .7rem 0; margin: 0 0 1.4rem; color: var(--muted); font: .9rem var(--mono);
+        font-variant-numeric: tabular-nums; border-block: 1px solid var(--line); }
+      .stats b { color: var(--ink); font-weight: 700; }
+      .find { position: relative; }
+      #q { width: 100%; font: inherit; font-size: 1.08rem; padding: .9rem 3rem .9rem 1rem;
         border: 1px solid var(--line); border-radius: 10px; background: var(--card);
-        color: var(--ink); }
+        color: var(--ink); box-shadow: 0 1px 0 var(--shade); }
       #q:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
-      #status { color: var(--muted); font-size: .9rem; margin: .5rem 0 0; }
+      .find kbd { position: absolute; right: .8rem; top: 50%; translate: 0 -50%;
+        font: .78rem var(--mono); color: var(--muted); border: 1px solid var(--line);
+        border-radius: 4px; padding: .05rem .4rem; pointer-events: none; }
+      @media (pointer: coarse) { .find kbd { display: none; } #q { padding-right: 1rem; } }
+      #status { color: var(--muted); font-size: .9rem; margin: .6rem 0 0; }
       #status:empty, #results:empty { display: none; }
       #deep { margin-top: .6rem; font: inherit; font-size: .9rem; font-weight: 600;
         color: var(--accent-ink); background: var(--accent); border: 0; border-radius: 8px;
         padding: .45rem .9rem; cursor: pointer; }
       #deep[hidden] { display: none; }
       #results { list-style: none; padding: 0; margin: .5rem 0 0; }
-      #results li { padding: .55rem 0; border-bottom: 1px solid var(--line); }
-      #results small { display: block; color: var(--muted); }
-      .toc { display: flex; flex-wrap: wrap; gap: .5rem; padding-block: .5rem 0; }
-      .toc a { background: var(--pill); color: var(--ink); text-decoration: none;
-        padding: .3rem .75rem; border-radius: 999px; font-size: .9rem; }
+      #results li { padding: .6rem 0; border-bottom: 1px solid var(--line); }
+      #results a { color: var(--ink); text-decoration: none; font-weight: 500; }
+      #results a:hover { text-decoration: underline; }
+      #results small, .wire small { display: block; color: var(--muted);
+        font: .78rem var(--mono); margin-top: .15rem; }
+      .try { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem;
+        margin: .75rem 0 0; color: var(--muted); font-size: .88rem; }
+      .try button { font: inherit; font-size: .84rem; color: var(--ink); background: var(--pill);
+        border: 1px solid transparent; border-radius: 999px; padding: .22rem .7rem;
+        cursor: pointer; }
+      .try button:hover { border-color: var(--accent); }
+      .desk { background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+        padding: 1rem 1.15rem; min-width: 0; align-self: start; }
+      .desk h2 { font: .74rem/1 var(--mono); letter-spacing: .12em; text-transform: uppercase;
+        color: var(--muted); margin: 0 0 .5rem; display: flex; gap: .5rem; align-items: center; }
+      .wire { list-style: none; padding: 0; margin: 0; }
+      .wire li { padding: .55rem 0; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
+      .wire li:first-child { border-top: 0; }
+      .wire a { color: var(--ink); text-decoration: none; font-size: .93rem; }
+      .wire a:hover { text-decoration: underline; }
+      .desk .more { display: inline-block; margin-top: .6rem; font-size: .88rem; }
+      .ways { display: grid; gap: 1rem; padding-block: .5rem 1.5rem;
+        grid-template-columns: repeat(auto-fit, minmax(min(15rem, 100%), 1fr)); }
+      .ways div { border-top: 2px solid var(--ink); padding-top: .8rem; min-width: 0; }
+      .ways h2 { font: 700 1.05rem/1.2 var(--serif); margin: 0 0 .35rem; }
+      .ways p { margin: 0; color: var(--muted); font-size: .92rem; overflow-wrap: anywhere; }
+      .toc { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 2;
+        display: flex; gap: .4rem; overflow-x: auto; padding-block: .6rem;
+        background: var(--bg); border-bottom: 1px solid var(--line); scrollbar-width: none; }
+      .toc a { flex: none; background: var(--pill); color: var(--ink); text-decoration: none;
+        padding: .3rem .8rem; border-radius: 999px; font-size: .86rem; }
+      .toc a:hover { background: var(--ink); color: var(--bg); }
       .group { padding-block: 2rem .5rem; }
-      .group h2 { font-size: 1.25rem; margin: 0 0 1rem; letter-spacing: -.01em; }
+      .group h2 { font: 700 1.45rem/1.2 var(--serif); margin: 0 0 1rem; letter-spacing: -.01em;
+        display: flex; gap: .6rem; align-items: baseline; }
+      .group h2 small { font: .8rem var(--mono); color: var(--muted); font-weight: 400; }
       .grid { display: grid; gap: 1rem;
-        grid-template-columns: repeat(auto-fill, minmax(min(19rem, 100%), 1fr)); }
+        grid-template-columns: repeat(auto-fill, minmax(min(20rem, 100%), 1fr)); }
       .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px;
-        padding: 1rem 1.1rem; display: flex; flex-direction: column; gap: .5rem; min-width: 0; }
-      .card h3 { font-size: 1.02rem; margin: 0; display: flex; gap: .5rem; align-items: baseline;
-        justify-content: space-between; }
-      .live { color: var(--live); font-size: .72rem; font-weight: 700; letter-spacing: .06em;
-        text-transform: uppercase; white-space: nowrap; }
-      .desc { color: var(--muted); font-size: .93rem; margin: 0; }
-      .latest { font-size: .9rem; margin: 0; overflow-wrap: anywhere; }
+        padding: 1rem 1.1rem; display: flex; flex-direction: column; gap: .55rem; min-width: 0;
+        scroll-margin-top: 4rem; }
+      .card:target { outline: 2px solid var(--accent); outline-offset: 2px; }
+      .card h3 { font: 700 1.06rem/1.25 var(--serif); margin: 0; display: flex; gap: .5rem;
+        align-items: baseline; justify-content: space-between; }
+      .card h3 a { color: inherit; text-decoration: none; }
+      .card h3 a:hover { text-decoration: underline; }
+      .live { color: var(--live); font: 700 .68rem/1 var(--mono); letter-spacing: .08em;
+        text-transform: uppercase; white-space: nowrap; display: inline-flex; gap: .35rem;
+        align-items: center; }
+      .live::before { content: ""; width: .45rem; height: .45rem; border-radius: 50%;
+        background: currentColor; animation: pulse 2s ease-in-out infinite; }
+      @keyframes pulse { 50% { opacity: .3; } }
+      @media (prefers-reduced-motion: reduce) { .live::before { animation: none; } }
+      .desc { color: var(--muted); font-size: .9rem; margin: 0; display: -webkit-box;
+        -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+      .latest { font-size: .9rem; margin: 0; overflow-wrap: anywhere; padding-left: .7rem;
+        border-left: 2px solid var(--accent); }
       .latest:empty { display: none; }
-      .latest::before { content: "Latest"; display: block; color: var(--muted); font-size: .7rem;
-        font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+      .latest::before { content: "Latest"; display: block; color: var(--muted);
+        font: .68rem/1.6 var(--mono); letter-spacing: .1em; text-transform: uppercase; }
       .latest a { color: var(--ink); text-decoration: none; }
       .latest a:hover { text-decoration: underline; }
-      .latest span { color: var(--muted); }
+      .latest span { color: var(--muted); font: .78rem var(--mono); }
       .card footer { margin-top: auto; display: flex; flex-wrap: wrap; gap: .4rem;
-        align-items: center; font-size: .85rem; }
+        align-items: center; font-size: .82rem; padding-top: .3rem; }
       .pill { background: var(--pill); color: var(--ink); text-decoration: none;
-        padding: .15rem .6rem; border-radius: 6px; font-weight: 600; font-size: .8rem; }
+        padding: .12rem .55rem; border-radius: 5px; font: 600 .74rem/1.5 var(--mono); }
+      .pill:hover { background: var(--ink); color: var(--bg); }
       .warn { color: var(--live); }
-      .try { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem;
-        margin: .6rem 0 0; color: var(--muted); font-size: .88rem; }
-      .try button { font: inherit; font-size: .85rem; color: var(--ink); background: var(--pill);
-        border: 0; border-radius: 999px; padding: .25rem .7rem; cursor: pointer; }
-      .try button:hover { outline: 1px solid var(--accent); }
       .use { display: grid; gap: 1rem 2rem;
         grid-template-columns: repeat(auto-fit, minmax(min(16rem, 100%), 1fr));
-        padding-block: 2.5rem; border-top: 1px solid var(--line); margin-top: 2rem; }
-      .use h2 { font-size: 1rem; margin: 0 0 .4rem; }
-      .use p { margin: 0; color: var(--muted); font-size: .93rem; }
+        padding-block: 2.5rem; border-top: 3px double var(--line); margin-top: 2rem; }
+      .use h2 { font: 700 1rem/1.3 var(--serif); margin: 0 0 .4rem; }
+      .use p { margin: 0; color: var(--muted); font-size: .92rem; overflow-wrap: anywhere; }
       code { background: var(--pill); padding: .05rem .35rem; border-radius: 4px;
-        font-size: .88em; }
+        font: .86em var(--mono); }
       .foot { color: var(--muted); font-size: .85rem; padding-block: 1.5rem 3rem;
         border-top: 1px solid var(--line); }
 """
@@ -952,7 +1050,8 @@ def index_page(p: PublishPlan, every: str) -> str:
             about = f'<p class="desc">{esc(item.description)}</p>' if item.description else ""
             cards.append(
                 f'        <article class="card" id="feed-{esc(item.name)}">\n'
-                f"          <h3>{esc(item.title or _readable(item.name))}{live}</h3>\n"
+                f'          <h3><a href="#feed-{esc(item.name)}">'
+                f"{esc(item.title or _readable(item.name))}</a>{live}</h3>\n"
                 f"          {about}\n"
                 f'          <p class="latest" data-latest="{esc(item.name)}"></p>\n'
                 f'          <footer>{pills}<span data-health="{esc(item.name)}"></span></footer>\n'
@@ -960,11 +1059,14 @@ def index_page(p: PublishPlan, every: str) -> str:
             )
         slug = _slug(group)
         toc.append(f'<a href="#{slug}">{esc(group)}</a>')
+        count = f"{len(items)} feed{'s' if len(items) != 1 else ''}"
         sections.append(
-            f'    <section class="group" id="{slug}">\n      <h2>{esc(group)}</h2>\n'
+            f'    <section class="group" id="{slug}">\n'
+            f"      <h2>{esc(group)} <small>{count}</small></h2>\n"
             f'      <div class="grid">\n' + "\n".join(cards) + "\n      </div>\n    </section>"
         )
     title = esc(p.title or p.name)
+    headline = esc(p.headline or p.title or p.name)
     about = f'\n      <p class="lede">{esc(p.about)}</p>' if p.about else ""
     links = "".join(f'<a href="{esc(url)}">{esc(label)}</a>' for label, url in p.links)
     tries = ""
@@ -997,30 +1099,45 @@ def index_page(p: PublishPlan, every: str) -> str:
   <body>
     <div class="wrap">
     <header class="top"><a class="brand" href="./">{title}</a><nav>{links}</nav></header>
+    <div class="front">
     <section class="hero">
-      <h1>{title}</h1>{about}
+      <p class="kicker">Open feed catalog · every item linked to its source</p>
+      <h1>{headline}</h1>{about}
       <ul class="stats">
         <li><b>{len(p.pipelines)}</b> feeds</li>{fast}
         <li><b id="stat-archive">…</b> records<span id="stat-since"></span></li>
         <li>updated <b id="stat-updated">…</b></li>
       </ul>
-      <input id="q" type="search" placeholder="Search the latest items: flood, bankruptcy, Bangkok…"
-        autocomplete="off" aria-label="Search every feed">
+      <div class="find"><input id="q" type="search"
+        placeholder="Search every feed: hurricane katrina, sanctions, nvidia earnings…"
+        autocomplete="off" aria-label="Search every feed"><kbd>/</kbd></div>
 {tries}      <p id="status"></p>
       <button id="deep" type="button" hidden>Search every past record, not only the latest</button>
       <ul id="results"></ul>
     </section>
-    <nav class="toc" aria-label="Topics">{"".join(toc)}</nav>
+    <aside class="desk" aria-labelledby="desk-title">
+      <h2 id="desk-title"><span class="live">Live</span> Just in</h2>
+      <ol class="wire" id="wire"><li>Loading the newest items…</li></ol>
+      <a class="more" href="#topics">Every feed, by topic ↓</a>
+    </aside>
+    </div>
+    <section class="ways" aria-label="Ways to use it">
+      <div><h2>Search and ask</h2><p>Search above, or in a terminal:
+        <code>pip install unlimitedpipe</code>, then <code>unlimited ask "QUESTION"</code>,
+        answered from these records with every source cited.</p></div>
+      <div><h2>Get alerts</h2><p><code>unlimited follow WORDS --to ntfy:TOPIC</code> sends each
+        new match to your phone (the free ntfy app, no account), Telegram, Discord or
+        Slack.</p></div>
+      <div><h2>Subscribe</h2><p>Every feed is RSS for any reader and JSON for code: the buttons
+        on each card below.</p></div>
+      <div><h2>Make your own</h2><p>Each feed is a short YAML pipeline; fork one and
+        <code>unlimited publish</code> hosts yours for free on GitHub.</p></div>
+    </section>
+    <nav class="toc" id="topics" aria-label="Topics">{"".join(toc)}</nav>
 {chr(10).join(sections)}
     <section class="use">
-      <div><h2>Subscribe</h2><p>Every feed is RSS for any feed reader and JSON for code.
-        Each item links to the record it comes from.</p></div>
-      <div><h2>Search and ask</h2><p><code>pip install unlimitedpipe</code>, then
-        <code>unlimited search WORDS</code> or <code>unlimited ask "QUESTION"</code>, with a
-        local model and every answer cited.</p></div>
-      <div><h2>Follow</h2><p><code>unlimited follow earthquake japan --to ntfy:TOPIC</code>
-        sends each new match to your phone (the free ntfy app, no account), or to Telegram,
-        Discord, Slack or any webhook.</p></div>
+      <div><h2>Where it comes from</h2><p>Official APIs, feeds and public pages, read politely
+        (robots.txt, rate limits, an honest User-Agent). Each item links to its source.</p></div>
       <div><h2>History</h2><p>Every item goes into a monthly archive,
         <a href="{esc("archive/index.json")}">archive/index.json</a>, so questions about a year or a
         month reach back. Runs every {esc(every)}.</p></div>
