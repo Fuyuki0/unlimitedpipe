@@ -8,7 +8,7 @@
 set -eu
 
 # The latest release; set UNLIMITEDPIPE_SPEC to install something else (a path, a branch).
-SPEC="${UNLIMITEDPIPE_SPEC:-unlimitedpipe==0.10.57}"
+SPEC="${UNLIMITEDPIPE_SPEC:-unlimitedpipe==0.10.58}"
 
 say() { printf '\033[1m%s\033[0m\n' "$*" >&2; }
 fail() { printf 'error: %s\n' "$*" >&2; exit 1; }
