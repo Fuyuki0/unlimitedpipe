@@ -57,6 +57,10 @@ async def main() -> None:
                 'unlimited ask "earthquakes in japan in 2024" --sources 3',
                 Ask(question=["earthquakes in japan in 2024"], sources=3),
             ),
+            (
+                'unlimited ask "strongest hurricane in 2005" --sources 3',
+                Ask(question=["strongest hurricane in 2005"], sources=3),
+            ),
         ],
         HERE / "ask.svg",
     )

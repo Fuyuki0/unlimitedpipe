@@ -69,6 +69,7 @@ from unlimitedpipe.sources.search import (
     RARE_MONTHS,
     SAME,
     STORY_UPDATES,
+    WHOLE_WORDS,
     stem,
     story,
     word_pattern,
@@ -189,6 +190,25 @@ def held(key: str) -> bool:
     return hashlib.sha256(key.encode()).digest()[0] % 10 == 0
 
 
+# what `search._start` lets a four-letter word end with
+FOUR_LETTER_ENDINGS = (
+    "",
+    "s",
+    "es",
+    "d",
+    "ed",
+    "ing",
+    "er",
+    "ers",
+    "an",
+    "ans",
+    "ian",
+    "ians",
+    "ese",
+    "ish",
+)
+
+
 class Tokens:
     """Where each word of some texts starts, to find what `word_pattern` finds without scanning
     every text: a word matches at the start of a word ("hack" in "hackers"), a word of three
@@ -215,8 +235,12 @@ class Tokens:
             return {n for n, t in enumerate(self.texts) if pattern.search(t)}
         found: set[int] = set()
         for form in forms:
-            if len(form) <= 3:
+            if len(form) <= 3 or form in WHOLE_WORDS:
                 for ending in ("", "s", "es", "ed", "ing"):
+                    found |= self.where.get(form + ending, set())
+                continue
+            if len(form) == 4:  # only its own endings ("cary" is not "caryophyllus")
+                for ending in FOUR_LETTER_ENDINGS:
                     found |= self.where.get(form + ending, set())
                 continue
             i = bisect.bisect_left(self.tokens, form)
@@ -297,11 +321,16 @@ class World:
         best_coverage, best_score = scored[0][0], scored[0][1]
         kept = [s for s in scored if s[0] == best_coverage and s[1] >= best_score / 2]
         updates: collections.Counter[str] = collections.Counter()
-        chosen = []
+        chosen, shown = [], set()
         for s in kept:
-            updates[story(self.items[s[3]])] += 1
-            if updates[story(self.items[s[3]])] <= STORY_UPDATES:
-                chosen.append(self.items[s[3]])
+            item = self.items[s[3]]
+            same = (" ".join(str(item.get("title") or "").casefold().split()), item.get("date"))
+            if same in shown:  # one record in two feeds, shown once (as ask does)
+                continue
+            shown.add(same)
+            updates[story(item)] += 1
+            if updates[story(item)] <= STORY_UPDATES:
+                chosen.append(item)
         return chosen[:limit], scored[0][4]
 
     def check_period(self, questions: list[str], since: str, until: str) -> None:

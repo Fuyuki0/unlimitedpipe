@@ -6,16 +6,16 @@
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](https://github.com/Fuyuki0/unlimitedpipe/blob/main/LICENSE)
 [![Model](https://img.shields.io/badge/%F0%9F%A4%97%20model-decide--0.5b-yellow)](https://huggingface.co/unlimitedpipe/decide-0.5b-GGUF)
 [![Dataset](https://img.shields.io/badge/%F0%9F%A4%97%20dataset-2.85B%20tokens-yellow)](https://huggingface.co/datasets/unlimitedpipe/public-records)
-[![Feeds](https://img.shields.io/badge/live%20feeds-122-brightgreen)](https://feeds.daemonfill.dev/)
+[![Feeds](https://img.shields.io/badge/live%20feeds-124-brightgreen)](https://feeds.daemonfill.dev/)
 
 **Pipe the public internet.**
 
 Watch anything public (a price, a filing, a feed, a government page) and get only what
-changed, with a link to where it came from. Search and ask 122 live feeds of public records and
+changed, with a link to where it came from. Search and ask 124 live feeds of public records and
 news in one command, even offline, answered by a 0.5B model that cites its sources.
 Local-first, free, no account, no API key.
 
-![unlimited ask answering "any big crypto hacks this week?" and "earthquakes in japan in 2024" with cited sources](https://raw.githubusercontent.com/Fuyuki0/unlimitedpipe/main/docs/assets/ask.svg)
+![unlimited ask answering "any big crypto hacks this week?", "earthquakes in japan in 2024" and "strongest hurricane in 2005" with cited sources](https://raw.githubusercontent.com/Fuyuki0/unlimitedpipe/main/docs/assets/ask.svg)
 
 Install and set everything up with one command (it asks before each step):
 
@@ -29,7 +29,7 @@ and skill for Claude Code, and an offline copy of the feed catalog. Already have
 `pip install unlimitedpipe`, then `unlimited setup`.
 
 ```bash
-unlimited search "cyber attack"                     # 122 live feeds at once, one request
+unlimited search "cyber attack"                     # 124 live feeds at once, one request
 unlimited ask "what happened in Bangkok today?"     # answered from the feeds, with sources
 unlimited web https://example.com | unlimited diff               # only what changed
 unlimited new https://some-shop.example/product     # writes a price-and-stock watch for you
@@ -38,21 +38,27 @@ unlimited mirror && unlimited search flood --catalog offline    # works without 
 
 - **Change detection with proof.** Every result carries its source link and when it was
   fetched; `diff` remembers what it saw and reports only what is new, changed or gone.
-- **[122 free feeds](https://feeds.daemonfill.dev/)** of public records and news on GitHub
+- **[124 free feeds](https://feeds.daemonfill.dev/)** of public records and news on GitHub
   Actions: SEC filings and insider trades, sanctions, new rules, rate decisions, economic data
   and market closes, disasters and solar storms, disease outbreaks, crypto, business and tech,
   and news from every region. A live copy on a small server (`unlimited watch --catalog`)
-  feeds search, ask and the page: it checks SEC filings every 30 seconds; earthquakes,
-  tsunamis, storms, disaster alerts, outages, security news and headlines every minute; and
-  regional news, sanctions and outbreaks every 5 minutes; the rest update every hour. Each
+  feeds search, ask and the page: it checks SEC filings and earthquakes (listening to EMSC's
+  live stream too) every 30 seconds; tsunamis, storms, disaster alerts, outages, security news
+  and headlines every minute; and regional news, world events, sanctions, outbreaks and crypto
+  every 5 minutes; the rest update every hour. Each
   feed is a YAML file of about 15 lines;
   [fork them](https://github.com/Fuyuki0/unlimitedpipe-feeds).
 - **History, not only the latest.** Every item the feeds ever listed stays in a monthly
-  archive, 660,000 records back to 1900 (earthquakes, tsunamis, every US law since 1973, Fed
-  rate decisions, disaster declarations, recalls, sanctions, federal rules, SEC filings, fund
-  holdings, private raises, election spending, drug shortages, papers and more): ask about a
-  year ("earthquakes in japan in 2024", "crypto hacks in 2022") and the biggest come first,
-  in about a second.
+  archive, 1.58 million records back to 1851: the world's events day by day since 2002 and
+  each country's year by year (from Wikipedia), earthquakes since 1900, Atlantic hurricanes
+  since 1851 and typhoons since 1951, every orbital launch since 1957, every US law since 1973,
+  rate decisions of the Fed, ECB, Bank of England, Bank of Canada and RBA, SEC filings, insider
+  trades, earnings releases and fund holdings, government announcements (GOV.UK since 2012,
+  Canada, EU laws since 1990), crypto hacks, depegs, big moves, liquidations and $25M+ stablecoin
+  transfers, recalls, sanctions, papers and more. Ask about a year ("earthquakes in japan in
+  2024", "strongest typhoon in 2013", "what happened in 2011") and the biggest come first, in
+  about a second; [On this day](https://feeds.daemonfill.dev/on-this-day.html) shows each
+  date's biggest past events.
 - **Answers that cite.** `ask` finds the facts with plain search, then a small local model
   trained for the job answers from them: on 40 blind questions typed the way people type, 90%
   of its answers pass (Qwen3.5 2B, four times its size, 87%), ahead of the 3 to 4B models we
@@ -75,7 +81,7 @@ unlimited mirror && unlimited search flood --catalog offline    # works without 
 | Training or studying models | 1.25M public-record events and 2.85B tokens of government records on Hugging Face |
 
 Phone alerts: [ntfy.daemonfill.dev](https://ntfy.daemonfill.dev/) sends each new item of these feeds
-within about 30 seconds of the live copy seeing it (`earthquakes` takes the first report from GFZ,
+within about 30 seconds of the live copy seeing it (`earthquakes` takes the first report from EMSC, GFZ,
 JMA, BMKG, GeoNet or USGS: in our first tests, 10 to 20 minutes before USGS alone). In the free ntfy
 app, add that server and subscribe to any of `earthquakes`, `tsunami-alerts`, `hurricanes`,
 `typhoons`, `disaster-alerts`, `space-weather`, `thailand-earthquakes`, `us-volcano-alerts`,
