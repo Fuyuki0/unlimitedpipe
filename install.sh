@@ -8,7 +8,7 @@
 set -eu
 
 # The latest release; set UNLIMITEDPIPE_SPEC to install something else (a path, a branch).
-SPEC="${UNLIMITEDPIPE_SPEC:-git+https://github.com/Fuyuki0/unlimitedpipe@v0.10.52}"
+SPEC="${UNLIMITEDPIPE_SPEC:-unlimitedpipe==0.10.52}"
 
 say() { printf '\033[1m%s\033[0m\n' "$*" >&2; }
 fail() { printf 'error: %s\n' "$*" >&2; exit 1; }
@@ -35,7 +35,17 @@ elif [ -n "$python" ]; then
     fail "pip could not install it; install uv (https://docs.astral.sh/uv/) and run this again"
   bindir="$("$python" -m site --user-base)/bin"
 else
-  fail "UnlimitedPipe needs Python 3.11 or newer, or uv (https://docs.astral.sh/uv/)"
+  # A new Mac has only Python 3.9: uv (https://docs.astral.sh/uv/) brings its own Python and
+  # installs into your home folder, without an admin password.
+  say "Python 3.11 or newer was not found: installing uv, which brings its own Python"
+  command -v curl >/dev/null 2>&1 || fail "UnlimitedPipe needs Python 3.11 or newer, or uv (https://docs.astral.sh/uv/)"
+  curl -LsSf https://astral.sh/uv/install.sh | env UV_NO_MODIFY_PATH=1 sh >&2 ||
+    fail "uv could not be installed; install Python 3.11 or newer (https://www.python.org/downloads/) and run this again"
+  uv="$HOME/.local/bin/uv"
+  [ -x "$uv" ] || uv="$(command -v uv || true)"
+  [ -n "$uv" ] || fail "uv was installed but not found; run this again in a new terminal"
+  "$uv" tool install --force --python 3.12 "$SPEC"
+  bindir="$("$uv" tool dir --bin)"
 fi
 
 # The command just installed, even if an older one comes first on the PATH.
