@@ -3,6 +3,15 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.60 - 2026-10-05
+
+- The feed page is redesigned: a "Just in" desk of the newest items, four ways to use the
+  catalog, a topic bar that stays in view, feed cards that link to themselves
+  (`#feed-earthquakes`), and `/` to search. A search with nothing among the latest items
+  searches the archive by itself. The page loads nothing from other sites.
+- `publish --headline`: the page's big line (the title by default).
+- On this day lists each year's events beside it, labelled by kind.
+
 ## 0.10.59 - 2026-10-04
 
 - `ask`: when the model says no source answers but the first source's title has every word of
