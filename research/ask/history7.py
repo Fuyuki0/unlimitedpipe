@@ -4,6 +4,11 @@ build 7 is build 6's examples plus these.
     research/.venv/bin/python research/ask/history7.py SNAPSHOT research/ask/data-history7
     research/.venv/bin/python research/ask/history7.py --merge research/ask/data-decide6 \\
         research/ask/data-history7 research/ask/data-decide7
+
+Build 8 adds the history of 2026-10-04 to build 7:
+    research/.venv/bin/python research/ask/history7.py SNAPSHOT research/ask/data-history8 new
+    research/.venv/bin/python research/ask/history7.py --merge research/ask/data-decide7 \\
+        research/ask/data-history8 research/ask/data-decide8
 """
 
 from __future__ import annotations
@@ -28,8 +33,12 @@ def capped(items: list[dict], per_feed: int, seed: int = 7) -> list[dict]:
     return sorted(kept, key=lambda i: i["date"])
 
 
-def make(snapshot: str, out: str) -> None:
-    past = capped(build.history_items(snapshot), build.WORLD_PER_FEED)
+def make(snapshot: str, out: str, only: str = "") -> None:
+    """ONLY: "new" for build 8, the feeds whose history was added on 2026-10-04."""
+    past = build.history_items(snapshot)
+    if only == "new":
+        past = [i for i in past if i["feed"] in build.NEW_HISTORY_FEEDS]
+    past = capped(past, build.WORLD_PER_FEED)
     print(f"history world: {len(past)} items", flush=True)
     described = json.loads((Path(snapshot) / "feeds.json").read_text(encoding="utf-8"))["feeds"]
     feeds = [f for f in described if f.get("name") in {i["feed"] for i in past}]
@@ -69,4 +78,4 @@ if __name__ == "__main__":
     if sys.argv[1] == "--merge":
         merge(*sys.argv[2:5])
     else:
-        make(*sys.argv[1:3])
+        make(*sys.argv[1:4])

@@ -746,6 +746,29 @@ HISTORY_FEEDS = {
     "fda-recalls",
     "court-rulings",
 }
+# Build 8: the history added on 2026-10-04, from public-domain or openly licensed sources
+# (Wikipedia's text is left out: its share-alike licence on a public model is unclear).
+NEW_HISTORY_FEEDS = {
+    "hurricanes",
+    "typhoons",
+    "space-weather",
+    "earnings-releases",
+    "us-justice",
+    "fda-news",
+    "us-flight-delays",
+    "whale-transfers",
+    "defi-liquidations",
+    "crypto-big-moves",
+    "stablecoin-depegs",
+    "defi-drops",
+    "uk-government",
+    "uk-bills",
+    "eu-laws",
+    "canada-government",
+    "us-contracts",
+    "us-grants",
+}
+HISTORY_FEEDS |= NEW_HISTORY_FEEDS
 WORLD_PER_FEED = 20_000  # items of each feed in the history world, to fit a small computer
 
 
@@ -901,9 +924,13 @@ LICENSED = ("S&P 500", "Nasdaq Composite", "Dow Jones Industrial Average", "Nikk
 def history_items(folder: str) -> list[dict]:
     """The archive's items from public feeds: works of the US government, and sentences
     UnlimitedPipe writes from open data; no licensed series."""
+    from unlimitedpipe.archive import _month_files, _text, lines_of
+
     items = []
-    for path in sorted((Path(folder) / "archive").glob("*.jsonl")):
-        for line in path.open(encoding="utf-8"):
+    for path in _month_files(Path(folder) / "archive"):  # compressed months too
+        for line in lines_of(_text(path)):
+            if not line.strip():
+                continue
             entry = json.loads(line)
             if str(entry.get("title") or "").startswith(LICENSED):
                 continue
