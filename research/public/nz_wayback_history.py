@@ -49,7 +49,14 @@ def release(page: str) -> tuple[str, str | None, str] | None:
     return title, when, (after if found else text).strip()[:300]
 
 
-def main(slugs: str, out: str) -> None:
+def main(
+    slugs: str,
+    out: str,
+    feed: str = "nz-government",
+    base: str = "https://www.beehive.govt.nz/release/",
+) -> None:
+    """FEED and BASE (the pages' address before the slug) read another site the same way, such
+    as australia-government and https://www.pm.gov.au/media/."""
     done = set()
     target = Path(out)
     if target.exists():
@@ -63,7 +70,7 @@ def main(slugs: str, out: str) -> None:
             if not line.strip():
                 continue
             slug, url, stamp = line.split()
-            link = f"https://www.beehive.govt.nz/release/{slug}"
+            link = base + slug
             if link in done:
                 continue
             page = None
@@ -85,7 +92,7 @@ def main(slugs: str, out: str) -> None:
             title, when, opening = found
             day = when or f"{stamp[:4]}-{stamp[4:6]}-{stamp[6:8]}"
             entry = {
-                "feed": "nz-government",
+                "feed": feed,
                 "title": title,
                 "summary": opening,
                 "link": link,
@@ -100,4 +107,4 @@ def main(slugs: str, out: str) -> None:
 
 
 if __name__ == "__main__":
-    main(*sys.argv[1:3])
+    main(*sys.argv[1:5])
