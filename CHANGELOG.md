@@ -3,6 +3,16 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.51 - 2026-10-04
+
+- Archive: records are written with Unicode line separators (U+2028, U+2029, U+0085) escaped and
+  read by splitting at newlines only, so a title holding one is no longer cut in two.
+- `ask`: a record listed by two feeds (a Fed decision in fed-funds-target and rate-decisions) is
+  shown once; storms are ranked by their winds ("strongest typhoon 2013").
+- History scripts for GOV.UK, World Bank tenders, EU laws, Wikipedia's year-in-country articles,
+  papers (Hugging Face Daily Papers, medRxiv), CERT-EU, Canada and Australia government news and
+  FDA press announcements; history appends skip each feed's live period.
+
 ## 0.10.50 - 2026-10-04
 
 - `unlimited current-events`: the day's events from Wikipedia's Current events portal, one item

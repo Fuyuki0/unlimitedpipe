@@ -559,7 +559,7 @@ async def _read_items(ctx: Context, files: list[str]) -> list[dict[str, Any]]:
     for content in await asyncio.gather(*(fetch(f) for f in files)):
         if content[:2] == b"\x1f\x8b":  # a compressed month (a server may have opened it)
             content = gzip.decompress(content)
-        for line in content.decode("utf-8", errors="replace").splitlines():
+        for line in content.decode("utf-8", errors="replace").split("\n"):
             try:
                 item = json.loads(line)
             except ValueError:

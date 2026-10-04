@@ -15,7 +15,7 @@ import json
 import sys
 from pathlib import Path
 
-from unlimitedpipe.archive import _month_files, _text, append
+from unlimitedpipe.archive import _month_files, _text, append, lines_of
 from unlimitedpipe.event import utcnow
 
 
@@ -23,7 +23,7 @@ def oldest_dates(site: Path) -> dict[str, str]:
     """The oldest date of each feed's records in the archive."""
     oldest: dict[str, str] = {}
     for path in _month_files(site / "archive"):
-        for line in _text(path).splitlines():
+        for line in lines_of(_text(path)):
             if not line.strip():
                 continue
             item = json.loads(line)
@@ -37,7 +37,7 @@ def main(site: str, files: list[str]) -> None:
     items = [
         json.loads(line)
         for file in files
-        for line in Path(file).read_text(encoding="utf-8").splitlines()
+        for line in lines_of(Path(file).read_text(encoding="utf-8"))
         if line.strip()
     ]
     missing = [i for i in items if not (i.get("feed") and i.get("title") and i.get("date"))]

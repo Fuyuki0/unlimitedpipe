@@ -97,10 +97,10 @@ LEFT_OUT = ("US 30-year mortgage rate",)  # Freddie Mac's survey, not a governme
 
 def rows_of(site: Path, insider: Path | None) -> dict[str, list[dict]]:
     found: dict[str, dict[str, dict]] = collections.defaultdict(dict)
-    from unlimitedpipe.archive import _month_files, _text
+    from unlimitedpipe.archive import _month_files, _text, lines_of
 
     sources = _month_files(site / "archive")  # compressed months too
-    lines = (line for path in sources for line in _text(path).splitlines())
+    lines = (line for path in sources for line in lines_of(_text(path)))
     if insider:
         lines = (*lines, *insider.open(encoding="utf-8"))
     for line in lines:

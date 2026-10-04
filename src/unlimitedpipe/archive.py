@@ -41,6 +41,24 @@ PACKED = ".jsonl.gz"
 OPEN_MONTHS = 2  # the current month and the one before stay plain: items still arrive there
 
 
+# Characters str.splitlines() ends a line at although JSON leaves them raw inside strings: a
+# title with one would be cut in two by a reader that splits on them.
+_LINE_BREAKS = {"\u2028": "\\u2028", "\u2029": "\\u2029", "\x85": "\\u0085"}
+
+
+def json_line(item: dict[str, Any]) -> str:
+    """An archive record as one line of JSON, safe for any line splitter."""
+    text = json.dumps(item, ensure_ascii=False, separators=(",", ":"))
+    for raw, escaped in _LINE_BREAKS.items():
+        text = text.replace(raw, escaped)
+    return text
+
+
+def lines_of(text: str) -> list[str]:
+    """The lines of a month file: split at newlines only, never inside a record."""
+    return text.split("\n")
+
+
 def item_key(item: dict[str, Any]) -> str:
     """The identity of an item across runs: its feed, link and title. Both, because some feeds
     link every item to the same page (a list of hacks, a weekly volcano report), and the same
@@ -157,7 +175,7 @@ def append(site: Path, items: list[dict[str, Any]], now: str) -> dict[str, int]:
                 new.append({**item, "key": key, "seen": now})
         if new:
             folder.mkdir(parents=True, exist_ok=True)
-            lines = [json.dumps(e, ensure_ascii=False, separators=(",", ":")) for e in new]
+            lines = [json_line(e) for e in new]
             with path.open("a", encoding="utf-8") as out:
                 out.writelines(line + "\n" for line in lines)
             for entry, line in zip(new, lines, strict=True):
@@ -196,7 +214,7 @@ def _heal(folder: Path, month: str) -> None:
 
 def _split_month(folder: Path, path: Path) -> int:
     groups: dict[Path, list[str]] = collections.defaultdict(list)
-    for line in path.read_text(encoding="utf-8").splitlines():
+    for line in lines_of(path.read_text(encoding="utf-8")):
         try:
             entry = json.loads(line)
         except ValueError:
@@ -252,7 +270,7 @@ def write_words(folder: Path, fresh: list[tuple[str, dict[str, Any]]] | None = N
     by_feed: dict[tuple[str, str], set[str]] = collections.defaultdict(set)
     for path in _month_files(folder):
         name = _month_name(path)
-        for line in _text(path).splitlines():
+        for line in lines_of(_text(path)):
             try:
                 entry = json.loads(line)
             except ValueError:
@@ -312,14 +330,14 @@ def write_index(folder: Path) -> None:
     months = []
     for path in reversed(_month_files(folder)):
         name = _month_name(path)
-        count = sum(1 for line in _text(path).splitlines() if line.strip())
+        count = sum(1 for line in lines_of(_text(path)) if line.strip())
         entry: dict[str, Any] = {"month": name, "file": path.name, "items": count}
         if path.name.endswith(PACKED):
             entry["packed"] = True  # its files by feed are compressed too
         split = folder / name
         if split.is_dir():
             entry["feeds"] = {
-                _month_name(f): sum(1 for line in _text(f).splitlines() if line.strip())
+                _month_name(f): sum(1 for line in lines_of(_text(f)) if line.strip())
                 for f in sorted([*split.glob("*.jsonl"), *split.glob(f"*{PACKED}")])
             }
         months.append(entry)

@@ -46,10 +46,10 @@ def load(folder: str | Path) -> list[dict]:
                 entry.get("url") or "",
                 entry.get("date_published") or "",
             )
-    from unlimitedpipe.archive import _month_files, _text
+    from unlimitedpipe.archive import _month_files, _text, lines_of
 
     for path in _month_files(folder / "archive"):  # compressed months too
-        for line in _text(path).splitlines():
+        for line in lines_of(_text(path)):
             entry = json.loads(line)
             add(
                 entry["feed"],

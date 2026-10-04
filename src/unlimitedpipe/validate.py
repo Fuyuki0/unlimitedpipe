@@ -247,7 +247,7 @@ async def _check_archive(ctx, report: Report, url: str, path: str, names: set[st
             import gzip
 
             content = gzip.decompress(content)
-        lines = [line for line in content.decode("utf-8", "replace").splitlines() if line.strip()]
+        lines = [line for line in content.decode("utf-8", "replace").split("\n") if line.strip()]
         if month.get("items") != len(lines):
             report.warn(where, f"index says {month.get('items')} items, the file has {len(lines)}")
         keys: set[str] = set()

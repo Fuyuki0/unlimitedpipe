@@ -50,6 +50,16 @@ def test_append_adds_each_item_once_into_its_month(tmp_path):
     assert month_of({"date": "garbage"}, "2026-10-01T00:00:00Z") == "2026-10"
 
 
+def test_a_title_with_a_unicode_line_separator_stays_one_record(tmp_path):
+    item = {"feed": "uk", "title": "Speech\u2028by the minister", "link": "https://x/1",
+            "date": "2026-09-01T00:00:00Z"}  # fmt: skip
+    append(tmp_path, [item, {**item, "title": "Other", "link": "https://x/2"}], "2026-09-02")
+    text = (tmp_path / "archive" / "2026-09.jsonl").read_text(encoding="utf-8")
+    assert len(text.splitlines()) == 2  # escaped, so even splitlines() sees two records
+    assert json.loads(text.splitlines()[0])["title"] == "Speech\u2028by the minister"
+    assert append(tmp_path, [item], "2026-09-03") == {}  # and it is known again
+
+
 def test_items_sharing_one_page_are_all_kept(tmp_path):
     # A list of hacks links every item to the same page; the same story from two sources
     # differs only in case.

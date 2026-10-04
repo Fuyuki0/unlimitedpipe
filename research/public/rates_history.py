@@ -19,7 +19,7 @@ from pathlib import Path
 
 import httpx
 
-from unlimitedpipe.archive import _month_files, _text
+from unlimitedpipe.archive import _month_files, _text, lines_of
 
 AGENT = {"User-Agent": "UnlimitedPipe (+https://github.com/Fuyuki0/unlimitedpipe)"}
 ECB = "https://data-api.ecb.europa.eu/service/data/FM/B.U2.EUR.4F.KR.{series}.LEV?format=csvdata"
@@ -77,7 +77,7 @@ def changes(bank, rate, points, link, source):
 def main(site: str, out: str) -> None:
     found = []
     for path in _month_files(Path(site) / "archive"):
-        for line in _text(path).splitlines():
+        for line in lines_of(_text(path)):
             if '"fed-funds-target"' in line:
                 item = json.loads(line)
                 found.append(
