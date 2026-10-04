@@ -70,8 +70,8 @@ def canada(http: httpx.Client, lines, since: str) -> int:
 
 
 def australia(http: httpx.Client, lines) -> int:
-    written, page = 0, 0
-    while True:
+    written, page, empty = 0, 0, 0
+    while empty < 6:  # a page can come back empty now and then: stop after six in a row
         soup = BeautifulSoup(_get(http, AUSTRALIA.format(page=page)).text, "lxml")
         cards = soup.select("div.card-body")
         found = 0
@@ -91,22 +91,29 @@ def australia(http: httpx.Client, lines) -> int:
             }
             lines.write(json.dumps(item, ensure_ascii=False) + "\n")
             found += 1
-        written += found
         print("australia", page, found, flush=True)
-        if not found:
-            return written
-        page += 1
-        time.sleep(2)
+        if not found:  # try the same page again a little later; six misses end the list
+            empty += 1
+            time.sleep(120)
+            continue
+        written, empty, page = written + found, 0, page + 1
+        time.sleep(3)
+    return written
 
 
-def main(out: str, since: str) -> None:
+def main(out: str, since: str, only: str = "") -> None:
+    """ONLY: "canada" or "australia" to read one of the two."""
     with (
         httpx.Client(headers=AGENT, timeout=120) as http,
         open(out, "w", encoding="utf-8") as lines,
     ):
-        written = canada(http, lines, since) + australia(http, lines)
+        written = 0
+        if only in ("", "canada"):
+            written += canada(http, lines, since)
+        if only in ("", "australia"):
+            written += australia(http, lines)
     print(written, "announcements")
 
 
 if __name__ == "__main__":
-    main(*sys.argv[1:3])
+    main(*sys.argv[1:4])

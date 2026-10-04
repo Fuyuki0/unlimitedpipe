@@ -27,3 +27,4 @@ research/ask/data-decide7/
 
 # local secrets
 .env
+.bq-key.json
