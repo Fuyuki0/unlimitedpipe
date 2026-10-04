@@ -149,6 +149,7 @@ _DEATHS = re.compile(
     rf"{_QUALIFIER}(\d[\d,]{{0,8}})\b(?! (?:years?|percent|%))"
     rf"|\b{_QUALIFIER}(\d[\d,]{{0,8}}) (?:people |civilians |soldiers |others |persons )?"
     rf"(?:are |were |have been |had been )?(?:killed|dead|die)\b"
+    r"(?! (?:pigs|fish|birds|animals|cattle|sheep|cows|dogs|whales|dolphins|chickens))"
 )
 
 

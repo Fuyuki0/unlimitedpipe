@@ -643,6 +643,18 @@ def publish_command(
     index = p.root / p.site_dir / "index.html"
     # Rewrite the index page unless someone replaced it with their own.
     wrote_index = not index.exists() or INDEX_MARKER in index.read_text(encoding="utf-8")
+    site = p.root / p.site_dir
+    days = 0
+    if wrote_index and (site / "archive" / "index.json").exists():
+        from unlimitedpipe import onthisday
+        from unlimitedpipe.publish import INDEX_STYLE
+
+        days = onthisday.build(site)  # the biggest events of each date in past years
+        (site / onthisday.PAGE).write_text(
+            onthisday.page(p.title or p.name, INDEX_STYLE), encoding="utf-8"
+        )
+        if days and not any(url == onthisday.PAGE for _, url in p.links):
+            p.links.insert(0, ("On this day", onthisday.PAGE))
     if wrote_index:
         index.parent.mkdir(parents=True, exist_ok=True)
         index.write_text(index_page(p, format_duration(seconds)), encoding="utf-8")
@@ -658,6 +670,8 @@ def publish_command(
         say(f"Express lane: {len(p.express)} pipeline(s), every {express_every}")
     if wrote_index:
         say(f"Wrote {p.site_dir / 'index.html'}")
+    if days:
+        say(f"Wrote {p.site_dir / 'on-this-day.html'} and {days} days of past events")
     say()
     say("Next:")
     paths = [i.path.as_posix() for i in p.pipelines]
