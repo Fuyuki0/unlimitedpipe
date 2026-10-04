@@ -3,6 +3,15 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.57 - 2026-10-04
+
+- `ask` says when it loads the model first (the first answer can take up to 30 seconds on a
+  slow machine; later ones about 5).
+- The feed page shows "Quiet: nothing over its bar yet" for a feed of rare events that runs fine
+  but has listed nothing, instead of an empty space; `validate` warns about such a feed only
+  once it has run for two weeks without an item.
+- README: what works right away and what needs setup, and what the local model does.
+
 ## 0.10.56 - 2026-10-04
 
 - `search`: quoted words are words, each of which must appear (`search "nvidia earnings"` found

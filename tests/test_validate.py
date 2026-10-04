@@ -59,19 +59,24 @@ def test_a_good_catalog_is_valid(tmp_path):
 
 
 def test_feeds_that_never_had_an_item_or_went_quiet_are_warned_about(tmp_path):
-    def feed(name, latest):
-        health = {"status": "ok", "since": "2026-09-26T00:00:00Z", "latest": latest}
+    def feed(name, latest, since="2026-01-01T00:00:00Z"):
+        health = {"status": "ok", "since": since, "latest": latest}
         return {"name": name, "description": "x", "files": ["quakes.xml"], "health": health}
 
     from datetime import UTC, datetime
 
     now = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
-    feeds = [feed("quakes", now), feed("empty", None), feed("old", "2020-01-01")]
+    feeds = [
+        feed("quakes", now),
+        feed("empty", None),
+        feed("old", "2020-01-01"),
+        feed("rare", None, since=now),  # rare events, running well for less than two weeks
+    ]
     report = run(site(tmp_path, feeds=feeds), tmp_path)
     messages = {f.where: f.message for f in report.findings if f.level == "warning"}
     assert messages["feed 'empty'"] == "has never had an item"
     assert messages["feed 'old'"].startswith("no new item for ")
-    assert "feed 'quakes'" not in messages
+    assert "feed 'quakes'" not in messages and "feed 'rare'" not in messages
 
 
 def test_protocol_errors_are_reported(tmp_path):

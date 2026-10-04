@@ -74,14 +74,18 @@ def _date_odd(value: Any) -> str | None:
     return None
 
 
-def _quiet(latest: Any) -> str | None:
+def _quiet(latest: Any, since: Any = None) -> str | None:
     """A warning for a feed that runs fine but has never had an item, or none for weeks: its
-    source may have moved, or a filter may drop everything."""
+    source may have moved, or a filter may drop everything. A feed of rare events (big
+    liquidations, fee spikes) that has run well for less than that is not warned about yet."""
     from datetime import UTC, datetime
 
     from unlimitedpipe.event import parse_time
 
     if not latest:
+        started = parse_time(since) if isinstance(since, str) else None
+        if started is not None and (datetime.now(UTC) - started).days < QUIET_DAYS:
+            return None
         return "has never had an item"
     when = parse_time(latest) if isinstance(latest, str) else None
     if when is None:
@@ -168,7 +172,10 @@ async def validate(ctx: Context, catalog: str | None, *, deep: bool = False) -> 
                 report.error(where, "health status must be ok, partial or failing")
             elif health["status"] != "ok":
                 report.warn(where, f"health is {health['status']} since {health.get('since')}")
-            elif "latest" in health and (quiet := _quiet(health["latest"])) is not None:
+            elif (
+                "latest" in health
+                and (quiet := _quiet(health["latest"], health.get("since"))) is not None
+            ):
                 report.warn(where, quiet)
         if deep:
             for path in files:

@@ -607,6 +607,13 @@ SEARCH_SCRIPT = r"""    <script>
           slot.replaceChildren(a, when);
         }
         for (const f of catalog.feeds) {
+          // a feed of rare events (big liquidations, fee spikes) can run fine and list nothing
+          const empty = document.querySelector('[data-latest="' + f.name + '"]');
+          if (empty && !seen.has(f.name) && (!f.health || f.health.status === "ok")) {
+            const quiet = document.createElement("span");
+            quiet.textContent = "Quiet: nothing over its bar yet";
+            empty.replaceChildren(quiet);
+          }
           const note = document.querySelector('[data-health="' + f.name + '"]'), h = f.health;
           if (!note || !h || h.status === "ok") continue;
           note.textContent = (h.status === "partial" ? "some sources failing" : "failing")

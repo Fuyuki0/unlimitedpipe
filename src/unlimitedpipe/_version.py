@@ -1,4 +1,4 @@
-__version__ = "0.10.56"
+__version__ = "0.10.57"
 
 PROJECT_URL = "https://github.com/Fuyuki0/unlimitedpipe"
 USER_AGENT = f"UnlimitedPipe/{__version__} (+{PROJECT_URL})"
