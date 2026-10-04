@@ -116,9 +116,14 @@ def run_checks(catalog: str | None = None, timeout: float = 8.0) -> list[Check]:
         )
     )
     browser = importlib.util.find_spec("playwright") is not None
-    chromium = any(Path.home().glob(".cache/ms-playwright/chromium*")) or any(
-        Path(os.environ.get("PLAYWRIGHT_BROWSERS_PATH", "/nonexistent")).glob("chromium*")
-    )
+    # where Playwright keeps its browsers: Linux, macOS, Windows, or a folder set by hand
+    places = [
+        Path.home() / ".cache" / "ms-playwright",
+        Path.home() / "Library" / "Caches" / "ms-playwright",
+        Path(os.environ.get("LOCALAPPDATA") or Path.home() / "AppData" / "Local") / "ms-playwright",
+        Path(os.environ.get("PLAYWRIGHT_BROWSERS_PATH", "/nonexistent")),
+    ]
+    chromium = any(any(place.glob("chromium*")) for place in places)
     detail = (
         "Playwright and Chromium"
         if browser and chromium
