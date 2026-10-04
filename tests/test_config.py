@@ -145,3 +145,18 @@ sources:
     assert pipeline.sources[0].url == [
         "https://example.com/2019?from=2019-03-01&to=2019-03-31&before=2019-04-01"
     ]
+
+
+def test_moments_for_older_than_checks():
+    import re
+    from datetime import UTC, datetime, timedelta
+
+    from unlimitedpipe.config import _date, uses_time
+
+    moment = _date("HOURS_AGO_2")
+    assert re.fullmatch(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ", moment)
+    then = datetime.strptime(moment, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)
+    assert abs((datetime.now(UTC) - then) - timedelta(hours=2)) < timedelta(minutes=1)
+    assert _date("MINUTES_AGO_30") > moment
+    assert uses_time("url: https://x?since=${DAYS_AGO_7}") and uses_time("${MINUTES_AGO_5}")
+    assert not uses_time("header: ${NTFY_TOKEN}")

@@ -3,6 +3,14 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.54 - 2026-10-04
+
+- `watch`: a pipeline that uses `${TODAY}`, `${DAYS_AGO_N}` and the like is loaded again for
+  each run, so a watch that runs for days no longer keeps the date it started with.
+- `${HOURS_AGO_N}` and `${MINUTES_AGO_N}`: moments (YYYY-MM-DDTHH:MM:SSZ), for filters such as
+  "nothing new for three hours".
+- `doctor`: finds Playwright's Chromium on macOS and Windows too.
+
 ## 0.10.53 - 2026-10-04
 
 - Install on a new Mac: with only Apple's Python 3.9, `install.sh` installs uv (its own Python,

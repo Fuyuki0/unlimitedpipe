@@ -84,6 +84,15 @@ class Watch:
         except OSError:
             return None
 
+    def _timed(self) -> bool:
+        """Whether the pipeline file refers to the date or time (then it is loaded each run)."""
+        from unlimitedpipe.config import uses_time
+
+        try:
+            return bool(self.reload_path) and uses_time(self.reload_path.read_text("utf-8"))
+        except OSError:
+            return False
+
     def run_once(self, pipeline: Pipeline) -> tuple[int, int]:
         """One run. Returns (events, failures); never raises except for Ctrl+C."""
         from unlimitedpipe.context import Context
@@ -114,11 +123,12 @@ class Watch:
         self.say(f"watching every {every}; Ctrl+C to stop")
         while True:
             current = self._mtime()
-            if current != mtime:
-                mtime = current
+            if current != mtime or self._timed():
+                changed, mtime = current != mtime, current
                 try:
                     pipeline = self.load()
-                    self.say(f"reloaded {self.reload_path}")
+                    if changed:
+                        self.say(f"reloaded {self.reload_path}")
                 except UnlimitedError as exc:
                     self.say(f"{exc.message}; still running the previous version", dim=False)
             self.runs += 1
@@ -161,9 +171,10 @@ class WatchMany(Watch):
         # a file's own interval (`filings.yml@30s`), else --every
         self.intervals = intervals or {}
         self.loaded: dict[Path, tuple[float | None, Pipeline]] = {}
+        self.timed: set[Path] = set()  # files that refer to the date or time
 
     def _pipelines(self) -> list[tuple[Path, Pipeline]]:
-        from unlimitedpipe.config import load_pipeline
+        from unlimitedpipe.config import load_pipeline, uses_time
 
         for path in self.paths:
             try:
@@ -171,11 +182,15 @@ class WatchMany(Watch):
             except OSError:
                 mtime = None
             known = self.loaded.get(path)
-            if known and known[0] == mtime:
+            if known and known[0] == mtime and path not in self.timed:
                 continue
             try:
                 self.loaded[path] = (mtime, load_pipeline(path))
-                if known:
+                if uses_time(path.read_text(encoding="utf-8")):
+                    self.timed.add(path)  # ${TODAY}, ${HOURS_AGO_2}: new values each run
+                else:
+                    self.timed.discard(path)
+                if known and known[0] != mtime:
                     self.say(f"reloaded {path}")
             except UnlimitedError as exc:
                 self.say(f"{path}: {exc.message}; still running the previous version", dim=False)

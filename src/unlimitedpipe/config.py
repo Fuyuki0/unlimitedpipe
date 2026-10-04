@@ -19,7 +19,8 @@ Relative paths (``path``, ``state``) are resolved from the pipeline file's direc
 ``${NAME}`` in a value is replaced by the environment variable NAME, so secrets such as
 webhook URLs stay out of the file. ``${TODAY}`` and ``${DAYS_AGO_30}`` are dates (UTC,
 YYYY-MM-DD) and ``${YEAR}`` the year, for APIs that take a date range (``${TOMORROW}`` for
-an end date that is not included); with them,
+an end date that is not included); ``${HOURS_AGO_2}`` and ``${MINUTES_AGO_30}`` are moments
+(YYYY-MM-DDTHH:MM:SSZ), for filters such as "nothing new for two hours"; with them,
 `unlimited backfill` can fill the archive with a feed's past items. Every error names the file,
 line and option at fault.
 """
@@ -54,7 +55,7 @@ TOP_LEVEL = {
 SETTINGS = {"errors_as_events"}
 PATH_OPTIONS = {"path", "state"}
 ENV_REFERENCE = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
-DATE_REFERENCE = re.compile(r"TODAY|TOMORROW|YEAR|DAYS_AGO_(\d+)")
+DATE_REFERENCE = re.compile(r"TODAY|TOMORROW|YEAR|DAYS_AGO_(\d+)|(HOURS|MINUTES)_AGO_(\d+)")
 # `unlimited backfill` loads a pipeline once per window of the past: `${TODAY}` and `${YEAR}` are
 # then the window's last day and its year, and every `${DAYS_AGO_N}` is its first day.
 WINDOW: ContextVar[tuple[date, date] | None] = ContextVar("window", default=None)
@@ -72,6 +73,10 @@ def _date(name: str) -> str | None:
     match = DATE_REFERENCE.fullmatch(name)
     if match is None:
         return None
+    if match.group(2):  # a moment, for "older than two hours": YYYY-MM-DDTHH:MM:SSZ
+        unit = "hours" if match.group(2) == "HOURS" else "minutes"
+        moment = datetime.now(UTC) - timedelta(**{unit: int(match.group(3))})
+        return moment.strftime("%Y-%m-%dT%H:%M:%SZ")
     window = WINDOW.get()
     today = window[1] if window else datetime.now(UTC).date()
     if name == "YEAR":
@@ -81,6 +86,12 @@ def _date(name: str) -> str | None:
     if window and match.group(1):
         return window[0].isoformat()
     return (today - timedelta(days=int(match.group(1) or 0))).isoformat()
+
+
+def uses_time(text: str) -> bool:
+    """Whether a pipeline file refers to the date or time, so a long-running watch must load it
+    again for each run rather than keep the values of the day it started."""
+    return any(DATE_REFERENCE.fullmatch(name) for name in ENV_REFERENCE.findall(text))
 
 
 def _interpolate(value: Any) -> Any:

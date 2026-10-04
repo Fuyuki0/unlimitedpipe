@@ -211,3 +211,19 @@ def test_a_file_can_run_more_often_than_the_rest(monkeypatch):
         [slow, fast], intervals={fast: 30}, every=60, jitter=0, times=4, quiet=True, sleep=sleep
     ).run()
     assert ran == [["fast.yml", "slow.yml"], ["fast.yml"], ["fast.yml", "slow.yml"], ["fast.yml"]]
+
+
+def test_a_file_with_dates_is_loaded_again_each_round(tmp_path, monkeypatch):
+    import unlimitedpipe.config as config
+    from unlimitedpipe.watch import WatchMany
+
+    dated, plain = tmp_path / "dated.yml", tmp_path / "plain.yml"
+    for path, url in ((dated, "https://x/?until=${TODAY}"), (plain, "https://x/")):
+        path.write_text(f"name: {path.stem}\nsources:\n  - {{type: web, url: '{url}'}}\n")
+    loads = []
+    real = config.load_pipeline
+    monkeypatch.setattr(config, "load_pipeline", lambda p: loads.append(p.name) or real(p))
+    many = WatchMany([dated, plain], every=60, quiet=True)
+    many._pipelines()
+    many._pipelines()  # neither file changed: only the one with ${TODAY} is loaded again
+    assert loads == ["dated.yml", "plain.yml", "dated.yml"]
