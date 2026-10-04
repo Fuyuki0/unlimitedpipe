@@ -1,4 +1,4 @@
-"""Earthquakes as soon as the first agency reports them: GFZ, JMA and USGS (public)."""
+"""Earthquakes as soon as the first agency reports them: GFZ, JMA, USGS and others (public)."""
 
 from __future__ import annotations
 
@@ -24,6 +24,10 @@ BMKG = "https://data.bmkg.go.id/DataMKG/TEWS/gempaterkini.json"
 BMKG_PAGE = "https://www.bmkg.go.id/gempabumi/gempabumi-terkini.bmkg#{id}"
 GEONET = "https://api.geonet.org.nz/quake?MMI=3"
 GEONET_EVENT = "https://www.geonet.org.nz/earthquake/{id}"
+# EMSC's live stream (its robots.txt keeps machines off the query service, not this)
+EMSC = "wss://www.seismicportal.eu/standing_order/websocket"
+EMSC_EVENT = "https://www.seismicportal.eu/eventdetails.html?unid={id}"
+SMALL_WORDS = {"of", "the", "and", "off", "near", "in", "de", "del", "la"}
 # Indonesian compass points in BMKG's places ("111 km Tenggara SELAYAR-SULSEL")
 COMPASS = {
     "baratlaut": "NW", "baratdaya": "SW", "timurlaut": "NE", "tenggara": "SE",
@@ -33,7 +37,7 @@ SAME_SECONDS = 120  # JMA gives the minute only; agencies' origin times differ b
 SAME_KM = 400  # first locations of a remote quake can be far apart
 STRONG = {"5-", "5+", "6-", "6+", "7"}  # JMA intensities that matter whatever the magnitude
 # when two agencies first list a quake in the same run, the one whose report reads best
-PRIORITY = {"JMA": 0, "GeoNet": 1, "USGS": 2, "BMKG": 3, "GFZ": 4}
+PRIORITY = {"JMA": 0, "GeoNet": 1, "USGS": 2, "EMSC": 3, "BMKG": 4, "GFZ": 5}
 
 
 def _epoch(text: str) -> float:
@@ -62,6 +66,39 @@ def usgs_reports(document: dict[str, Any]) -> list[dict[str, Any]]:
             }
         )
     return found
+
+
+def _region(text: str) -> str:
+    """EMSC's Flinn-Engdahl region names read normally ("STATE OF YAP, MICRONESIA")."""
+    words = text.strip().lower().split(" ")
+    return " ".join(
+        w if (n and w in SMALL_WORDS) else w[:1].upper() + w[1:] for n, w in enumerate(words)
+    )
+
+
+def emsc_report(message: dict[str, Any]) -> dict[str, Any] | None:
+    """One message of EMSC's live stream as a report: a quake it has just located or revised."""
+    if message.get("action") not in ("create", "update"):
+        return None
+    p = (message.get("data") or {}).get("properties") or {}
+    if p.get("evtype") not in (None, "", "ke", "se"):  # known or suspected earthquakes
+        return None
+    try:
+        mag, lat, lon = float(p["mag"]), float(p["lat"]), float(p["lon"])
+        place = _region(str(p["flynn_region"]))
+        return {
+            "agency": "EMSC",
+            "id": str(p["unid"]),
+            "t": _epoch(str(p["time"])),
+            "lat": lat,
+            "lon": lon,
+            "mag": mag,
+            "title": f"M {mag:.1f} - {place}",
+            "place": place,
+            "link": EMSC_EVENT.format(id=p["unid"]),
+        }
+    except (KeyError, TypeError, ValueError):
+        return None
 
 
 def gfz_reports(text: str) -> list[dict[str, Any]]:
@@ -253,9 +290,14 @@ class Quakes(Source):
     min_magnitude: float = opt("Only quakes of at least this magnitude", default=4.5)
     days: int = opt("Days back to read (1 to 7)", default=2)
     agency: list[str] = opt(
-        "Agencies to read: USGS, GFZ, JMA, BMKG, GeoNet (repeatable; default all)",
+        "Agencies to read: USGS, GFZ, JMA, BMKG, GeoNet, EMSC (repeatable; default all)",
         default_factory=list,
         metavar="NAME",
+    )
+    listen: float = opt(
+        "Seconds to listen to EMSC's live stream in each run (EMSC is left out at 0); run "
+        "the pipeline again as often, e.g. listen 25 every 30 seconds",
+        default=0.0,
     )
     namespace: str = opt("Name of the state that remembers which quake is which", default="quakes")
     timeout: float = opt("Seconds to wait for each agency", default=20.0)
@@ -265,7 +307,11 @@ class Quakes(Source):
         unknown = [a for a in self.agency if a.upper() not in names]
         if unknown:
             raise ValueError(f"unknown agency {unknown[0]!r}: use {', '.join(PRIORITY)}")
-        self.agency = [names[a.upper()] for a in self.agency] or list(PRIORITY)
+        self.agency = [names[a.upper()] for a in self.agency] or [
+            a for a in PRIORITY if a != "EMSC" or self.listen > 0
+        ]
+        if "EMSC" in self.agency and self.listen <= 0:
+            raise ValueError("EMSC is a live stream: give --listen SECONDS to read it")
         if not 1 <= self.days <= 7:
             raise ValueError("--days must be 1 to 7")
 
@@ -293,6 +339,8 @@ class Quakes(Source):
                 GEONET, headers=headers, timeout=self.timeout, robots=True
             )
             found = geonet_reports(json.loads(response.text))
+        elif agency == "EMSC":
+            found = await self._listen()
         else:
             response = await ctx.http.get(JMA, timeout=self.timeout, robots=True)
             found = jma_reports(json.loads(response.text), self.min_magnitude)
@@ -302,6 +350,33 @@ class Quakes(Source):
             if r["t"] >= start.timestamp()
             and (r["mag"] >= self.min_magnitude or r["agency"] == "JMA")
         ]
+
+    async def _listen(self) -> list[dict[str, Any]]:
+        """EMSC's reports in the next ``listen`` seconds of its live stream."""
+        import websockets
+
+        from unlimitedpipe._version import USER_AGENT
+
+        found: list[dict[str, Any]] = []
+        deadline = asyncio.get_running_loop().time() + self.listen
+        try:
+            async with websockets.connect(
+                EMSC, user_agent_header=USER_AGENT, open_timeout=self.timeout
+            ) as stream:
+                while (left := deadline - asyncio.get_running_loop().time()) > 0:
+                    try:
+                        text = await asyncio.wait_for(stream.recv(), left)
+                    except TimeoutError:
+                        break
+                    try:
+                        report = emsc_report(json.loads(text))
+                    except ValueError:
+                        continue
+                    if report:
+                        found.append(report)
+        except (OSError, TimeoutError, websockets.WebSocketException) as exc:
+            raise FetchError(f"EMSC's live stream: {exc}", url=EMSC) from None
+        return found
 
     async def collect(self, ctx: Context):
         results = await asyncio.gather(
@@ -320,13 +395,21 @@ class Quakes(Source):
                 reports.extend(result)
         path = state_path(ctx, "quakes", self.namespace)
         try:
-            clusters = json.loads(path.read_text(encoding="utf-8")).get("quakes", [])
+            saved = json.loads(path.read_text(encoding="utf-8"))
+            clusters, streamed = saved.get("quakes", []), saved.get("streamed", [])
         except (OSError, ValueError, AttributeError):
-            clusters = []
+            clusters, streamed = [], []
         now = datetime.now(UTC).timestamp()
         oldest = now - (self.days + 2) * 86400
+        # a stream says each quake once (or a few times): keep what it said for later runs
+        start = now - self.days * 86400
+        heard = {r["id"]: r for r in streamed if r["t"] >= start}
+        heard.update({r["id"]: r for r in reports if r["agency"] == "EMSC"})
+        reports = [r for r in reports if r["agency"] != "EMSC"] + list(heard.values())
         clusters = merge(reports, [c for c in clusters if c["t"] >= oldest], now)
-        write_json_atomic(path, {"version": 1, "quakes": clusters})
+        write_json_atomic(
+            path, {"version": 1, "quakes": clusters, "streamed": list(heard.values())}
+        )
         listed = {(r["agency"], r["id"]) for r in reports}
         current = [
             c

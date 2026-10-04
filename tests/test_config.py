@@ -160,3 +160,13 @@ def test_moments_for_older_than_checks():
     assert _date("MINUTES_AGO_30") > moment
     assert uses_time("url: https://x?since=${DAYS_AGO_7}") and uses_time("${MINUTES_AGO_5}")
     assert not uses_time("header: ${NTFY_TOKEN}")
+
+
+def test_a_variable_can_have_a_fallback(monkeypatch):
+    from unlimitedpipe.config import _interpolate, env_references
+
+    monkeypatch.delenv("QUAKE_LISTEN", raising=False)
+    assert _interpolate("${QUAKE_LISTEN:-0}") == "0"
+    monkeypatch.setenv("QUAKE_LISTEN", "25")
+    assert _interpolate("${QUAKE_LISTEN:-0}") == "25"
+    assert env_references("${A} ${B:-1}") == ["A"]  # B need not be set

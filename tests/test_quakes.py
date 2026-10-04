@@ -171,3 +171,43 @@ def test_bmkg_and_geonet_read_in_english():
     (quake,) = geonet_reports(geonet)
     assert quake["title"] == "M 5.3 - 25 km east of New Plymouth, New Zealand"
     assert quake["link"] == "https://www.geonet.org.nz/earthquake/2026p740000"
+
+
+def test_emsc_stream_messages_become_reports():
+    from unlimitedpipe.sources.quakes import emsc_report
+
+    message = {
+        "action": "create",
+        "data": {
+            "properties": {
+                "unid": "20261004_0000100",
+                "time": "2026-10-04T05:57:54.4Z",
+                "flynn_region": "STATE OF YAP, MICRONESIA",
+                "lat": 11.24,
+                "lon": 139.34,
+                "mag": 4.7,
+                "evtype": "ke",
+            }
+        },
+    }
+    report = emsc_report(message)
+    assert report["agency"] == "EMSC" and report["mag"] == 4.7
+    assert report["title"] == "M 4.7 - State of Yap, Micronesia"
+    assert report["link"].endswith("unid=20261004_0000100")
+    assert emsc_report({**message, "action": "delete"}) is None
+    blast = {
+        "action": "create",
+        "data": {"properties": {**message["data"]["properties"], "evtype": "kx"}},
+    }
+    assert emsc_report(blast) is None  # an explosion, not a quake
+
+
+def test_emsc_needs_listening_time():
+    import pytest
+
+    from unlimitedpipe.sources.quakes import Quakes
+
+    assert "EMSC" not in Quakes().agency
+    assert "EMSC" in Quakes(listen=25).agency
+    with pytest.raises(ValueError):
+        Quakes(agency=["EMSC"])

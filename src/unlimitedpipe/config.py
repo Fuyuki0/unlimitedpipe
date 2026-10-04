@@ -17,12 +17,12 @@
 
 Relative paths (``path``, ``state``) are resolved from the pipeline file's directory.
 ``${NAME}`` in a value is replaced by the environment variable NAME, so secrets such as
-webhook URLs stay out of the file. ``${TODAY}`` and ``${DAYS_AGO_30}`` are dates (UTC,
-YYYY-MM-DD) and ``${YEAR}`` the year, for APIs that take a date range (``${TOMORROW}`` for
-an end date that is not included); ``${HOURS_AGO_2}`` and ``${MINUTES_AGO_30}`` are moments
-(YYYY-MM-DDTHH:MM:SSZ), for filters such as "nothing new for two hours"; with them,
-`unlimited backfill` can fill the archive with a feed's past items. Every error names the file,
-line and option at fault.
+webhook URLs stay out of the file; ``${NAME:-25}`` uses 25 when NAME is not set.
+``${TODAY}`` and ``${DAYS_AGO_30}`` are dates (UTC, YYYY-MM-DD) and ``${YEAR}`` the year,
+for APIs that take a date range (``${TOMORROW}`` for an end date that is not included);
+``${HOURS_AGO_2}`` and ``${MINUTES_AGO_30}`` are moments (YYYY-MM-DDTHH:MM:SSZ), for
+filters such as "nothing new for two hours". With the dates, `unlimited backfill` can fill
+the archive with a feed's past items. Every error names the file, line and option at fault.
 """
 
 from __future__ import annotations
@@ -54,7 +54,8 @@ TOP_LEVEL = {
 }
 SETTINGS = {"errors_as_events"}
 PATH_OPTIONS = {"path", "state"}
-ENV_REFERENCE = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}")
+# ${NAME}, or ${NAME:-fallback} for a value used when NAME is not set
+ENV_REFERENCE = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-([^}]*))?\}")
 DATE_REFERENCE = re.compile(r"TODAY|TOMORROW|YEAR|DAYS_AGO_(\d+)|(HOURS|MINUTES)_AGO_(\d+)")
 # `unlimited backfill` loads a pipeline once per window of the past: `${TODAY}` and `${YEAR}` are
 # then the window's last day and its year, and every `${DAYS_AGO_N}` is its first day.
@@ -63,7 +64,7 @@ WINDOW: ContextVar[tuple[date, date] | None] = ContextVar("window", default=None
 
 def env_references(text: str) -> list[str]:
     """Environment variables a pipeline file refers to, in order of appearance."""
-    names = dict.fromkeys(ENV_REFERENCE.findall(text))
+    names = dict.fromkeys(m.group(1) for m in ENV_REFERENCE.finditer(text) if m.group(2) is None)
     return [name for name in names if not DATE_REFERENCE.fullmatch(name)]
 
 
@@ -91,7 +92,7 @@ def _date(name: str) -> str | None:
 def uses_time(text: str) -> bool:
     """Whether a pipeline file refers to the date or time, so a long-running watch must load it
     again for each run rather than keep the values of the day it started."""
-    return any(DATE_REFERENCE.fullmatch(name) for name in ENV_REFERENCE.findall(text))
+    return any(DATE_REFERENCE.fullmatch(m.group(1)) for m in ENV_REFERENCE.finditer(text))
 
 
 def _interpolate(value: Any) -> Any:
@@ -103,6 +104,8 @@ def _interpolate(value: Any) -> Any:
                 return os.environ[name]
             if (date := _date(name)) is not None:
                 return date
+            if match.group(2) is not None:
+                return match.group(2)
             raise KeyError(name)
 
         return ENV_REFERENCE.sub(replace, value)
