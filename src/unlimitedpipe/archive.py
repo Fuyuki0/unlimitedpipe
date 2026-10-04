@@ -14,6 +14,7 @@ import collections
 import functools
 import gzip
 import hashlib
+import html
 import json
 import re
 from pathlib import Path
@@ -59,6 +60,44 @@ def json_line(item: dict[str, Any]) -> str:
 def lines_of(text: str) -> list[str]:
     """The lines of a month file: split at newlines only, never inside a record."""
     return text.split("\n")
+
+
+_ENTITY = re.compile(r"&(?:#\d+|#x[0-9a-f]+|[a-z]+);", re.IGNORECASE)
+# UTF-8 read as Windows-1252: a lead byte (Ã for é's C3) and one or two continuation bytes
+_CONTINUATION = (
+    "\u0080-\u00bf\u0152\u0153\u0160\u0161\u0178\u017d\u017e\u0192\u02c6\u02dc"
+    "\u2013\u2014\u2018-\u201e\u2020-\u2022\u2026\u2030\u2039\u203a\u20ac\u2122"
+)
+_MOJIBAKE = re.compile(f"[\u00c2-\u00df][{_CONTINUATION}]|[\u00e0-\u00ef][{_CONTINUATION}]{{2}}")
+# quote marks some sources mangle past repair
+_MANGLED = {"Â€œ": "“", "Â€\x9d": "”", "Â€™": "’", "Â€˜": "‘", "Â€Ï¿½": "’", "Ï¿½": "’"}
+
+
+def _byte(char: str) -> bytes:
+    try:
+        return char.encode("cp1252")
+    except UnicodeEncodeError:
+        return char.encode("latin-1")
+
+
+def _repaired(match: re.Match[str]) -> str:
+    try:
+        return b"".join(_byte(c) for c in match[0]).decode("utf-8")
+    except UnicodeError:
+        return match[0]
+
+
+def clean_title(title: str) -> str:
+    """A title as people read it: HTML entities a source left in ("Ha&#039;apai") decoded, and
+    UTF-8 that a source decoded twice ("CROMATOGRAFÃ\x8dA") repaired, each sequence only when it
+    decodes cleanly ("SÃO PAULO" stays)."""
+    for _ in range(2):  # "&amp;amp;"
+        if not _ENTITY.search(title):
+            break
+        title = html.unescape(title)
+    for mangled, mark in _MANGLED.items():
+        title = title.replace(mangled, mark)
+    return _MOJIBAKE.sub(_repaired, title)
 
 
 def item_key(item: dict[str, Any]) -> str:
@@ -171,6 +210,10 @@ def append(site: Path, items: list[dict[str, Any]], now: str) -> dict[str, int]:
         known = _known(path)
         new = []
         for item in entries:
+            if isinstance(item.get("title"), str) and item["title"] != (
+                title := clean_title(item["title"])
+            ):
+                item = {**item, "title": title}
             key = item_key(item)
             if key not in known:
                 known.add(key)

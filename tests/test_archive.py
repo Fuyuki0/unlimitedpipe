@@ -511,3 +511,22 @@ def test_word_index_updated_in_place_matches_a_full_rebuild(tmp_path):
     assert json.loads((folder / "words-by-feed" / "qu.json").read_text())["complete"] is True
     write_words(folder)  # every month read again
     assert index() == updated
+
+
+def test_titles_are_cleaned_as_they_are_added(tmp_path):
+    from unlimitedpipe.archive import clean_title
+
+    assert (
+        clean_title("Colombia: EQUIPOS DE CROMATOGRAFÃ\x8dA")
+        == "Colombia: EQUIPOS DE CROMATOGRAFÍA"
+    )
+    assert clean_title("Mexico: INSTALACIÃ“N and itâ€™s") == "Mexico: INSTALACIÓN and it’s"
+    assert clean_title("Hunga Tonga-Hunga Ha&#039;apai") == "Hunga Tonga-Hunga Ha'apai"
+    assert clean_title("Roasted &amp;amp; Salted") == "Roasted & Salted"
+    for kept in ("SÃO PAULO", "Âge", "Größe", "naïve café", "Rock & Roll"):
+        assert clean_title(kept) == kept
+    item = {"feed": "f", "title": "Ha&#039;apai", "link": "https://a/1", "date": "2026-09-01"}
+    append(tmp_path, [item], "2026-09-02T00:00:00Z")
+    append(tmp_path, [{**item, "title": "Ha'apai"}], "2026-09-03T00:00:00Z")  # the same item
+    lines = (tmp_path / "archive" / "2026-09.jsonl").read_text().splitlines()
+    assert len(lines) == 1 and json.loads(lines[0])["title"] == "Ha'apai"

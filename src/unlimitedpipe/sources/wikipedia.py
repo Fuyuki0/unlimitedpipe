@@ -93,7 +93,9 @@ def _walk(lists: list[Tag], path: list[str], found: list[tuple[list[str], Tag]])
 
 
 def _title(text: str, limit: int = 300) -> str:
-    """The event's sentence, cut at a sentence end when it runs long."""
+    """The event's sentence, cut at a sentence end when it runs long; a list's separator at its
+    end (";") dropped."""
+    text = text.rstrip(" ;,")
     if len(text) <= limit:
         return text
     cut = text.rfind(". ", 0, limit)
