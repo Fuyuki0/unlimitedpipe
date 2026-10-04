@@ -3,7 +3,8 @@ stablecoin-depegs feeds, written the way those feeds write them.
 
 - crypto-big-moves: the feed's large coins moving 10% or more from one day's price (00:00 UTC)
   to the next, from the coin's 30th day of prices on. A jump of 20% or more undone within a
-  week (back within 10% of where it started) is taken as bad prices and left out.
+  week (back within 10% of where it started) is taken as bad prices and left out, and so are
+  moves in noisy stretches (three other 50% moves of the coin within two weeks).
 - stablecoin-depegs: dollar stablecoins with 100M or more in circulation closing a day at $0.99
   or less, one item a coin a day, for the first 14 days of a depeg (a coin that never comes back
   is not listed for years).
@@ -65,6 +66,11 @@ def big_moves(http: httpx.Client, coins: list[str]) -> list[dict]:
             # a coin without prices yet at `start` gets an empty answer: try 500 days later
             start = int(points[-1]["timestamp"]) + 86400 if points else start + 500 * 86400
         days = sorted(prices)
+        jumps = [  # days of 50%+ moves: three more within two weeks make a stretch noisy
+            datetime.fromisoformat(days[i])
+            for i in range(1, len(days))
+            if prices[days[i - 1]] and abs(prices[days[i]] / prices[days[i - 1]] - 1) >= 0.5
+        ]
         for index in range(30, len(days)):
             day, before = days[index], prices[days[index - 1]]
             if (
@@ -75,6 +81,9 @@ def big_moves(http: httpx.Client, coins: list[str]) -> list[dict]:
             value = (prices[day] / before - 1) * 100
             if abs(value) < 10:
                 continue
+            when = datetime.fromisoformat(day)
+            if sum(1 for j in jumps if j != when and abs((j - when).days) <= 14) >= 3:
+                continue  # a noisy stretch of prices
             later = [prices[d] for d in days[index + 1 : index + 8]]
             if abs(value) >= 20 and any(abs(p / before - 1) < 0.1 for p in later):
                 continue  # a jump undone within a week, back near where it started: bad prices

@@ -2,7 +2,7 @@
 house, and Royal Assent) as an item of the uk-bills feed, written as the feed writes them, from
 the UK Parliament's bills API (Open Parliament Licence).
 
-    research/.venv/bin/python research/public/uk_bills_history.py OUT.jsonl 2026-09-26
+    research/.venv/bin/python research/public/uk_bills_history.py OUT.jsonl 2026-09-26 [START]
 """
 
 from __future__ import annotations
@@ -21,7 +21,11 @@ MAJOR = {"1st reading", "2nd reading", "3rd reading", "Royal Assent"}
 
 def _get(http: httpx.Client, url: str):
     for attempt in range(5):
-        response = http.get(url)
+        try:
+            response = http.get(url)
+        except httpx.TransportError:  # the API sometimes stops answering for a while
+            time.sleep(30 * (attempt + 1))
+            continue
         if response.status_code < 500 and response.status_code != 429:
             response.raise_for_status()
             time.sleep(0.5)
@@ -31,11 +35,13 @@ def _get(http: httpx.Client, url: str):
     return None
 
 
-def main(out: str, before: str) -> None:
+def main(out: str, before: str, start: str = "1") -> None:
+    """START: the bill to begin with (1 is the first), to go on after a stop; items are then
+    added to OUT (the archive keeps each item once)."""
     written = 0
     with (
         httpx.Client(headers=AGENT, timeout=30) as http,
-        open(out, "w", encoding="utf-8") as lines,
+        open(out, "a" if int(start) > 1 else "w", encoding="utf-8") as lines,
     ):
         skip, bills = 0, []
         while True:
@@ -45,6 +51,8 @@ def main(out: str, before: str) -> None:
             if skip >= page["totalResults"]:
                 break
         for number, bill in enumerate(bills, 1):
+            if number < int(start):
+                continue
             title = bill["shortTitle"]
             for stage in _get(http, STAGES.format(bill=bill["billId"]))["items"]:
                 name, house = stage.get("description"), stage.get("house") or ""
@@ -70,4 +78,4 @@ def main(out: str, before: str) -> None:
 
 
 if __name__ == "__main__":
-    main(*sys.argv[1:3])
+    main(*sys.argv[1:4])
