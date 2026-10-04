@@ -3,7 +3,7 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
-## Unreleased
+## 0.10.56 - 2026-10-04
 
 - `search`: quoted words are words, each of which must appear (`search "nvidia earnings"` found
   only that exact phrase). When no latest item has them, the archive's months that do are
