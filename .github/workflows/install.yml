@@ -1,0 +1,61 @@
+name: Install test
+
+# The one-line install, as a new user runs it, on real macOS (Apple Silicon and Intel), Linux and
+# Windows machines, then the commands the README shows. Run by hand and after each release.
+on:
+  workflow_dispatch:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  unix:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {os: macos-14, path: default}       # Apple Silicon, Homebrew Python on the PATH
+          - {os: macos-13, path: default}       # Intel
+          - {os: macos-14, path: apple-only}    # only Apple's /usr/bin/python3 (3.9), as on a new Mac
+          - {os: ubuntu-latest, path: default}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
+    steps:
+      - name: Look like a new Mac
+        if: matrix.path == 'apple-only'
+        run: echo "PATH=/usr/bin:/bin:/usr/sbin:/sbin" >> "$GITHUB_ENV"
+      - name: Install with the README's command
+        run: curl -fsSL https://raw.githubusercontent.com/Fuyuki0/unlimitedpipe/main/install.sh | sh -s -- --yes
+      - name: Put the command on the PATH, as the installer asks
+        run: |
+          for dir in "$HOME/.local/bin" "$(python3 -m site --user-base 2>/dev/null)/bin"; do
+            [ -x "$dir/unlimited" ] && echo "$dir" >> "$GITHUB_PATH" && break
+          done
+          true
+      - run: unlimited --version
+      - run: unlimited doctor
+      - name: Search the feeds
+        run: unlimited search "earthquake japan" --limit 3
+      - name: Ask, with the local model setup installed
+        run: unlimited ask "earthquakes in japan in 2024"
+      - name: Watch a page
+        run: unlimited web https://example.com | unlimited diff
+      - name: Offline
+        run: unlimited search flood --catalog offline --limit 3
+
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install unlimitedpipe
+      - run: unlimited --version
+      - run: unlimited setup --yes --skip ai
+      - run: unlimited search "earthquake japan" --limit 3
+      - run: unlimited ask "earthquakes in japan in 2024" --provider ollama
+        continue-on-error: true   # no local model on this machine (setup skipped it)
+      - run: unlimited web https://example.com
