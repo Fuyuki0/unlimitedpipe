@@ -905,6 +905,18 @@ INDEX_STYLE = """
 """
 
 
+def live_feed_names(url: str) -> set[str]:
+    """The feeds a live copy (`unlimited watch --catalog`) keeps, from its feeds.json; empty
+    when it cannot be read, so a page can always be written."""
+    import httpx
+
+    try:
+        document = httpx.get(url, timeout=10, follow_redirects=True).json()
+        return {str(f["name"]) for f in document.get("feeds", []) if f.get("name")}
+    except (httpx.HTTPError, ValueError, KeyError, TypeError, AttributeError):
+        return set()
+
+
 def index_page(p: PublishPlan, every: str) -> str:
     esc = html.escape
     order = list(dict.fromkeys([*p.groups, *sorted({i.group for i in p.pipelines if i.group})]))
@@ -912,6 +924,7 @@ def index_page(p: PublishPlan, every: str) -> str:
     for item in p.pipelines:
         grouped.setdefault(item.group or "More feeds", []).append(item)
     lanes = {Path(path).as_posix() for path in p.express}
+    watched = live_feed_names(p.live) if p.live else set()  # the live copy's feeds
     sections, toc = [], []
     for group, items in grouped.items():
         if not items:
@@ -923,7 +936,9 @@ def index_page(p: PublishPlan, every: str) -> str:
                 for f in item.files
             )
             live = (
-                '<span class="live" title="Refreshed in the express lane">Live</span>'
+                '<span class="live" title="Checked every 30 seconds to 5 minutes">Live</span>'
+                if item.name in watched
+                else '<span class="live" title="Refreshed in the express lane">Live</span>'
                 if item.path.as_posix() in lanes
                 else ""
             )
@@ -956,8 +971,10 @@ def index_page(p: PublishPlan, every: str) -> str:
     if p.express and p.express_every:
         from unlimitedpipe.watch import format_duration
 
-        fast = f"<li><b>{len(p.express)}</b> live feeds</li>"
-        every = f"{every} (live feeds: {format_duration(p.express_every)})"
+        names = {i.name for i in p.pipelines if i.path.as_posix() in lanes} | watched
+        fast = f"<li><b>{len(names)}</b> live feeds</li>"
+        pace = "30 seconds to 5 minutes" if watched else format_duration(p.express_every)
+        every = f"{every} (live feeds: {pace})"
     return f"""\
 <!doctype html>
 {INDEX_MARKER}
