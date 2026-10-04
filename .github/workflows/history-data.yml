@@ -25,9 +25,23 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install -e . pyarrow
+      - run: pip install -e . pyarrow huggingface_hub
+      # Insider trades since 2006 came from the SEC's Form 345 data sets, not the archive: the
+      # published file is read back and merged with the archive's newer trades.
+      - name: The insider trades already published
+        run: |
+          python - <<'PY'
+          import json
+          import pyarrow.parquet as pq
+          from huggingface_hub import hf_hub_download
+          path = hf_hub_download("unlimitedpipe/feed-history", "data/insider-trades.parquet",
+                                 repo_type="dataset")
+          with open("insider.jsonl", "w", encoding="utf-8") as out:
+              for row in pq.read_table(path).to_pylist():
+                  out.write(json.dumps(row, ensure_ascii=False) + "\n")
+          PY
       - name: Build the dataset
-        run: python -u research/public/history_dataset.py feeds-site/public out
+        run: python -u research/public/history_dataset.py feeds-site/public out insider.jsonl
       - uses: actions/upload-artifact@v4
         with:
           name: feed-history
