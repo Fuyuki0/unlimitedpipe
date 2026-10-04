@@ -3,6 +3,25 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## Unreleased
+
+- `search`: quoted words are words, each of which must appear (`search "nvidia earnings"` found
+  only that exact phrase). When no latest item has them, the archive's months that do are
+  searched, items with every word in the title first ("hurricane katrina" lists the storm, in
+  about 4 seconds instead of minutes of matching by meaning). A word the archive has is no
+  longer "corrected" ("haiyan" was searched as "hainan").
+- `ask`: "what happened in March 2011" lists the period's great earthquakes, storms, eruptions
+  and hacks beside its world events. "Hacker News" questions read the HN feeds and rank stories
+  by points ("biggest hacker news stories in 2016"); "hacks" no longer matches "Hacker News".
+  `--model` with any UnlimitedPipe decision model (a local copy, or the Hugging Face name without
+  `:latest`) uses it to decide instead of printing its raw reply.
+- The decision model is build 8: 216 of 243 on the test sets (build 7: 214), wrongly says "not
+  covered" less often, and has learned the history added in 0.10.50 to 0.10.55.
+- `select`: when no event has a field, it says so and names one they have (`url` → `link`).
+- A site that asks us to wait before retrying (HTTP 429 with Retry-After) is reported, instead
+  of a silent wait of up to two minutes.
+- `github releases`: a repository with no releases says so and suggests `github tags`.
+
 ## 0.10.55 - 2026-10-04
 
 - `quakes --listen SECONDS`: EMSC's live stream as one more agency (often minutes ahead of the

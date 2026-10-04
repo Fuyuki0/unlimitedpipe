@@ -73,6 +73,8 @@ QUESTION_WORDS = frozenset(
     "tonight yesterday week weeks month months recent recently past currently right "
     "think thought call called know want please guess maybe really like mean update updates "
     "lately got announce announced say said says pass passed "
+    # what people call items ("top hacker news stories"); no source says it
+    "story stories post posts "
     # how much something matters is the reader's call, not a word the sources use
     "significant major important notable noteworthy".split()
 )
@@ -244,7 +246,22 @@ class NoModel(UsageError):
 
 
 # "any big hacks this week?", "latest large insider trades": the biggest of them first
-BIG = frozenset({"big", "large", "huge", "massive"})
+BIG = frozenset({"big", "large", "huge", "massive", "popular"})
+_POINTS = re.compile(r"^(\d[\d,]*) points\b")
+POINTS_FEEDS = frozenset({"hn-top", "show-hn"})
+
+
+HACKER_NEWS = re.compile(r"\bhacker ?news\b", re.IGNORECASE)
+
+
+def item_size(item: dict[str, Any], measure: Callable[[str], float | None]) -> float | None:
+    """An item's size: for a Hacker News story its points ("4,512 points and 1,203 comments:
+    ..."), not a number its title happens to have; else ``measure`` of its title."""
+    if item.get("feed") in POINTS_FEEDS and (
+        match := _POINTS.match(str(item.get("summary") or ""))
+    ):
+        return float(match[1].replace(",", ""))
+    return measure(str(item.get("title") or ""))
 
 
 def superlative(question: str) -> str | None:
@@ -419,7 +436,7 @@ def rank(
     in_named = [s for s in scored if s[0] == len(words) and s[3].get("feed") in named]
     if order in ("notable", "deadliest"):
         wider = in_named + [s for s in kept if s[3].get("feed") not in named] if in_named else kept
-        sizes = [notable_size(str(s[3].get("title") or "")) for s in wider]
+        sizes = [item_size(s[3], notable_size) for s in wider]
         stories = len({story(s[3]) for s in wider})
         sized = sum(size is not None for size in sizes)
         # "deadliest": a whole period's events, where only some say how big they were
@@ -430,7 +447,7 @@ def rank(
     elif order:
         if in_named:
             kept = in_named
-        sized = [(size_of(str(s[3].get("title") or "")), s) for s in kept]
+        sized = [(item_size(s[3], size_of), s) for s in kept]
         with_size = [p for p in sized if p[0] is not None]
         with_size.sort(key=lambda p: p[0], reverse=order == "most")  # type: ignore[arg-type]
         kept = [s for _, s in with_size] + [s for size, s in sized if size is None]
@@ -560,7 +577,9 @@ class Ask(Source):
                 yield error
             return
         order = superlative(question)
-        asked = [w for w in terms(question) if w not in SUPERLATIVES and w not in BIG]
+        # "hacker news" names the HN feeds; "hacker" alone would find hacks
+        plain = HACKER_NEWS.sub("hn", question)
+        asked = [w for w in terms(plain) if w not in SUPERLATIVES and w not in BIG]
         named = None if self.since else named_period(question, datetime.now(UTC).isoformat())
         period_only = False
         if self.since:
@@ -688,7 +707,7 @@ class Ask(Source):
                 "have to guess. The closest items are below."
             )
             model = None
-        elif order in ("most", "least") and size_of(str(items[0].get("title") or "")) is not None:
+        elif order in ("most", "least") and item_size(items[0], size_of) is not None:
             # "strongest earthquake in 2024": comparing numbers is the code's job; the items
             # are already ordered by theirs.
             answer, model = by_size(question, items), None

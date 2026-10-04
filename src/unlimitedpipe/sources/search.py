@@ -231,6 +231,8 @@ def _start(form: str) -> str:
     "ai" not "aid", "us" not "user")."""
     if len(form) <= 3 or form in WHOLE_WORDS:
         return r"(?<!\w)" + re.escape(form) + r"(?:s|es|'s|ed|ing)?(?!\w)"
+    if form == "hack":  # "hacker", not "Hacker News"
+        return r"(?<!\w)hack(?:s|'s|ed|ing|ers?)?(?!\w)(?<!hacker(?= ?news\b))"
     if len(form) == 4:
         return r"(?<!\w)" + re.escape(form) + r"(?:s|es|'s|e?d|ing|ers?|i?ans?|ese|ish)?(?!\w)"
     return r"(?<!\w)" + re.escape(form)
