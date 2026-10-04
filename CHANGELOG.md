@@ -3,6 +3,17 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.59 - 2026-10-04
+
+- `ask`: when the model says no source answers but the first source's title has every word of
+  the question, that source answers ("crude oil price", "github down?"; two more right on the
+  test sets, none lost).
+- Currency codes match the currencies' names (`usd thb rate` finds "US dollar: 33.595 baht"),
+  and "sp 500" matches S&P 500.
+- README: the project's status (pre-1.0, what is versioned), how it is built and tested, how the
+  feeds run and what happens when the live server is down, and where coverage is thin; a form
+  to ask for a feed.
+
 ## 0.10.58 - 2026-10-04
 
 - The archive keeps its whole word index gzipped (`words.json.gz`, 7.7 MB instead of 53 MB of
