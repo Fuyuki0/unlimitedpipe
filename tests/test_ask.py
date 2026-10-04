@@ -323,6 +323,25 @@ def test_a_decision_model_named_with_model_decides_too(catalog, make_ctx):
     assert answer.data["answer"].startswith("Bangkok: rain, 24°C now (2026-09-26) [1].")
 
 
+def test_a_period_s_big_events_sit_beside_its_world_events():
+    from unlimitedpipe.sources.ask import with_big_events
+
+    world = [
+        {"feed": "world-events", "title": "Unrest leaves 8,000 people dead", "date": "2011-03-02"},
+        {"feed": "world-events", "title": "A minister resigns", "date": "2011-03-03"},
+    ]
+    period = [
+        *world,
+        {"feed": "earthquakes", "title": "M 9.1 - Great Tohoku Earthquake", "date": "2011-03-11"},
+        {"feed": "earthquakes", "title": "M 5.2 - off Honshu", "date": "2011-03-12"},
+        {"feed": "insider-trades", "title": "Director buys $2B of stock", "date": "2011-03-04"},
+    ]
+    titles = [i["title"] for i in with_big_events(world, period, 10)]
+    assert titles[:2] == ["Unrest leaves 8,000 people dead", "M 9.1 - Great Tohoku Earthquake"]
+    assert "M 5.2 - off Honshu" not in titles  # not big
+    assert "Director buys $2B of stock" not in titles  # not an event of the world
+
+
 def test_superlative_questions_are_answered_by_size_in_code():
     from unlimitedpipe.sources.ask import by_size, size_of, superlative
 

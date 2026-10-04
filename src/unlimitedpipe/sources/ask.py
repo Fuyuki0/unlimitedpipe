@@ -185,6 +185,39 @@ def by_feed_size(scored: list[Any], sizes: list[float | None]) -> list[int]:
     )
 
 
+# Feeds whose biggest events belong in "what happened in March 2011" beside the world's events
+BIG_EVENT_FEEDS = ["earthquakes", "hurricanes", "typhoons", "volcanoes", "crypto-hacks"]
+
+
+def with_big_events(
+    events: list[dict[str, Any]], items: list[dict[str, Any]], limit: int
+) -> list[dict[str, Any]]:
+    """A period's world events with its other big events (as "On this day" picks them: great
+    earthquakes, category 4 and 5 hurricanes, big hacks), each placed by its rank in its own
+    feed, so the period's greatest earthquake sits beside its deadliest event."""
+    from unlimitedpipe.onthisday import notable
+
+    big = [i for i in items if i.get("feed") in BIG_EVENT_FEEDS and notable(i)]
+    if not big:
+        return events
+    merged = [*events, *big]
+    sizes = [
+        notable_size(str(i.get("title") or "")) or size_of(str(i.get("title") or ""))
+        for i in merged
+    ]
+    order = by_feed_size([(0, 0, "", i, set()) for i in merged], sizes)
+    chosen, shown = [], set()
+    for n in order:
+        same = (
+            " ".join(str(merged[n].get("title") or "").casefold().split()),
+            merged[n].get("date"),
+        )
+        if same not in shown:
+            shown.add(same)
+            chosen.append(merged[n])
+    return chosen[:limit]
+
+
 def by_size(question: str, items: list[dict[str, Any]]) -> str:
     """The answer to "strongest earthquake in 2024" from items ordered by their number."""
     from unlimitedpipe.decide import headline, short
@@ -529,6 +562,7 @@ class Ask(Source):
         order = superlative(question)
         asked = [w for w in terms(question) if w not in SUPERLATIVES and w not in BIG]
         named = None if self.since else named_period(question, datetime.now(UTC).isoformat())
+        period_only = False
         if self.since:
             document = {**document, "items": await items_since(ctx, url, document, self.since)}
         elif named:
@@ -537,8 +571,11 @@ class Ask(Source):
             asked = [w for w in asked if w not in said]
             if not asked:  # "what happened in 2011": the world's events of that time
                 asked, order = ["world", "events"], order or "deadliest"
+                period_only = True
             try:
-                items = await items_since(ctx, url, document, first, last, words=asked)
+                # with the feeds of the period's other big events (great earthquakes, storms)
+                read = [*asked, *BIG_EVENT_FEEDS] if period_only else asked
+                items = await items_since(ctx, url, document, first, last, words=read)
             except FetchError as exc:
                 if (error := ctx.fail(exc, source=self.name, url=exc.url)) is not None:
                     yield error
@@ -569,6 +606,8 @@ class Ask(Source):
             since=after,
             order=order or ("notable" if named else None),
         )
+        if period_only:
+            items = with_big_events(items, document.get("items", []), self.sources)
         weak = bool(items) and len(covered) < needed(words)
         stale = False
         if after:
