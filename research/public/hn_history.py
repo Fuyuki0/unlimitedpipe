@@ -60,7 +60,7 @@ def main(out: str, first: str, last: str) -> None:
                         "feed": feed,
                         "title": hit["title"],
                         "summary": f"{hit.get('points')} points and {hit.get('num_comments') or 0} "
-                        f"comments on Hacker News: {hn}",
+                        f"comments: {hn}",  # not "Hacker News": "hacks" would match it
                         "link": hit.get("url") or hn,
                         "date": hit["created_at"][:19] + "Z",
                     }

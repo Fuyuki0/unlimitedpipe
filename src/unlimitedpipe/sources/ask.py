@@ -340,8 +340,13 @@ def rank(
         kept = [s for _, s in with_size] + [s for size, s in sized if size is None]
     # Twenty advisories of one storm would push everything else out: two updates per story.
     updates: Counter[str] = Counter()
-    chosen = []
+    chosen, shown = [], set()
     for s in kept:
+        # the same record in two feeds (a Fed decision in fed-funds-target and rate-decisions)
+        same = (" ".join(str(s[3].get("title") or "").casefold().split()), s[3].get("date"))
+        if same in shown:
+            continue
+        shown.add(same)
         updates[story(s[3])] += 1
         if updates[story(s[3])] <= STORY_UPDATES:
             chosen.append(s[3])
