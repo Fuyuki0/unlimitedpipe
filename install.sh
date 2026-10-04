@@ -54,12 +54,15 @@ unlimited="$bindir/unlimited"
 [ -n "$unlimited" ] || fail "installed, but \`unlimited\` was not found; add $bindir to your PATH"
 
 say "Setting up"
+user_path="$PATH"
+PATH="$bindir:$HOME/.local/bin:$PATH"  # what was just installed, for the setup steps
+export PATH
 if (exec < /dev/tty) 2>/dev/null; then
   "$unlimited" setup "$@" < /dev/tty    # piped from curl: ask the questions on the terminal
 else
   "$unlimited" setup "$@"
 fi
-case ":$PATH:" in
+case ":$user_path:" in
   *":$(dirname "$unlimited"):"*) ;;
   *) say "Add $(dirname "$unlimited") to your PATH to use \`unlimited\` in new terminals." ;;
 esac

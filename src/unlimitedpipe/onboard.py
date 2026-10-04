@@ -64,7 +64,10 @@ def pip_install(*requirements: str) -> list[str] | None:
     probe = subprocess.run([sys.executable, "-m", "pip", "--version"], capture_output=True)
     if probe.returncode == 0:
         return [sys.executable, "-m", "pip", "install", "--quiet", *requirements]
-    if uv := shutil.which("uv"):  # uv tool environments have no pip
+    # uv tool environments have no pip; the installer may have just put uv where the PATH of
+    # this shell does not reach yet
+    candidates = [shutil.which("uv"), str(Path.home() / ".local" / "bin" / "uv")]
+    if uv := next((c for c in candidates if c and Path(c).is_file()), None):
         return [uv, "pip", "install", "--quiet", "--python", sys.executable, *requirements]
     return None
 
