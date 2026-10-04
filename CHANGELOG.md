@@ -3,6 +3,15 @@
 All notable changes are listed here. The project follows [Semantic Versioning](https://semver.org/);
 the event format is versioned separately by its `schema` field (see docs/events.md).
 
+## 0.10.58 - 2026-10-04
+
+- The archive keeps its whole word index gzipped (`words.json.gz`, 7.7 MB instead of 53 MB of
+  JSON, which was past GitHub's 50 MB warning); readers use its small files as before, and
+  `mirror` unpacks it.
+- Titles are cleaned as they are added to the archive: HTML entities a source left in
+  ("Ha&#039;apai") are decoded, and UTF-8 a source decoded twice ("CROMATOGRAFÃ\x8dA") is
+  repaired where it decodes cleanly. Wikipedia events lose a trailing ";".
+
 ## 0.10.57 - 2026-10-04
 
 - `ask` says when it loads the model first (the first answer can take up to 30 seconds on a
