@@ -13,7 +13,9 @@
 Search and ask a free archive of 1.66 million public records (SEC filings, sanctions, laws,
 rate decisions, earthquakes and storms, crypto, government announcements, news), each linked
 to its official source, and get an alert within a minute when something new matches. Built
-from open YAML pipelines you can fork, with no server, no account and no API key.
+from open YAML pipelines you can fork, with no server, no account and no API key. One free
+place instead of Google Alerts, EDGAR, USGS, Whale Alert and a chatbot, kept to official
+sources.
 
 ![unlimited ask answering "what happened in march 2011?", "strongest hurricane in 2005" and "any big crypto hacks this week?" with cited sources](https://raw.githubusercontent.com/Fuyuki0/unlimitedpipe/main/docs/assets/ask.svg)
 
