@@ -89,7 +89,53 @@ FEEDS = {
     "stablecoin-depegs": ("DefiLlama stablecoin data", "open data, attribution to DefiLlama"),
     "defi-drops": ("DefiLlama protocol TVL", "open data, attribution to DefiLlama"),
     "uk-bills": ("UK Parliament bills service", "Open Parliament Licence v3.0"),
+    "uk-government": ("GOV.UK announcements (search API)", "Open Government Licence v3.0"),
+    "uk-sanctions": ("GOV.UK and OFSI sanctions announcements", "Open Government Licence v3.0"),
+    "canada-government": (
+        "Government of Canada news (canada.ca news API)",
+        "Open Government Licence - Canada",
+    ),
+    "australia-government": ("Prime Minister of Australia media (pm.gov.au)", "CC BY 4.0"),
+    "nz-government": ("New Zealand Government releases (beehive.govt.nz)", "CC BY 4.0"),
+    "eu-laws": (
+        "EUR-Lex metadata (EU Publications Office)",
+        "reuse authorised, source acknowledged (Commission Decision 2011/833/EU)",
+    ),
+    "world-bank-tenders": ("World Bank procurement notices API", "CC BY 4.0"),
+    "us-justice": ("US Department of Justice press releases", "public domain"),
+    "fda-news": ("FDA press announcements", "public domain"),
+    "hurricanes": (
+        "NOAA National Hurricane Center best track (HURDAT2) and advisories",
+        "public domain",
+    ),
+    "us-flight-delays": (
+        "Bureau of Transportation Statistics on-time data; FAA airport status",
+        "public domain",
+    ),
+    "defi-liquidations": ("Aave events on Ethereum and Base (public chain data)", "public data"),
+    "whale-transfers": ("USDT and USDC transfers on Ethereum (public chain data)", "public data"),
 }
+# Feeds that mix outlets' headlines (left out) with history from Wikipedia: only items whose
+# summary says they come from Wikipedia are kept, under CC BY-SA 4.0.
+FROM_WIKIPEDIA = "From Wikipedia's article"
+for _feed in [
+    "japan-news",
+    "korea-news",
+    "india-news",
+    "china-news",
+    "taiwan-news",
+    "russia-news",
+    "thailand-news",
+    "singapore-news",
+    "southeast-asia-news",
+    "australia-news",
+    "us-news",
+    "europe-news",
+    "middle-east-news",
+    "africa-news",
+    "latin-america-news",
+]:
+    FEEDS[_feed] = ('Wikipedia, "<year> in <country>" articles', "CC BY-SA 4.0")
 # Feeds whose other items come from sources that are not public: only these titles are kept.
 ONLY = {"volcanoes": "Historical eruption:"}
 LEFT_OUT = ("US 30-year mortgage rate",)  # Freddie Mac's survey, not a government series
@@ -110,6 +156,9 @@ def rows_of(site: Path, insider: Path | None) -> dict[str, list[dict]]:
         if feed not in FEEDS or title.startswith(LEFT_OUT):
             continue
         if feed in ONLY and not title.startswith(ONLY[feed]):
+            continue
+        wikipedia_only = FEEDS[feed][1] == "CC BY-SA 4.0" and feed != "world-events"
+        if wikipedia_only and FROM_WIKIPEDIA not in str(item.get("summary") or ""):
             continue
         row = {k: item.get(k) for k in ("feed", "title", "summary", "link", "date")}
         found[feed].setdefault(f"{row['link']}\n{str(row['title']).casefold()}", row)
