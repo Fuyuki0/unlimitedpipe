@@ -1,0 +1,74 @@
+name: Kaggle mirror
+
+# Copies a Hugging Face dataset of unlimitedpipe to Kaggle as a public dataset, on a GitHub
+# machine (public-records is 3.8 GB, too big for the small server). Kaggle wants one folder:
+# files in subfolders get the folder's name as a prefix (federal_register/2001.parquet ->
+# federal_register-2001.parquet). A first run creates the dataset; later runs add a version.
+on:
+  workflow_dispatch:
+    inputs:
+      dataset:
+        description: "Hugging Face dataset under unlimitedpipe/"
+        default: public-records
+      title:
+        description: "Kaggle title (6 to 50 characters)"
+        default: "US government records, full text (public-records)"
+      subtitle:
+        description: "Kaggle subtitle (20 to 80 characters)"
+        default: "Every Federal Register document 2000-2026 and all 2025 SEC 10-Ks, 2.85B tokens"
+
+permissions:
+  contents: read
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    env:
+      KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+      DATASET: ${{ inputs.dataset }}
+      TITLE: ${{ inputs.title }}
+      SUBTITLE: ${{ inputs.subtitle }}
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install kaggle huggingface_hub
+      - name: Download from Hugging Face
+        run: |
+          python - <<'PY'
+          import os
+          from huggingface_hub import snapshot_download
+          snapshot_download(f"unlimitedpipe/{os.environ['DATASET']}", repo_type="dataset",
+                            local_dir="hf")
+          PY
+      - name: Lay it out for Kaggle
+        run: |
+          python - <<'PY'
+          import json, os, shutil
+          from pathlib import Path
+          name = os.environ["DATASET"]
+          out = Path("kaggle"); out.mkdir()
+          for path in Path("hf").rglob("*"):
+              if path.is_file() and path.suffix in (".parquet", ".jsonl", ".csv", ".ipynb"):
+                  flat = "-".join(path.relative_to("hf").parts)
+                  shutil.move(path, out / flat)
+          card = (Path("hf") / "README.md").read_text(encoding="utf-8")
+          body = card.split("---", 2)[2].strip() if card.startswith("---") else card
+          note = (f"Mirror of https://huggingface.co/datasets/unlimitedpipe/{name} . Files in "
+                  "folders there are named folder-file here (federal_register/2001.parquet is "
+                  "federal_register-2001.parquet).\n\n")
+          meta = {"title": os.environ["TITLE"], "subtitle": os.environ["SUBTITLE"],
+                  "id": f"fuyuki0/unlimitedpipe-{name}", "licenses": [{"name": "other"}],
+                  "keywords": ["government", "finance", "law", "text"], "description": note + body}
+          (out / "dataset-metadata.json").write_text(json.dumps(meta, ensure_ascii=False))
+          print(sorted(p.name for p in out.iterdir())[:10], len(list(out.iterdir())))
+          PY
+          du -sh kaggle
+      - name: Publish on Kaggle
+        run: |
+          if kaggle datasets files "fuyuki0/unlimitedpipe-$DATASET" >/dev/null 2>&1; then
+            kaggle datasets version -p kaggle -m "Synced from Hugging Face" -q
+          else
+            kaggle datasets create -p kaggle --public -q
+          fi
