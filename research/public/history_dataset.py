@@ -224,6 +224,9 @@ world = load_dataset("unlimitedpipe/feed-history", "wikipedia", split="train")  
 
 Each feed is one Parquet file, so a single feed can be read on its own (`pandas.read_parquet`).
 
+An example notebook, [examples/explore.ipynb](examples/explore.ipynb), charts great earthquakes
+by decade, money lost to crypto hacks, insider buying and selling, and strong hurricanes.
+
 ## Columns
 
 | Column | Type | Meaning |
