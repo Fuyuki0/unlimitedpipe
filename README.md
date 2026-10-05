@@ -10,7 +10,7 @@
 
 **Public records as they happen, and back to 1851.**
 
-Search and ask a free archive of 1.66 million public records (SEC filings, sanctions, laws,
+Search and ask a free archive of 1.67 million public records (SEC filings, sanctions, laws,
 rate decisions, earthquakes and storms, crypto, government announcements, news), each linked
 to its official source, and get an alert within a minute when something new matches. Built
 from open YAML pipelines you can fork, with no server, no account and no API key. One free
@@ -65,7 +65,7 @@ shown. For answers that explain, use Claude.
   feed is a YAML file of about 15 lines;
   [fork them](https://github.com/Fuyuki0/unlimitedpipe-feeds).
 - **History, not only the latest.** Every item the feeds ever listed stays in a monthly
-  archive, 1.66 million records back to 1851: the world's events day by day since 2002 and
+  archive, 1.67 million records back to 1851: the world's events day by day since 2002 and
   each country's year by year (from Wikipedia), earthquakes since 1900, Atlantic hurricanes
   since 1851 and typhoons since 1951, every orbital launch since 1957, every US law since 1973,
   rate decisions of the Fed, ECB, Bank of England, Bank of Canada and RBA, SEC filings, insider
@@ -93,7 +93,7 @@ shown. For answers that explain, use Claude.
 | Watching for disasters | Phone alerts with nothing to run: subscribe to `earthquakes`, `tsunami-alerts` or `typhoons` on [ntfy.daemonfill.dev](https://ntfy.daemonfill.dev/) in the ntfy app; or `unlimited follow tsunami --to ntfy:TOPIC --every 5m` for your own words |
 | A developer or on call | `unlimited follow outage --feed cloud-status --to "$SLACK_WEBHOOK"`, `unlimited ask "fortinet vulnerability"` |
 | Building AI agents | `claude mcp add unlimitedpipe -- unlimited mcp`: fresh public records with sources, as tools |
-| Training or studying models | 1.25M public-record events and 2.85B tokens of government records on Hugging Face |
+| Training or studying models | 2.1M dated public-record events (also on Kaggle) and 2.85B tokens of government records on Hugging Face |
 
 Phone alerts: [ntfy.daemonfill.dev](https://ntfy.daemonfill.dev/) sends each new item of these feeds
 within about 30 seconds of the live copy seeing it (`earthquakes` takes the first report from EMSC, GFZ,
