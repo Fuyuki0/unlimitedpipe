@@ -70,8 +70,10 @@ CELLS = [
         'counts.plot(title="Insider trades of $100K+ a year", xlabel="year")'
     ),
     new_markdown_cell(
-        "## Strong Atlantic hurricanes by decade\n\n"
-        "One item per storm since 1851 (\"Hurricane Katrina (2005) peaked at Category 5, ...\")."
+        "## Strong hurricanes by decade\n\n"
+        "One item per storm, Atlantic since 1851 and eastern Pacific since 1949 (\"Hurricane "
+        "Katrina (2005) peaked at Category 5, ...\"). Early decades are undercounted: before "
+        "aircraft and satellites, many storms at sea were never measured."
     ),
     new_code_cell(
         'storms = feed("hurricanes")\n'
