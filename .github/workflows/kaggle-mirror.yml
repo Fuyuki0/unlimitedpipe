@@ -3,7 +3,8 @@ name: Kaggle mirror
 # Copies a Hugging Face dataset of unlimitedpipe to Kaggle as a public dataset, on a GitHub
 # machine (public-records is 3.8 GB, too big for the small server). Kaggle wants one folder:
 # files in subfolders get the folder's name as a prefix (federal_register/2001.parquet ->
-# federal_register-2001.parquet). A first run creates the dataset; later runs add a version.
+# federal_register-2001.parquet), except data/. A first run creates the dataset; later runs add
+# a version.
 on:
   workflow_dispatch:
     inputs:
@@ -51,7 +52,9 @@ jobs:
           out = Path("kaggle"); out.mkdir()
           for path in Path("hf").rglob("*"):
               if path.is_file() and path.suffix in (".parquet", ".jsonl", ".csv", ".ipynb"):
-                  flat = "-".join(path.relative_to("hf").parts)
+                  parts = path.relative_to("hf").parts
+                  # feed-history's open-licence files sit in data/: they keep their own name
+                  flat = "-".join(parts[1:] if parts[0] == "data" else parts)
                   shutil.move(path, out / flat)
           card = (Path("hf") / "README.md").read_text(encoding="utf-8")
           body = card.split("---", 2)[2].strip() if card.startswith("---") else card

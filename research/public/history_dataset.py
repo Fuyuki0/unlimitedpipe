@@ -272,6 +272,8 @@ more), all through official APIs, bulk files and robots.txt-allowed pages.
 
 ## Updates
 
+Also on Kaggle: https://www.kaggle.com/datasets/fuyuki0/unlimitedpipe-feed-history
+
 Rebuilt from the live catalog's archive about once a month; the catalog itself adds new
 items every minute to every hour at https://feeds.daemonfill.dev.
 
@@ -282,6 +284,7 @@ items every minute to every hour at https://feeds.daemonfill.dev.
   title  = {{feed-history: dated public-record events with their sources}},
   author = {{UnlimitedPipe}},
   year   = {{2026}},
+  doi    = {{10.57967/hf/10763}},
   url    = {{https://huggingface.co/datasets/unlimitedpipe/feed-history}}
 }}
 ```

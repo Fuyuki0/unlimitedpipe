@@ -623,10 +623,13 @@ news](docs/posts/fruit-fly-on-the-news.md).
 - [A fruit-fly brain circuit on news](research/fly): the fly's mushroom body did no better
   than plain compression; a main network with separate modules kept old knowledge when
   learning new feeds, where one model forgot it.
-- [Public records](research/public): collectors for the dataset
-  [unlimitedpipe/public-records](https://huggingface.co/datasets/unlimitedpipe/public-records),
-  public-domain US government text (the Federal Register, SEC annual reports) with provenance
-  for every document.
+- [Public records](research/public): collectors for two datasets, on Hugging Face and Kaggle.
+  [unlimitedpipe/public-records](https://huggingface.co/datasets/unlimitedpipe/public-records)
+  (doi:10.57967/hf/10764): public-domain US government text (the Federal Register, SEC annual
+  reports) with provenance for every document.
+  [unlimitedpipe/feed-history](https://huggingface.co/datasets/unlimitedpipe/feed-history)
+  (doi:10.57967/hf/10763): 2.1 million dated public-record events back to 1851, each with its
+  source.
 
 ## Roadmap
 
