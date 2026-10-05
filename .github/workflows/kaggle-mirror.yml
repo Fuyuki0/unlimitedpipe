@@ -70,8 +70,13 @@ jobs:
           du -sh kaggle
       - name: Publish on Kaggle
         run: |
+          # The Kaggle CLI exits 0 on some errors: its output is checked too.
           if kaggle datasets files "fuyuki0/unlimitedpipe-$DATASET" >/dev/null 2>&1; then
-            kaggle datasets version -p kaggle -m "Synced from Hugging Face" -q
+            # a new version keeps the tags it was created with (sending them again can exceed
+            # Kaggle's limit)
+            python -c "import json; p='kaggle/dataset-metadata.json'; m=json.load(open(p)); m.pop('keywords', None); json.dump(m, open(p, 'w'))"
+            kaggle datasets version -p kaggle -m "Synced from Hugging Face" -q 2>&1 | tee kaggle.log
           else
-            kaggle datasets create -p kaggle --public -q
+            kaggle datasets create -p kaggle --public -q 2>&1 | tee kaggle.log
           fi
+          if grep -qi "error" kaggle.log; then exit 1; fi
