@@ -150,6 +150,8 @@ def rows_of(site: Path, insider: Path | None) -> dict[str, list[dict]]:
     if insider:
         lines = (*lines, *insider.open(encoding="utf-8"))
     for line in lines:
+        if not line.strip():
+            continue
         item = json.loads(line)
         feed = item.get("feed")
         title = str(item.get("title") or "")
